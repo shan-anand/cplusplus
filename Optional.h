@@ -63,6 +63,7 @@ public:
   //! Value getter
   const T& operator()() const { return m_value; }
   T& operator()() { return m_value; }
+  const T& operator()(const T& defaultIfNotExists) const { return m_exists? m_value : defaultIfNotExists; }
   //! Check for existence
   bool exists(T* p = nullptr) const { if ( m_exists && p ) { *p = m_value;} return m_exists; }
 };
