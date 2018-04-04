@@ -3,7 +3,7 @@ LICENSE: BEGIN
 ===============================================================================
 @author Shanmuga (Anand) Gunasekaran
 @email anand.gs@gmail.com
-@source https://github.com/anand-gs
+@source https://github.com/shan-anand
 @file IOBuffer.h
 @brief Implementation of SCSI datatypes and serializing/deserializing them.
 ===============================================================================
