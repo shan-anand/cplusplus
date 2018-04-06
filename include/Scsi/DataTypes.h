@@ -276,7 +276,7 @@ struct Standard_t : public Basic_t
   uint8_t  response_data_format;         //! [Byte 3:(0-3)]
 
   // == Byte 4 == ////////////////////////////////////////////////////////////////////////////
-  uint8_t  additional_length;            //! Additional data length (N-4) [Byte 4:(0-7)] 
+  uint8_t  additional_length;            //! Additional data length (N-4) [Byte 4:(0-7)]
 
   // == Byte 5 == ////////////////////////////////////////////////////////////////////////////
   bool     sccs;                         //! SSC suppored bit [Byte 5:(7)]

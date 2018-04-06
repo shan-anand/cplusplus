@@ -103,7 +103,7 @@ enum class Peripheral_Qualifier : int8_t
 };
 std::string toString(const Peripheral_Qualifier& e);
 
-//! Peripheral device is a 4-bit field 
+//! Peripheral device is a 4-bit field
 enum class Peripheral_Device_Type : int8_t
 {
   Direct_Access            = 0x00,

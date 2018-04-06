@@ -106,7 +106,7 @@ struct IOBuffer_t : public std::basic_string<uchar8_t>
   uint64_t get_64(const size_t byte) const;
   //! Get n-byte string starting from the given byte position
   std::string get_string(const size_t byte, const size_t n) const;
-  //! Get 1-bit value as boolen value at the given byte and bit position 
+  //! Get 1-bit value as boolen value at the given byte and bit position
   bool get_bool(const size_t byte, const uint8_t bitPos) const;
   //! Get n-bits (1-8 bits) data as uint8_t at the given byte position, with starting bit position and number of bits (n)
   uint8_t get_8(const size_t byte, const uint8_t bitStart, const uint8_t nBits) const;
@@ -127,7 +127,7 @@ struct IOBuffer_t : public std::basic_string<uchar8_t>
   bool set_string(const size_t byte, const std::string& v);
   //! Set n-byte string starting at the given byte position
   bool set_string(const size_t byte, const char* v, size_t nBytes);
-  //! Set boolean as a 1-bit value at the given byte and bit position 
+  //! Set boolean as a 1-bit value at the given byte and bit position
   bool set_bool(const size_t byte, const uint8_t bitPos, bool v);
   //! Set n-bits (1-8 bits) data in uint8_t at the given byte position, with starting bit position and number of bits (n)
   bool set_8(const size_t byte, const uint8_t bitStart, const uint8_t nBits, uint8_t v);

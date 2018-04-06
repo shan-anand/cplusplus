@@ -95,7 +95,7 @@ public:
 protected:
   //! Default constructor
   Device_t();
-  //! Disable copy constructor 
+  //! Disable copy constructor
   Device_t(const Device_t&) = delete;
   //! Disable copy operator
   Device_t& operator=(const Device_t&) = delete;
