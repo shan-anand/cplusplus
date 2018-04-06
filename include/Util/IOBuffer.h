@@ -34,7 +34,7 @@ LICENSE: END
 
 /**
  * @file  IOBuffer.h
- * @brief IOBuffer definition. Used for all IO operations over the network.
+ * @brief IOBuffer_t definition. Used for all IO operations over the network.
  */
 #ifndef _UTIL_IO_BUFFER_H_
 #define _UTIL_IO_BUFFER_H_
@@ -49,18 +49,18 @@ namespace Util
 {
 
 /**
- * @struct IOBuffer
+ * @struct IOBuffer_t
  * @brief Buffer used for input/output operation
  */
-struct IOBuffer : public std::basic_string<uchar8_t>
+struct IOBuffer_t : public std::basic_string<uchar8_t>
 {
   //! Default constructor
-  IOBuffer() : m_zero_pos(0) {}
+  IOBuffer_t() : m_zero_pos(0) {}
   //! Constructor to create a buffer with a pre-allocated size, filled with zeros
-  IOBuffer(size_t n) : std::basic_string<uchar8_t>(n, 0), m_zero_pos(0) {}
+  IOBuffer_t(size_t n) : std::basic_string<uchar8_t>(n, 0), m_zero_pos(0) {}
 
   //! Make a clone of the object (Deep copy)
-  IOBuffer clone() const;
+  IOBuffer_t clone() const;
 
   void clear() { std::basic_string<uchar8_t>::clear(); m_zero_pos = 0; }
 

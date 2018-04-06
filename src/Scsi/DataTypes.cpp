@@ -4,7 +4,7 @@ LICENSE: BEGIN
 @author Shanmuga (Anand) Gunasekaran
 @email anand.gs@gmail.com
 @source https://github.com/shan-anand
-@file IOBuffer.h
+@file DataTypes.cpp
 @brief Implementation of SCSI datatypes and serializing/deserializing them.
 ===============================================================================
 MIT License
@@ -33,7 +33,7 @@ LICENSE: END
 */
 
 /**
- * @file  Scsi_DataTypes.cpp
+ * @file  DataTypes.cpp
  * @brief Implementation of scsi datatypes
  */
 
@@ -46,19 +46,19 @@ using namespace Gratis::Scsi;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Capacity10
+// Capacity10_t
 //
-Capacity10::Capacity10()
+Capacity10_t::Capacity10_t()
 {
   clear();
 }
 
-void Capacity10::clear()
+void Capacity10_t::clear()
 {
-  memset(this, 0, sizeof(Capacity10));
+  memset(this, 0, sizeof(Capacity10_t));
 }
 
-bool Capacity10::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Capacity10_t::set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < READ_CAP10_REPLY_LEN )
@@ -70,7 +70,7 @@ bool Capacity10::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr
   // Set member variables
   uint32_t last_lba = ioBuffer.get_32(0);
   if ( 0xffffffff == last_lba )
-    throw std::string("Device capacity is too large. Use Capacity16 instead of Capacity10");
+    throw std::string("Device capacity is too large. Use Capacity16_t instead of Capacity10_t");
 
   this->num_blocks = last_lba + 1;
   this->block_size = ioBuffer.get_32(4);
@@ -80,19 +80,19 @@ bool Capacity10::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Capacity16
+// Capacity16_t
 //
-Capacity16::Capacity16()
+Capacity16_t::Capacity16_t()
 {
   clear();
 }
 
-void Capacity16::clear()
+void Capacity16_t::clear()
 {
-  memset(this, 0, sizeof(Capacity16));
+  memset(this, 0, sizeof(Capacity16_t));
 }
 
-bool Capacity16::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Capacity16_t::set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < READ_CAP16_REPLY_LEN )
@@ -118,14 +118,14 @@ bool Capacity16::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Sense
+// Sense_t
 //
-Sense::Sense()
+Sense_t::Sense_t()
 {
   clear();
 }
 
-void Sense::clear()
+void Sense_t::clear()
 {
   this->response_code = 0;
   this->key = SenseKey::NO_SENSE;
@@ -133,9 +133,9 @@ void Sense::clear()
   this->length = 0;
 }
 
-bool Sense::empty() const { return this->response_code == 0; }
+bool Sense_t::empty() const { return this->response_code == 0; }
 
-bool Sense::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Sense_t::set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < SENSE_BUFFER_REPLY_LEN )
@@ -160,7 +160,7 @@ bool Sense::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
   return true;
 }
 
-std::string Sense::toString() const
+std::string Sense_t::toString() const
 {
   std::ostringstream out;
 
@@ -184,18 +184,18 @@ std::string Sense::toString() const
 //
 // Inquiry::Basic
 //
-Inquiry::Basic::Basic()
+Inquiry::Basic_t::Basic_t()
 {
   clear();
 }
 
-void Inquiry::Basic::clear()
+void Inquiry::Basic_t::clear()
 {
   qualifier = Peripheral_Qualifier::Not_Supported;
   device_type = Peripheral_Device_Type::Unknown;
 }
 
-bool Inquiry::Basic::p_set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Inquiry::Basic_t::p_set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < 1 )
@@ -211,17 +211,17 @@ bool Inquiry::Basic::p_set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = n
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Inquiry::Standard
+// Inquiry::Standard_t
 //
-Inquiry::Standard::Standard() : Basic()
+Inquiry::Standard_t::Standard_t() : Basic_t()
 {
   clear();
 }
 
-void Inquiry::Standard::clear()
+void Inquiry::Standard_t::clear()
 {
-  Basic::clear();
-  //memset((this, 0, sizeof(Standard));
+  Basic_t::clear();
+  //memset((this, 0, sizeof(Standard_t));
   memset(vendor_identification, 0, sizeof(vendor_identification));
   memset(product_identification, 0, sizeof(product_identification));
   memset(product_revision_level, 0, sizeof(product_revision_level));
@@ -229,7 +229,7 @@ void Inquiry::Standard::clear()
   memset(version_descriptor, 0, sizeof(version_descriptor));
 }
 
-bool Inquiry::Standard::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Inquiry::Standard_t::set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < INQUIRY_STANDARD_REPLY_LEN )
@@ -238,8 +238,8 @@ bool Inquiry::Standard::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = 
     return false;
   }
 
-  // Make sure to call the Inquiry::Basic::p_set() first before setting the member variables
-  if ( !Basic::p_set(ioBuffer, reqSize) )
+  // Make sure to call the Inquiry::Basic_t::p_set() first before setting the member variables
+  if ( !Basic_t::p_set(ioBuffer, reqSize) )
     return false;
 
   // Set member variables
@@ -261,21 +261,21 @@ bool Inquiry::Standard::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Inquiry::BasicVPD
+// Inquiry::BasicVPD_t
 //
-Inquiry::BasicVPD::BasicVPD(const uint8_t code_page) : Basic()
+Inquiry::BasicVPD_t::BasicVPD_t(const uint8_t code_page) : Basic_t()
 {
   clear();
   page_code = code_page;
 }
 
-void Inquiry::BasicVPD::clear()
+void Inquiry::BasicVPD_t::clear()
 {
-  Basic::clear();
+  Basic_t::clear();
   // page_code = 0; This should not be cleared
 }
 
-bool Inquiry::BasicVPD::p_set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Inquiry::BasicVPD_t::p_set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < 2 )
@@ -284,8 +284,8 @@ bool Inquiry::BasicVPD::p_set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* 
     return false;
   }
 
-  // Make sure to call the Inquiry::Basic::p_set() first before setting the member variables
-  if ( !Basic::p_set(ioBuffer, reqSize) )
+  // Make sure to call the Inquiry::Basic_t::p_set() first before setting the member variables
+  if ( !Basic_t::p_set(ioBuffer, reqSize) )
     return false;
 
   // Set member variables
@@ -296,21 +296,21 @@ bool Inquiry::BasicVPD::p_set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Inquiry::UnitSerialNumber
+// Inquiry::UnitSerialNumber_t
 //
-Inquiry::UnitSerialNumber::UnitSerialNumber() : BasicVPD(codePage())
+Inquiry::UnitSerialNumber_t::UnitSerialNumber_t() : BasicVPD_t(codePage())
 {
   clear();
 }
 
-void Inquiry::UnitSerialNumber::clear()
+void Inquiry::UnitSerialNumber_t::clear()
 {
-  BasicVPD::clear();
+  BasicVPD_t::clear();
   page_length = 0;
   serial_number.clear();
 }
 
-bool Inquiry::UnitSerialNumber::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Inquiry::UnitSerialNumber_t::set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < 4 )
@@ -319,8 +319,8 @@ bool Inquiry::UnitSerialNumber::set(const Util::IOBuffer& ioBuffer, size_t* reqS
     return false;
   }
 
-  // Make sure to call the Inquiry::BasicVPD::p_set() first before setting the member variables
-  if ( !BasicVPD::p_set(ioBuffer, reqSize) )
+  // Make sure to call the Inquiry::BasicVPD_t::p_set() first before setting the member variables
+  if ( !BasicVPD_t::p_set(ioBuffer, reqSize) )
     return false;
 
   // Set member variables
@@ -341,21 +341,21 @@ bool Inquiry::UnitSerialNumber::set(const Util::IOBuffer& ioBuffer, size_t* reqS
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Inquiry::SupportedVPDPages
+// Inquiry::SupportedVPDPages_t
 //
-Inquiry::SupportedVPDPages::SupportedVPDPages() : BasicVPD(codePage())
+Inquiry::SupportedVPDPages_t::SupportedVPDPages_t() : BasicVPD_t(codePage())
 {
   clear();
 }
 
-void Inquiry::SupportedVPDPages::clear()
+void Inquiry::SupportedVPDPages_t::clear()
 {
-  BasicVPD::clear();
+  BasicVPD_t::clear();
   page_length = 0;
   pages.clear();
 }
 
-bool Inquiry::SupportedVPDPages::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Inquiry::SupportedVPDPages_t::set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < 3 )
@@ -364,8 +364,8 @@ bool Inquiry::SupportedVPDPages::set(const Util::IOBuffer& ioBuffer, size_t* req
     return false;
   }
 
-  // Make sure to call the Inquiry::BasicVPD::p_set() first before setting the member variables
-  if ( !BasicVPD::p_set(ioBuffer, reqSize) )
+  // Make sure to call the Inquiry::BasicVPD_t::p_set() first before setting the member variables
+  if ( !BasicVPD_t::p_set(ioBuffer, reqSize) )
     return false;
 
   // Set member variables
@@ -385,20 +385,20 @@ bool Inquiry::SupportedVPDPages::set(const Util::IOBuffer& ioBuffer, size_t* req
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Inquiry::DeviceIdentification
+// Inquiry::DeviceIdentification_t
 //
-Inquiry::DeviceIdentification::DeviceIdentification() : BasicVPD(codePage())
+Inquiry::DeviceIdentification_t::DeviceIdentification_t() : BasicVPD_t(codePage())
 {
   clear();
 }
 
-void Inquiry::DeviceIdentification::clear()
+void Inquiry::DeviceIdentification_t::clear()
 {
-  BasicVPD::clear();
+  BasicVPD_t::clear();
   designators.clear();
 }
 
-bool Inquiry::DeviceIdentification::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Inquiry::DeviceIdentification_t::set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < 2 )
@@ -407,8 +407,8 @@ bool Inquiry::DeviceIdentification::set(const Util::IOBuffer& ioBuffer, size_t* 
     return false;
   }
 
-  // Make sure to call the Inquiry::BasicVPD::p_set() first before setting the member variables
-  if ( !BasicVPD::p_set(ioBuffer, reqSize) )
+  // Make sure to call the Inquiry::BasicVPD_t::p_set() first before setting the member variables
+  if ( !BasicVPD_t::p_set(ioBuffer, reqSize) )
     return false;
 
   // Set member variables
@@ -417,19 +417,19 @@ bool Inquiry::DeviceIdentification::set(const Util::IOBuffer& ioBuffer, size_t* 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Inquiry::BlockLimits
+// Inquiry::BlockLimits_t
 //
-Inquiry::BlockLimits::BlockLimits() : BasicVPD(codePage())
+Inquiry::BlockLimits_t::BlockLimits_t() : BasicVPD_t(codePage())
 {
   clear();
 }
 
-void Inquiry::BlockLimits::clear()
+void Inquiry::BlockLimits_t::clear()
 {
-  BasicVPD::clear();
+  BasicVPD_t::clear();
 }
 
-bool Inquiry::BlockLimits::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Inquiry::BlockLimits_t::set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < 2 )
@@ -438,8 +438,8 @@ bool Inquiry::BlockLimits::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/*
     return false;
   }
 
-  // Make sure to call the Inquiry::BasicVPD::p_set() first before setting the member variables
-  if ( !BasicVPD::p_set(ioBuffer, reqSize) )
+  // Make sure to call the Inquiry::BasicVPD_t::p_set() first before setting the member variables
+  if ( !BasicVPD_t::p_set(ioBuffer, reqSize) )
     return false;
 
   // Set member variables
@@ -448,19 +448,19 @@ bool Inquiry::BlockLimits::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/*
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Inquiry::BlockDeviceCharacteristics
+// Inquiry::BlockDeviceCharacteristics_t
 //
-Inquiry::BlockDeviceCharacteristics::BlockDeviceCharacteristics() : BasicVPD(codePage())
+Inquiry::BlockDeviceCharacteristics_t::BlockDeviceCharacteristics_t() : BasicVPD_t(codePage())
 {
   clear();
 }
 
-void Inquiry::BlockDeviceCharacteristics::clear()
+void Inquiry::BlockDeviceCharacteristics_t::clear()
 {
-  BasicVPD::clear();
+  BasicVPD_t::clear();
 }
 
-bool Inquiry::BlockDeviceCharacteristics::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Inquiry::BlockDeviceCharacteristics_t::set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < 2 )
@@ -469,8 +469,8 @@ bool Inquiry::BlockDeviceCharacteristics::set(const Util::IOBuffer& ioBuffer, si
     return false;
   }
 
-  // Make sure to call the Inquiry::BasicVPD::p_set() first before setting the member variables
-  if ( !BasicVPD::p_set(ioBuffer, reqSize) )
+  // Make sure to call the Inquiry::BasicVPD_t::p_set() first before setting the member variables
+  if ( !BasicVPD_t::p_set(ioBuffer, reqSize) )
     return false;
 
   // Set member variables
@@ -479,19 +479,19 @@ bool Inquiry::BlockDeviceCharacteristics::set(const Util::IOBuffer& ioBuffer, si
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Inquiry::LogicalBlockProvisioning
+// Inquiry::LogicalBlockProvisioning_t
 //
-Inquiry::LogicalBlockProvisioning::LogicalBlockProvisioning() : BasicVPD(codePage())
+Inquiry::LogicalBlockProvisioning_t::LogicalBlockProvisioning_t() : BasicVPD_t(codePage())
 {
   clear();
 }
 
-void Inquiry::LogicalBlockProvisioning::clear()
+void Inquiry::LogicalBlockProvisioning_t::clear()
 {
-  BasicVPD::clear();
+  BasicVPD_t::clear();
 }
 
-bool Inquiry::LogicalBlockProvisioning::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Inquiry::LogicalBlockProvisioning_t::set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( ioBuffer.rd_length() < 2 )
@@ -500,8 +500,8 @@ bool Inquiry::LogicalBlockProvisioning::set(const Util::IOBuffer& ioBuffer, size
     return false;
   }
 
-  // Make sure to call the Inquiry::BasicVPD::p_set() first before setting the member variables
-  if ( !BasicVPD::p_set(ioBuffer, reqSize) )
+  // Make sure to call the Inquiry::BasicVPD_t::p_set() first before setting the member variables
+  if ( !BasicVPD_t::p_set(ioBuffer, reqSize) )
     return false;
 
   // Set member variables
@@ -510,23 +510,23 @@ bool Inquiry::LogicalBlockProvisioning::set(const Util::IOBuffer& ioBuffer, size
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Inquiry::CustomVPD
+// Inquiry::CustomVPD_t
 //
-Inquiry::CustomVPD::CustomVPD(const uint8_t code_page) : BasicVPD(code_page)
+Inquiry::CustomVPD_t::CustomVPD_t(const uint8_t code_page) : BasicVPD_t(code_page)
 {
   clear();
 }
 
-void Inquiry::CustomVPD::clear()
+void Inquiry::CustomVPD_t::clear()
 {
-  BasicVPD::clear();
+  BasicVPD_t::clear();
   data.clear();
 }
 
-bool Inquiry::CustomVPD::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* = nullptr*/)
+bool Inquiry::CustomVPD_t::set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize/* = nullptr*/)
 {
-  // Make sure to call the Inquiry::BasicVPD::p_set() first before setting the member variables
-  if ( !BasicVPD::p_set(ioBuffer, reqSize) )
+  // Make sure to call the Inquiry::BasicVPD_t::p_set() first before setting the member variables
+  if ( !BasicVPD_t::p_set(ioBuffer, reqSize) )
     return false;
 
   // Set member variables
@@ -536,11 +536,11 @@ bool Inquiry::CustomVPD::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* =
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// ByteRange
+// ByteRange_t
 //
-BlockRange ByteRange::block_range(const uint32_t block_size) const
+BlockRange_t ByteRange_t::block_range(const uint32_t block_size) const
 {
-  BlockRange r_block;
+  BlockRange_t r_block;
   r_block.lba      = this->offset / block_size;
   r_block.n_blocks = this->n_bytes / block_size;
   return r_block;
@@ -548,11 +548,11 @@ BlockRange ByteRange::block_range(const uint32_t block_size) const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// BlockRange
+// BlockRange_t
 //
-ByteRange BlockRange::byte_range(const uint32_t block_size) const
+ByteRange_t BlockRange_t::byte_range(const uint32_t block_size) const
 {
-  ByteRange r_byte;
+  ByteRange_t r_byte;
   r_byte.offset  = this->lba * block_size;
   r_byte.n_bytes = this->n_blocks * block_size;
   return r_byte;
@@ -560,28 +560,28 @@ ByteRange BlockRange::byte_range(const uint32_t block_size) const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// IOFlags (For Read and Write)
+// IOFlags_t (For Read and Write)
 //
-IOFlags::IOFlags()
+IOFlags_t::IOFlags_t()
 {
   clear();
 }
 
-void IOFlags::clear()
+void IOFlags_t::clear()
 {
-  memset(this, 0, sizeof(IOFlags));
+  memset(this, 0, sizeof(IOFlags_t));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Read16
+// Read16_t
 //
-Read16::Read16() : flags(), range(), data(nullptr), bytes_read(0)
+Read16_t::Read16_t() : flags(), range(), data(nullptr), bytes_read(0)
 {
   clear();
 }
 
-void Read16::clear()
+void Read16_t::clear()
 {
   // Clear everything except the data pointer
   flags.clear();
@@ -590,12 +590,12 @@ void Read16::clear()
   // data; DO NOT CLEAR
 }
 
-Util::IOBuffer Read16::get() const
+Util::IOBuffer_t Read16_t::get() const
 {
   if ( (this->range.n_blocks & 0xFFFFFFFF) != this->range.n_blocks )
-    throw std::string("Read16 cannot address blocks over 32-bits: ") + local::toString(this->range.n_blocks);
+    throw std::string("Read16_t cannot address blocks over 32-bits: ") + local::toString(this->range.n_blocks);
 
-  Util::IOBuffer ioBuffer(16);
+  Util::IOBuffer_t ioBuffer(16);
 
   // Fill the buffer with CDB data
   ioBuffer.set_8(0, this->opcode());
@@ -620,13 +620,13 @@ Util::IOBuffer Read16::get() const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Write16
+// Write16_t
 //
-Write16::Write16() : flags(), range(), data(nullptr), bytes_written(0)
+Write16_t::Write16_t() : flags(), range(), data(nullptr), bytes_written(0)
 {
 }
 
-void Write16::clear()
+void Write16_t::clear()
 {
   // Clear everything except the data pointer
   flags.clear();
@@ -635,12 +635,12 @@ void Write16::clear()
   // data; DO NOT CLEAR
 }
 
-Util::IOBuffer Write16::get() const
+Util::IOBuffer_t Write16_t::get() const
 {
   if ( (this->range.n_blocks & 0xFFFFFFFF) != this->range.n_blocks )
-    throw std::string("Write16 cannot address blocks over 32-bits: ") + local::toString(this->range.n_blocks);
+    throw std::string("Write16_t cannot address blocks over 32-bits: ") + local::toString(this->range.n_blocks);
 
-  Util::IOBuffer ioBuffer(16);
+  Util::IOBuffer_t ioBuffer(16);
 
   // Fill the buffer with CDB data
   ioBuffer.set_8(0, this->opcode());
