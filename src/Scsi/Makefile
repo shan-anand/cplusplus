@@ -5,8 +5,9 @@ INCL = -I../../include
 CFLAGS = -g -c -MD -Wall $(INCL)
 CPPFLAGS = -std=gnu++11
 
-SRC =	DataTypes.cpp \
-	Constants.cpp
+SRC =	Constants.cpp \
+	DataTypes.cpp \
+	Device.cpp
 
 ODIR = obj
 DEST=$(ODIR)/lib$(PROJ).a

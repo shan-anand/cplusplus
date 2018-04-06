@@ -34,7 +34,7 @@ LICENSE: END
 
 /**
  * @file  DataTypes.h
- * @brief Definition of scsi datatypes
+ * @brief Definition of SCSI datatypes
  */
 
 #ifndef _SCSI_DATATYPES_H_
