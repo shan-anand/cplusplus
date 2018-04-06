@@ -17,4 +17,4 @@ unmake: clean
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir unmake; \
 	done
-	rm -f $(ls lib/* | egrep -v README)
+	rm -f $$(ls lib/* | egrep -v README)
