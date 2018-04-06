@@ -33,7 +33,7 @@ LICENSE: END
 */
 
 /**
- * @file  Scsi_DataTypes.h
+ * @file  DataTypes.h
  * @brief Definition of scsi datatypes
  */
 
@@ -45,7 +45,7 @@ LICENSE: END
 #include <vector>
 #include <set>
 #include "Constants.h"
-#include <Common/IOBuffer.h>
+#include <Util/IOBuffer.h>
 
 #define SCSI_DEFAULT_IO_SIZE        (128*1024)
 
@@ -127,28 +127,89 @@ struct Sense
   std::string toString() const;
 };
 
+struct ByteRange;
+struct BlockRange;
+
 /**
- * @struct Read16
- * @brief Data structure for SCSI READ(16)
+ * @struct ByteRange
+ * @brief Byte range to be read or written at the given offset/bytes
  */
-struct Read16
+struct ByteRange
 {
-  // CDB (Command Descriptor Block) members
-  uint8_t opcode() const { return 0x88; } //! [Byte 0:(0-7)]
-  uint8_t        rdprotect;         //! [Byte 1:(5-7)]
+  uint64_t  offset;  //! Logical Byte Address to start IO operation
+  uint64_t  n_bytes; //! Numbers of bytes from offset
+
+  ByteRange(const uint64_t _offset = 0, const uint64_t _n_bytes = 0) : offset(_offset), n_bytes(_n_bytes) {}
+  void clear() { offset = n_bytes = 0; }
+  bool empty() const { return (offset == 0 && n_bytes == 0); }
+  void set(const uint64_t _offset, const uint64_t _n_bytes) { offset = _offset; n_bytes = _n_bytes; }
+  uint64_t blocks(const uint32_t block_size) const { return (n_bytes / block_size); }
+  BlockRange block_range(const uint32_t block_size) const;
+};
+
+struct ByteRanges : public std::vector<ByteRange>
+{
+  //! Returns the sum of total number of bytes in the vector
+  uint64_t bytes() const;
+  //! Returns the sum of total number of blocks in the vector
+  uint64_t blocks(const uint32_t block_size) const;
+};
+
+/**
+ * @struct BlockRange
+ * @brief Block range to be read or written at the given lba/blocks
+ */
+struct BlockRange
+{
+  uint64_t  lba;      //! Logical Block Address to start IO operation
+  uint64_t  n_blocks; //! Numbers of blocks from lba
+
+  BlockRange(const uint64_t _lba = 0, const uint64_t _n_blocks = 0) : lba(_lba), n_blocks(_n_blocks) {}
+  void clear() { lba = 0; n_blocks = 0; }
+  bool empty() const { return (lba == 0 && n_blocks == 0); }
+  void set(const uint64_t _lba, const uint64_t _n_blocks) { lba = _lba; n_blocks = _n_blocks; }
+  uint64_t bytes(const uint32_t block_size) const { return (this->n_blocks * block_size); }
+  ByteRange byte_range(const uint32_t block_size) const;
+};
+
+struct BlockRanges : public std::vector<BlockRange>
+{
+  //! Returns the sum of total number of blocks in the vector
+  uint64_t blocks() const;
+  //! Returns the sum of total number of bytes in the vector
+  uint64_t bytes(const uint32_t block_size) const;
+};
+
+struct IOFlags
+{
+  uint8_t        protect;           //! [Byte 1:(5-7)]
   bool           dpo;               //! [Byte 1:(4)]
   bool           fua;               //! [Byte 1:(3)]
   bool           rarc;              //! [Byte 1:(2)]
   bool           fua_nv;            //! [Byte 1:(1)]
-  uint64_t       lba;               //! [Bytes 2 - 9]
-  uint32_t       transfer_length;   //! [Bytes 10 -13]
   uint8_t        group;             //! [Byte 14:(0-5)]
   uint8_t        control;           //! [Byte 15:(0-7)]
 
-  // Other members
-  unsigned char* data;              //! Pointer to the data where the data is read
-                                    //! The size of the buffer must be "transfer_length" or more
-  uint32_t       dataSizeRead;      //! Output
+  IOFlags();
+  void clear();
+};
+
+/**
+ * @struct Read16
+ * @brief Data structure for SCSI READ(16)
+ */
+struct Read16 : public IOFlags
+{
+  // CDB (Command Descriptor Block) members
+  uint8_t opcode() const { return 0x88; } //! [Byte 0:(0-7)]
+  IOFlags        flags;             //! IO flags for read (For bytes range see IOFlags)
+  BlockRange     range;             //! Block range to read the data from
+                                    //! .lba [Bytes 2 - 9]
+                                    //! .n_blocks [Bytes 10 -13]. The datatype is a 64-bit value, but the value should only be 32-bit
+  uchar8_p       data;              //! Pointer to the data where the data is read
+                                    //! The size of the buffer must be "range.blocks*block_size" or more
+  // Output members
+  uint32_t       bytes_read;        //! Number of blocks actually read
 
   Read16();
   void clear();
@@ -165,19 +226,14 @@ struct Write16
 {
   // CDB (Command Descriptor Block) members
   uint8_t opcode() const { return 0x8A; } //! [Byte 0:(0-7)]
-  uint8_t        wrprotect;         //! [Byte 1:(5-7)]
-  bool           dpo;               //! [Byte 1:(4)]
-  bool           fua;               //! [Byte 1:(3)]
-  bool           rarc;              //! [Byte 1:(2)]
-  bool           fua_nv;            //! [Byte 1:(1)]
-  uint64_t       lba;               //! [Bytes 2 - 9]
-  uint32_t       transfer_length;   //! [Bytes 10 -13]
-  uint8_t        group;             //! [Byte 14:(0-5)]
-  uint8_t        control;           //! [Byte 15:(0-7)]
-
-  // Other members
-  const unsigned char* data;        //! Pointer to the data from where the data is to be written
-  uint32_t       dataSizeWritten;   //! Output
+  IOFlags        flags;             //! IO flags for write (For bytes range see IOFlags)
+  BlockRange     range;             //! Block range to write the data to
+                                    //! .lba [Bytes 2 - 9]
+                                    //! .n_blocks [Bytes 10 -13]. The datatype is a 64-bit value, but the value should only be 32-bit
+  const uchar8_p data;              //! Pointer to the data used for writing
+                                    //! The size of the buffer must be "range.blocks*block_size" or more
+  // Output members
+  uint32_t       bytes_written;     //! Number of blocks actually written
 
   Write16();
   void clear();
@@ -374,29 +430,6 @@ struct CustomVPD : public BasicVPD
 };
 
 } // namespace Inquiry
-
-/**
- * @struct DataBlock
- * @brief Data to be read or written at the given offset/blocks
- */
-struct DataBlock
-{
-  uint64_t  lba;      //! Logical Block Address to start IO operation
-  uint32_t  blocks;   //! Numbers of blocks to read/write
-
-  DataBlock(const uint64_t& lba_p = 0, const uint32_t& blocks_p = 0) : lba(lba_p), blocks(blocks_p) {}
-  void clear() { lba = blocks = 0; }
-  bool empty() const { return (lba == 0 && blocks == 0); }
-  uint64_t bytes(const uint32_t& block_size) const { return (this->blocks * block_size); }
-};
-
-struct DataBlocks : public std::vector<DataBlock>
-{
-  //! Returns the sum of total number of blocks in the vector
-  uint64_t blocks() const;
-  //! Returns the sum of total number of bytes in the vector
-  uint64_t bytes(const uint32_t& block_size) const;
-};
 
 } // namespace Scsi
 } // namespace Gratis

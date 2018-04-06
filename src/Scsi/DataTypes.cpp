@@ -536,9 +536,47 @@ bool Inquiry::CustomVPD::set(const Util::IOBuffer& ioBuffer, size_t* reqSize/* =
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
+// ByteRange
+//
+BlockRange ByteRange::block_range(const uint32_t block_size) const
+{
+  BlockRange r_block;
+  r_block.lba      = this->offset / block_size;
+  r_block.n_blocks = this->n_bytes / block_size;
+  return r_block;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// BlockRange
+//
+ByteRange BlockRange::byte_range(const uint32_t block_size) const
+{
+  ByteRange r_byte;
+  r_byte.offset  = this->lba * block_size;
+  r_byte.n_bytes = this->n_blocks * block_size;
+  return r_byte;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// IOFlags (For Read and Write)
+//
+IOFlags::IOFlags()
+{
+  clear();
+}
+
+void IOFlags::clear()
+{
+  memset(this, 0, sizeof(IOFlags));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//
 // Read16
 //
-Read16::Read16() : data(nullptr)
+Read16::Read16() : flags(), range(), data(nullptr), bytes_read(0)
 {
   clear();
 }
@@ -546,26 +584,30 @@ Read16::Read16() : data(nullptr)
 void Read16::clear()
 {
   // Clear everything except the data pointer
-  unsigned char* d = this->data;
-  memset(this, 0, sizeof(Read16));
-  this->data = d;
+  flags.clear();
+  range.clear();
+  bytes_read = 0;
+  // data; DO NOT CLEAR
 }
 
 Util::IOBuffer Read16::get() const
 {
+  if ( (this->range.n_blocks & 0xFFFFFFFF) != this->range.n_blocks )
+    throw std::string("Read16 cannot address blocks over 32-bits: ") + local::toString(this->range.n_blocks);
+
   Util::IOBuffer ioBuffer(16);
 
   // Fill the buffer with CDB data
   ioBuffer.set_8(0, this->opcode());
-  ioBuffer.set_8(1, 5, 3, this->rdprotect);
-  ioBuffer.set_bool(1, 4, this->dpo);
-  ioBuffer.set_bool(1, 3, this->fua);
-  ioBuffer.set_bool(1, 2, this->rarc);
-  ioBuffer.set_bool(1, 1, this->fua_nv);
-  ioBuffer.set_64(2, this->lba);
-  ioBuffer.set_32(10, this->transfer_length);
-  ioBuffer.set_8(14, 0, 5, this->group);
-  ioBuffer.set_8(15, this->control);
+  ioBuffer.set_8(1, 5, 3, this->flags.protect);
+  ioBuffer.set_bool(1, 4, this->flags.dpo);
+  ioBuffer.set_bool(1, 3, this->flags.fua);
+  ioBuffer.set_bool(1, 2, this->flags.rarc);
+  ioBuffer.set_bool(1, 1, this->flags.fua_nv);
+  ioBuffer.set_64(2, this->range.lba);
+  ioBuffer.set_32(10, static_cast<uint32_t>(this->range.n_blocks));
+  ioBuffer.set_8(14, 0, 5, this->flags.group);
+  ioBuffer.set_8(15, this->flags.control);
 
   /*
   cout << "    read cdb:";
@@ -580,34 +622,37 @@ Util::IOBuffer Read16::get() const
 //
 // Write16
 //
-Write16::Write16() : data(nullptr)
+Write16::Write16() : flags(), range(), data(nullptr), bytes_written(0)
 {
-  clear();
 }
 
 void Write16::clear()
 {
   // Clear everything except the data pointer
-  const unsigned char* d = this->data;
-  memset(this, 0, sizeof(Write16));
-  this->data = d;
+  flags.clear();
+  range.clear();
+  bytes_written = 0;
+  // data; DO NOT CLEAR
 }
 
 Util::IOBuffer Write16::get() const
 {
+  if ( (this->range.n_blocks & 0xFFFFFFFF) != this->range.n_blocks )
+    throw std::string("Write16 cannot address blocks over 32-bits: ") + local::toString(this->range.n_blocks);
+
   Util::IOBuffer ioBuffer(16);
 
   // Fill the buffer with CDB data
   ioBuffer.set_8(0, this->opcode());
-  ioBuffer.set_8(1, 5, 3, this->wrprotect);
-  ioBuffer.set_bool(1, 4, this->dpo);
-  ioBuffer.set_bool(1, 3, this->fua);
-  ioBuffer.set_bool(1, 2, this->rarc);
-  ioBuffer.set_bool(1, 1, this->fua_nv);
-  ioBuffer.set_64(2, this->lba);
-  ioBuffer.set_32(10, this->transfer_length);
-  ioBuffer.set_8(14, 0, 5, this->group);
-  ioBuffer.set_8(15, this->control);
+  ioBuffer.set_8(1, 5, 3, this->flags.protect);
+  ioBuffer.set_bool(1, 4, this->flags.dpo);
+  ioBuffer.set_bool(1, 3, this->flags.fua);
+  ioBuffer.set_bool(1, 2, this->flags.rarc);
+  ioBuffer.set_bool(1, 1, this->flags.fua_nv);
+  ioBuffer.set_64(2, this->range.lba);
+  ioBuffer.set_32(10, static_cast<uint32_t>(this->range.n_blocks));
+  ioBuffer.set_8(14, 0, 5, this->flags.group);
+  ioBuffer.set_8(15, this->flags.control);
 
   return ioBuffer;
 }

@@ -41,6 +41,10 @@ LICENSE: END
 
 #include <string>
 
+//! New type definition unsigned char
+typedef unsigned char uchar8_t;
+#define uchar8_p uchar8_t*
+
 namespace Util
 {
 
@@ -48,17 +52,17 @@ namespace Util
  * @struct IOBuffer
  * @brief Buffer used for input/output operation
  */
-struct IOBuffer : public std::basic_string<unsigned char>
+struct IOBuffer : public std::basic_string<uchar8_t>
 {
   //! Default constructor
   IOBuffer() : m_zero_pos(0) {}
   //! Constructor to create a buffer with a pre-allocated size, filled with zeros
-  IOBuffer(size_t n) : std::basic_string<unsigned char>(n, 0), m_zero_pos(0) {}
+  IOBuffer(size_t n) : std::basic_string<uchar8_t>(n, 0), m_zero_pos(0) {}
 
   //! Make a clone of the object (Deep copy)
   IOBuffer clone() const;
 
-  void clear() { std::basic_string<unsigned char>::clear(); m_zero_pos = 0; }
+  void clear() { std::basic_string<uchar8_t>::clear(); m_zero_pos = 0; }
 
   //! Set the current absolute position treated as 0
   size_t get_zero_pos() const { return m_zero_pos; }
@@ -70,23 +74,23 @@ struct IOBuffer : public std::basic_string<unsigned char>
   size_t rd_length() const { return m_zero_pos > this->length()? 0 : (this->length() - m_zero_pos); }
 
   //! Get the read buffer pointer at starting point
-  const unsigned char* rd_data() const { return this->data() + m_zero_pos; }
+  const uchar8_p rd_data() const { return this->data() + m_zero_pos; }
   /**
    * @brief Get the read buffer pointer at the given byte position.
    *        It does not check for bounds. The caller is reponsible for checking it.
    */
-  const unsigned char* rd_data(const size_t byte) const { return rd_data() + byte; }
+  const uchar8_p rd_data(const size_t byte) const { return rd_data() + byte; }
 
   //! Get the write buffer's length from the zero'th position
   size_t wr_length() const { return rd_length(); }
 
   //! Get the write buffer pointer at starting point.
-  unsigned char* wr_data() { return &((*this)[m_zero_pos]); }
+  uchar8_p wr_data() { return &((*this)[m_zero_pos]); }
   /**
    * @brief Get the write buffer pointer at the given byte position.
    *        It does not check for bounds. The caller is reponsible for checking it.
    */
-  unsigned char* wr_data(const size_t byte) { return wr_data() + byte; }
+  uchar8_p wr_data(const size_t byte) { return wr_data() + byte; }
 
   //! Get 8-bit data as uint8_t at the given byte position
   uint8_t get_8(const size_t byte) const;
@@ -130,19 +134,19 @@ struct IOBuffer : public std::basic_string<unsigned char>
 
 private:
   // Internal functions to support get and set operations
-  uint8_t p_get_8(const unsigned char* p) const;
-  uint16_t p_get_16(const unsigned char* p) const;
-  uint32_t p_get_24(const unsigned char* p) const;
-  uint32_t p_get_32(const unsigned char* p) const;
-  uint64_t p_get_48(const unsigned char* p) const;
-  uint64_t p_get_64(const unsigned char* p) const;
+  uint8_t p_get_8(const uchar8_p p) const;
+  uint16_t p_get_16(const uchar8_p p) const;
+  uint32_t p_get_24(const uchar8_p p) const;
+  uint32_t p_get_32(const uchar8_p p) const;
+  uint64_t p_get_48(const uchar8_p p) const;
+  uint64_t p_get_64(const uchar8_p p) const;
 
-  bool p_set_8(unsigned char* p, const uint8_t v);
-  bool p_set_16(unsigned char* p, const uint16_t v);
-  bool p_set_24(unsigned char* p, const uint32_t v);
-  bool p_set_32(unsigned char* p, const uint32_t v);
-  bool p_set_48(unsigned char* p, const uint64_t v);
-  bool p_set_64(unsigned char* p, const uint64_t v);
+  bool p_set_8(uchar8_p p, const uint8_t v);
+  bool p_set_16(uchar8_p p, const uint16_t v);
+  bool p_set_24(uchar8_p p, const uint32_t v);
+  bool p_set_32(uchar8_p p, const uint32_t v);
+  bool p_set_48(uchar8_p p, const uint64_t v);
+  bool p_set_64(uchar8_p p, const uint64_t v);
 
   //! Current position (Marked as zero for all the above functions)
   size_t m_zero_pos;

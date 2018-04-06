@@ -36,7 +36,7 @@ LICENSE: END
  * @file  IOBuffer.cpp
  * @brief Implementation of I/O Buffer that is used for all I/O operations over the network.
  */
-#include <Common/IOBuffer.h>
+#include <Util/IOBuffer.h>
 #include <string.h>
 #include <algorithm>
 
@@ -188,17 +188,17 @@ bool IOBuffer::set_8(const size_t byte, const uint8_t bitStart, const uint8_t nB
 //
 // Implementation of private functions in Util::IOBuffer
 //
-uint8_t IOBuffer::p_get_8(const unsigned char* p) const
+uint8_t IOBuffer::p_get_8(const uchar8_p p) const
 {
   return *((uint8_t*)p);
 }
 
-uint16_t IOBuffer::p_get_16(const unsigned char* p) const
+uint16_t IOBuffer::p_get_16(const uchar8_p p) const
 {
   return ntohs(*((uint16_t*)p));
 }
 
-uint32_t IOBuffer::p_get_24(const unsigned char* p) const
+uint32_t IOBuffer::p_get_24(const uchar8_p p) const
 {
 #if defined(_IS_LITTLE_ENDIAN_)
   return (((uint32_t) p_get_8(p)) << 16) | p_get_16(p+1);
@@ -207,12 +207,12 @@ uint32_t IOBuffer::p_get_24(const unsigned char* p) const
 #endif
 }
 
-uint32_t IOBuffer::p_get_32(const unsigned char* p) const
+uint32_t IOBuffer::p_get_32(const uchar8_p p) const
 {
   return ntohl(*((uint32_t*)p));
 }
 
-uint64_t IOBuffer::p_get_48(const unsigned char* p) const
+uint64_t IOBuffer::p_get_48(const uchar8_p p) const
 {
 #if defined(_IS_LITTLE_ENDIAN_)
   return (((uint64_t) p_get_16(p)) << 32) | p_get_32(p+2);
@@ -221,7 +221,7 @@ uint64_t IOBuffer::p_get_48(const unsigned char* p) const
 #endif
 }
 
-uint64_t IOBuffer::p_get_64(const unsigned char* p) const
+uint64_t IOBuffer::p_get_64(const uchar8_p p) const
 {
 #if defined(_IS_LITTLE_ENDIAN_)
   return (((uint64_t) p_get_32(p)) << 32) | p_get_32(p+4);
@@ -230,19 +230,19 @@ uint64_t IOBuffer::p_get_64(const unsigned char* p) const
 #endif
 }
 
-bool IOBuffer::p_set_8(unsigned char* p, const uint8_t v)
+bool IOBuffer::p_set_8(uchar8_p p, const uint8_t v)
 {
   *p = v;
   return true;
 }
 
-bool IOBuffer::p_set_16(unsigned char* p, const uint16_t v)
+bool IOBuffer::p_set_16(uchar8_p p, const uint16_t v)
 {
   *((uint16_t*)p) = htons(v);
   return true;
 }
 
-bool IOBuffer::p_set_24(unsigned char* p, const uint32_t v)
+bool IOBuffer::p_set_24(uchar8_p p, const uint32_t v)
 {
 #if defined(_IS_LITTLE_ENDIAN_)
   p_set_8(p, (uint8_t) ((v >> 16) & 0xFF));
@@ -255,13 +255,13 @@ bool IOBuffer::p_set_24(unsigned char* p, const uint32_t v)
 #endif
 }
 
-bool IOBuffer::p_set_32(unsigned char* p, const uint32_t v)
+bool IOBuffer::p_set_32(uchar8_p p, const uint32_t v)
 {
   *((uint32_t*)p) = htonl(v);
   return true;
 }
 
-bool IOBuffer::p_set_48(unsigned char* p, const uint64_t v)
+bool IOBuffer::p_set_48(uchar8_p p, const uint64_t v)
 {
 #if defined(_IS_LITTLE_ENDIAN_)
   p_set_16(p, (uint16_t) ((v >> 32) & 0xFFFF));
@@ -274,7 +274,7 @@ bool IOBuffer::p_set_48(unsigned char* p, const uint64_t v)
 #endif
 }
 
-bool IOBuffer::p_set_64(unsigned char* p, const uint64_t v)
+bool IOBuffer::p_set_64(uchar8_p p, const uint64_t v)
 {
 #if defined(_IS_LITTLE_ENDIAN_)
   p_set_32(p, (uint32_t) ((v >> 32) & 0xFFFFFFFF));
