@@ -41,6 +41,7 @@ LICENSE: END
 #include <Scsi/DataTypes.h>
 #include <Scsi/Device.h>
 
+using namespace Gratis;
 using namespace Gratis::Scsi;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -49,17 +50,17 @@ using namespace Gratis::Scsi;
 //
 Device_t::Device_t()
 {
+  m_verbose = Verbose::None;
 }
 
-const Device_t::Info_t& Device_t::p_get_info()
+Scsi::Capacity_t Device_t::capacity(bool force/* = false*/) throw (std::string)
 {
-  if ( m_info.num_blocks == 0 || m_info.block_size == 0 )
+  if ( m_capacity.empty() || force )
   {
     Scsi::Capacity16_t capacity16;
     if ( !this->read_capacity(capacity16) )
       throw this->error();
-    m_info.num_blocks = capacity16.num_blocks;
-    m_info.block_size = capacity16.block_size;
+    m_capacity = capacity16();
   }
-  return m_info;
+  return m_capacity;
 }

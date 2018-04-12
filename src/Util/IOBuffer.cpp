@@ -40,7 +40,7 @@ LICENSE: END
 #include <string.h>
 #include <algorithm>
 
-using namespace Util;
+using namespace Gratis::Util;
 
 //! Determine which byte order we're using
 #if __BYTE_ORDER == __LITTLE_ENDIAN

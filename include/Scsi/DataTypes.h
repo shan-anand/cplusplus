@@ -37,8 +37,8 @@ LICENSE: END
  * @brief Definition of SCSI datatypes
  */
 
-#ifndef _SCSI_DATATYPES_H_
-#define _SCSI_DATATYPES_H_
+#ifndef _GRATIS_SCSI_DATATYPES_H_
+#define _GRATIS_SCSI_DATATYPES_H_
 
 #include <cstdint>
 #include <string>
@@ -69,6 +69,33 @@ LICENSE: END
 namespace Gratis {
 namespace Scsi {
 
+/**
+ * @struct Capacity_t
+ * @brief Common data structure for capacity of the device
+ */
+struct Capacity_t
+{
+  //! get blocks, block size or bytes
+  uint64_t blocks() const { return m_num_blocks; }
+  uint64_t block_size() const { return m_block_size; }
+  uint64_t bytes() const { return m_num_blocks * m_block_size; }
+  //! Checks for empty
+  bool empty() const { return (m_num_blocks == 0 || m_block_size == 0); }
+  //! Clear the contents of the object
+  void clear() { m_num_blocks = 0; m_block_size = 0; }
+
+  //! Constructor, the only way to set the contents of the object
+  Capacity_t(const uint64_t num_blocks = 0, uint32_t block_size = 0)
+	: m_num_blocks(num_blocks), m_block_size(block_size) {}
+private:
+  uint64_t m_num_blocks; //! Number of blocks
+  uint32_t m_block_size; //! Block length in bytes
+};
+
+/**
+ * @struct Capacity10_t
+ * @brief ISCSI data structure for (CAPACITY 10)
+ */
 struct Capacity10_t
 {
   uint32_t num_blocks; //! Number of blocks [Bytes 0-3] + 1
@@ -77,8 +104,13 @@ struct Capacity10_t
   Capacity10_t();
   void clear();
   bool set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize = nullptr);
+  Capacity_t operator()() const { return Capacity_t(num_blocks, block_size); }
 };
 
+/**
+ * @struct Capacity16_t
+ * @brief ISCSI data structure for (CAPACITY 16)
+ */
 struct Capacity16_t
 {
   uint64_t num_blocks; //! Number of blocks [Bytes 0 - 7] + 1
@@ -103,6 +135,7 @@ struct Capacity16_t
   Capacity16_t();
   void clear();
   bool set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize = nullptr);
+  Capacity_t operator()() const { return Capacity_t(num_blocks, block_size); }
 };
 
 struct Sense_t
@@ -137,16 +170,20 @@ struct BlockRange_t;
 struct ByteRange_t
 {
   uint64_t  offset;  //! Logical Byte Address to start IO operation
-  uint64_t  n_bytes; //! Numbers of bytes from offset
+  uint64_t  bytes;   //! Numbers of bytes from offset
 
-  ByteRange_t(const uint64_t _offset = 0, const uint64_t _n_bytes = 0) : offset(_offset), n_bytes(_n_bytes) {}
-  void clear() { offset = n_bytes = 0; }
-  bool empty() const { return (offset == 0 && n_bytes == 0); }
-  void set(const uint64_t _offset, const uint64_t _n_bytes) { offset = _offset; n_bytes = _n_bytes; }
-  uint64_t blocks(const uint32_t block_size) const { return (n_bytes / block_size); }
+  ByteRange_t(const uint64_t _offset = 0, const uint64_t _bytes = 0) : offset(_offset), bytes(_bytes) {}
+  void clear() { offset = bytes = 0; }
+  bool empty() const { return (offset == 0 && bytes == 0); }
+  void set(const uint64_t _offset, const uint64_t _bytes) { offset = _offset; bytes = _bytes; }
+  uint64_t blocks(const uint32_t block_size) const { return (bytes / block_size); }
   BlockRange_t block_range(const uint32_t block_size) const;
 };
 
+/**
+ * @struct ByteRanges_t
+ * @brief A vector of ByteRange_t objects
+ */
 struct ByteRanges_t : public std::vector<ByteRange_t>
 {
   //! Returns the sum of total number of bytes in the vector
@@ -162,16 +199,20 @@ struct ByteRanges_t : public std::vector<ByteRange_t>
 struct BlockRange_t
 {
   uint64_t  lba;      //! Logical Block Address to start IO operation
-  uint64_t  n_blocks; //! Numbers of blocks from lba
+  uint64_t  blocks;   //! Numbers of blocks from lba
 
-  BlockRange_t(const uint64_t _lba = 0, const uint64_t _n_blocks = 0) : lba(_lba), n_blocks(_n_blocks) {}
-  void clear() { lba = 0; n_blocks = 0; }
-  bool empty() const { return (lba == 0 && n_blocks == 0); }
-  void set(const uint64_t _lba, const uint64_t _n_blocks) { lba = _lba; n_blocks = _n_blocks; }
-  uint64_t bytes(const uint32_t block_size) const { return (this->n_blocks * block_size); }
+  BlockRange_t(const uint64_t _lba = 0, const uint64_t _blocks = 0) : lba(_lba), blocks(_blocks) {}
+  void clear() { lba = 0; blocks = 0; }
+  bool empty() const { return (lba == 0 && blocks == 0); }
+  void set(const uint64_t _lba, const uint64_t _blocks) { lba = _lba; blocks = _blocks; }
+  uint64_t bytes(const uint32_t block_size) const { return (this->blocks * block_size); }
   ByteRange_t byte_range(const uint32_t block_size) const;
 };
 
+/**
+ * @struct BlockRanges_t
+ * @brief A vector of BlockRange_t objects
+ */
 struct BlockRanges_t : public std::vector<BlockRange_t>
 {
   //! Returns the sum of total number of blocks in the vector
@@ -180,6 +221,10 @@ struct BlockRanges_t : public std::vector<BlockRange_t>
   uint64_t bytes(const uint32_t block_size) const;
 };
 
+/**
+ * @struct IOFlags_t
+ * @brief Input/Output flags used in all SCSI READ/WRITE operations
+ */
 struct IOFlags_t
 {
   uint8_t        protect;           //! [Byte 1:(5-7)]
@@ -205,7 +250,7 @@ struct Read16_t : public IOFlags_t
   IOFlags_t      flags;             //! IO flags for read (For bytes range see IOFlags)
   BlockRange_t   range;             //! Block range to read the data from
                                     //! .lba [Bytes 2 - 9]
-                                    //! .n_blocks [Bytes 10 -13]. The datatype is a 64-bit value, but the value should only be 32-bit
+                                    //! .blocks [Bytes 10 -13]. The datatype is a 64-bit value, but the value should only be 32-bit
   uchar8_p       data;              //! Pointer to the data where the data is read
                                     //! The size of the buffer must be "range.blocks*block_size" or more
   // Output members
@@ -229,7 +274,7 @@ struct Write16_t
   IOFlags_t      flags;             //! IO flags for write (For bytes range see IOFlags)
   BlockRange_t   range;             //! Block range to write the data to
                                     //! .lba [Bytes 2 - 9]
-                                    //! .n_blocks [Bytes 10 -13]. The datatype is a 64-bit value, but the value should only be 32-bit
+                                    //! .blocks [Bytes 10 -13]. The datatype is a 64-bit value, but the value should only be 32-bit
   const uchar8_p data;              //! Pointer to the data used for writing
                                     //! The size of the buffer must be "range.blocks*block_size" or more
   // Output members
@@ -245,6 +290,10 @@ IMPLEMENT_IO_CLASS_EX(Write16Ex_t, Write16_t);
 namespace Inquiry
 {
 
+/**
+ * @struct Basic_t
+ * @brief Base data structure for all types SCSI INQUIRY
+ */
 struct Basic_t
 {
   // == Byte 0 == ////////////////////////////////////////////////////////////////////////////
@@ -259,6 +308,10 @@ protected:
   bool p_set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize = nullptr);
 };
 
+/**
+ * @struct Standard_t
+ * @brief Standard inquiry data structure for SCSI
+ */
 struct Standard_t : public Basic_t
 {
   // == Byte 1 == ////////////////////////////////////////////////////////////////////////////
@@ -317,6 +370,11 @@ struct Standard_t : public Basic_t
   bool set(const Util::IOBuffer_t& ioBuffer, size_t* reqSize = nullptr) override;
 };
 
+/**
+ * @struct BasicVPD_t
+ * @brief Base data structure for all types SCSI VPD INQUIRY
+ *        Custom implementations must use this as the base class and implement their own
+ */
 struct BasicVPD_t : public Basic_t
 {
   // == Byte 1 == ////////////////////////////////////////////////////////////////////////////
@@ -434,4 +492,4 @@ struct CustomVPD_t : public BasicVPD_t
 } // namespace Scsi
 } // namespace Gratis
 
-#endif // _SCSI_DATATYPES_H_
+#endif // _GRATIS_SCSI_DATATYPES_H_

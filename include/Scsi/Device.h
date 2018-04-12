@@ -39,8 +39,8 @@ LICENSE: END
  * @brief SCSI Device interface that defines all SCSI calls.
  */
 
-#ifndef _SCSI_DEVICES_H_
-#define _SCSI_DEVICES_H_
+#ifndef _GRATIS_SCSI_DEVICE_H_
+#define _GRATIS_SCSI_DEVICE_H_
 
 #include "Constants.h"
 #include "DataTypes.h"
@@ -54,6 +54,8 @@ namespace Scsi {
 class Device_t;
 using Device_s = SmartPtr<Device_t*>;
 
+enum class DeviceType { Invalid = -1, Generic, IScsi };
+
 /**
  * @class Device_t
  * @brief Send SCSI commands
@@ -61,37 +63,40 @@ using Device_s = SmartPtr<Device_t*>;
 class Device_t : public SmartRef
 {
 public:
-  //! Error string, getter and setters
+  virtual ~Device_t();
+
+  //! get/set verbose level
+  const Verbose& verbose() const { return m_verbose; }
+  void verbose(const Verbose& v) { m_verbose = v; }
+
+  //! get/set error messages
   const std::string& error() const { return m_error; }
   std::string& error() { return m_error; }
-  std::string& error(const std::string& s) { m_error = s; return m_error; }
+  std::string& error(const std::string& str) { m_error = str; return m_error; }
+
+  //! Get the capacity of the device
+  Scsi::Capacity_t capacity(bool force = false) throw (std::string);
 
 public:
   //! Clone a new device object
-  virtual Device_s clone() = 0;
+  virtual Device_s clone() throw (std::string) = 0;
   //! Check whether the device is empty
-  virtual bool empty() const = 0;
+  virtual bool empty() const noexcept = 0;
 
-  virtual bool test_unit_ready() = 0;
-  virtual bool read_capacity(Scsi::Capacity10_t& capacity10) = 0;
-  virtual bool read_capacity(Scsi::Capacity16_t& capacity16) = 0;
+  virtual bool test_unit_ready() noexcept = 0;
+  virtual bool read_capacity(Scsi::Capacity10_t& capacity10) noexcept = 0;
+  virtual bool read_capacity(Scsi::Capacity16_t& capacity16) noexcept = 0;
 
-  virtual bool inquiry(Scsi::Inquiry::Standard_t& inquiry) = 0;
-  virtual bool inquiry(Scsi::Inquiry::UnitSerialNumber_t& usn) = 0;
-  virtual bool inquiry(Scsi::Inquiry::SupportedVPDPages_t& inq) = 0;
+  virtual bool inquiry(Scsi::Inquiry::Standard_t& inquiry) noexcept = 0;
+  virtual bool inquiry(Scsi::Inquiry::UnitSerialNumber_t& usn) noexcept = 0;
+  virtual bool inquiry(Scsi::Inquiry::SupportedVPDPages_t& inq) noexcept = 0;
 
-  virtual bool read(Scsi::Read16_t& read16, Scsi::Sense_t* sense = nullptr) = 0;
-  virtual bool write(Scsi::Write16_t& write16, Scsi::Sense_t* sense = nullptr) = 0;
+  virtual bool read(Scsi::Read16_t& read16, Scsi::Sense_t* sense = nullptr) noexcept = 0;
+  virtual bool write(Scsi::Write16_t& write16, Scsi::Sense_t* sense = nullptr) noexcept = 0;
 
   // Implement Scsi::DataTypeEx functions
-  bool read(Scsi::Read16Ex_t& read16x) { return read(read16x, &read16x.sense); }
-  bool write(Scsi::Write16Ex_t& write16x) { return write(write16x, &write16x.sense); }
-
-  //! Get /the total number of blocks for this device (Comes from Scsi::Capacity16_t)
-  uint64_t num_blocks() { return p_get_info().num_blocks; }
-  //! Get the number of bytes per block for this device (Comes from Scsi::Capacity16_t)
-  uint32_t block_size() { return p_get_info().block_size; }
-
+  bool read(Scsi::Read16Ex_t& read16x) noexcept { return read(read16x, &read16x.sense); }
+  bool write(Scsi::Write16Ex_t& write16x) noexcept { return write(write16x, &write16x.sense); }
 protected:
   //! Default constructor
   Device_t();
@@ -101,23 +106,14 @@ protected:
   Device_t& operator=(const Device_t&) = delete;
 
 private:
-  struct Info_t
-  {
-    uint64_t num_blocks;
-    uint32_t block_size;
-    //! Constructor
-    Info_t() { clear(); }
-    void clear() { num_blocks = 0; block_size = 0; }
-  };
-  const Info_t& p_get_info();
-
   //! Member variables
-  std::string m_error;
-  Info_t      m_info;
+  Verbose          m_verbose;
+  std::string      m_error;
+  Scsi::Capacity_t m_capacity;
 };
 
 } // namespace Scsi
 } // namespace Gratis
 
-#endif // _SCSI_DEVICES_H_
+#endif // _GRATIS_SCSI_DEVICE_H_
 

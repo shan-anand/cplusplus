@@ -4,6 +4,7 @@ LICENSE: BEGIN
 @author Shanmuga (Anand) Gunasekaran
 @email anand.gs@gmail.com
 @source https://github.com/shan-anand
+@file  Optional.h
 @brief Template class for having optional parameters
 ===============================================================================
 MIT License
@@ -31,8 +32,14 @@ SOFTWARE.
 LICENSE: END
 */
 
-#ifndef _UTIL_OPTIONAL_H_
-#define _UTIL_OPTIONAL_H_
+/**
+ * @file  Optional.h
+ * @brief Template class for handling optional parameters
+ */
+#ifndef _GRATIS_OPTIONAL_H_
+#define _GRATIS_OPTIONAL_H_
+
+ namespace Gratis {
 
 /**
  * @class Optional
@@ -68,4 +75,6 @@ public:
   bool exists(T* p = nullptr) const { if ( m_exists && p ) { *p = m_value;} return m_exists; }
 };
 
-#endif // _UTIL_OPTIONAL_H_
+} // namespace Gratis
+
+#endif // _GRATIS_OPTIONAL_H_

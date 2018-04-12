@@ -42,6 +42,7 @@ LICENSE: END
 #include <sstream>
 #include "local.h"
 
+using namespace Gratis;
 using namespace Gratis::Scsi;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -542,7 +543,7 @@ BlockRange_t ByteRange_t::block_range(const uint32_t block_size) const
 {
   BlockRange_t r_block;
   r_block.lba      = this->offset / block_size;
-  r_block.n_blocks = this->n_bytes / block_size;
+  r_block.blocks = this->bytes / block_size;
   return r_block;
 }
 
@@ -554,7 +555,7 @@ ByteRange_t BlockRange_t::byte_range(const uint32_t block_size) const
 {
   ByteRange_t r_byte;
   r_byte.offset  = this->lba * block_size;
-  r_byte.n_bytes = this->n_blocks * block_size;
+  r_byte.bytes = this->blocks * block_size;
   return r_byte;
 }
 
@@ -592,8 +593,8 @@ void Read16_t::clear()
 
 Util::IOBuffer_t Read16_t::get() const
 {
-  if ( (this->range.n_blocks & 0xFFFFFFFF) != this->range.n_blocks )
-    throw std::string("Read16_t cannot address blocks over 32-bits: ") + local::toString(this->range.n_blocks);
+  if ( (this->range.blocks & 0xFFFFFFFF) != this->range.blocks )
+    throw std::string("Read16_t cannot address blocks over 32-bits: ") + local::toString(this->range.blocks);
 
   Util::IOBuffer_t ioBuffer(16);
 
@@ -605,7 +606,7 @@ Util::IOBuffer_t Read16_t::get() const
   ioBuffer.set_bool(1, 2, this->flags.rarc);
   ioBuffer.set_bool(1, 1, this->flags.fua_nv);
   ioBuffer.set_64(2, this->range.lba);
-  ioBuffer.set_32(10, static_cast<uint32_t>(this->range.n_blocks));
+  ioBuffer.set_32(10, static_cast<uint32_t>(this->range.blocks));
   ioBuffer.set_8(14, 0, 5, this->flags.group);
   ioBuffer.set_8(15, this->flags.control);
 
@@ -637,8 +638,8 @@ void Write16_t::clear()
 
 Util::IOBuffer_t Write16_t::get() const
 {
-  if ( (this->range.n_blocks & 0xFFFFFFFF) != this->range.n_blocks )
-    throw std::string("Write16_t cannot address blocks over 32-bits: ") + local::toString(this->range.n_blocks);
+  if ( (this->range.blocks & 0xFFFFFFFF) != this->range.blocks )
+    throw std::string("Write16_t cannot address blocks over 32-bits: ") + local::toString(this->range.blocks);
 
   Util::IOBuffer_t ioBuffer(16);
 
@@ -650,7 +651,7 @@ Util::IOBuffer_t Write16_t::get() const
   ioBuffer.set_bool(1, 2, this->flags.rarc);
   ioBuffer.set_bool(1, 1, this->flags.fua_nv);
   ioBuffer.set_64(2, this->range.lba);
-  ioBuffer.set_32(10, static_cast<uint32_t>(this->range.n_blocks));
+  ioBuffer.set_32(10, static_cast<uint32_t>(this->range.blocks));
   ioBuffer.set_8(14, 0, 5, this->flags.group);
   ioBuffer.set_8(15, this->flags.control);
 

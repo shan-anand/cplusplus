@@ -37,14 +37,21 @@ LICENSE: END
  * @brief Constant values in SCSI
  */
 
-#ifndef _SCSI_CONSTANTS_H_
-#define _SCSI_CONSTANTS_H_
+#ifndef _GRATIS_SCSI_CONSTANTS_H_
+#define _GRATIS_SCSI_CONSTANTS_H_
 
 #include <string>
 
 namespace Gratis {
 namespace Scsi {
 
+//! Verbose level, to be horored by the implementation
+enum class Verbose {
+  None = 0, //! No verbose
+  Level_1,  //! Minimal verbose
+  Level_2,  //! Medium verbose level
+  Level_3,  //! Full verbose level
+};
 
 //! Sense keys
 enum class SenseKey : uint8_t
@@ -958,4 +965,4 @@ std::string toString(const ASCQ& e);
 } // namespace Scsi
 } // namespace Gratis
 
-#endif // _SCSI_CONSTANTS_H_
+#endif // _GRATIS_SCSI_CONSTANTS_H_

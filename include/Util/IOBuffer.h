@@ -36,8 +36,8 @@ LICENSE: END
  * @file  IOBuffer.h
  * @brief IOBuffer_t definition. Used for all IO operations over the network.
  */
-#ifndef _UTIL_IO_BUFFER_H_
-#define _UTIL_IO_BUFFER_H_
+#ifndef _GRATIS_UTIL_IO_BUFFER_H_
+#define _GRATIS_UTIL_IO_BUFFER_H_
 
 #include <string>
 
@@ -45,8 +45,8 @@ LICENSE: END
 typedef unsigned char uchar8_t;
 #define uchar8_p uchar8_t*
 
-namespace Util
-{
+namespace Gratis {
+namespace Util {
 
 /**
  * @struct IOBuffer_t
@@ -153,5 +153,6 @@ private:
 };
 
 } // namespace Util
+} // namespace Gratis
 
-#endif // _UTIL_IO_BUFFER_H_
+#endif // _GRATIS_UTIL_IO_BUFFER_H_

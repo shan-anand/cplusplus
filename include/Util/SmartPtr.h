@@ -4,6 +4,7 @@ LICENSE: BEGIN
 @author Shanmuga (Anand) Gunasekaran
 @email anand.gs@gmail.com
 @source https://github.com/shan-anand
+@file SmartPtr.h
 @brief Implementation of a generic Smart pointer class
 ===============================================================================
 MIT License
@@ -78,8 +79,8 @@ LICENSE: END
  *                                          Both p1 and p2 will try destroying the same pointer, the second delete will crash.
  *
  */
-#ifndef _SMARTPTR_
-#define _SMARTPTR_
+#ifndef _GRATIS_SMARTPTR_H_
+#define _GRATIS_SMARTPTR_H_
 
 #include <type_traits>
 #include <typeinfo>
@@ -87,6 +88,8 @@ LICENSE: END
 
 #include <iostream>
 using namespace std;
+
+namespace Gratis {
 
 /**
  * @class SmartRef
@@ -338,4 +341,6 @@ private:
 
 typedef SmartPtr<SmartRef> SmartRefPtr;
 
-#endif // _SMARTPTR_
+} // namespace Gratis
+
+#endif // _GRATIS_SMARTPTR_
