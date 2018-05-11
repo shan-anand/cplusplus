@@ -1930,7 +1930,7 @@ std::string Gratis::Scsi::toString(const ASCQ& e)
     //out = "TAGGED OVERLAPPED COMMANDS (NN = TASK TAG)"; break;
     //case ASCQ::DECOMPRESSION_EXCEPTION_SHORT_ALGORITHM_ID_OF_NN: 0x70NN
     //out = "DECOMPRESSION EXCEPTION SHORT ALGORITHM ID OF NN"; break;
-  out = "UNKNOWN ASCQ";
+    out = "UNKNOWN ASCQ";
   }
   out += " [" + local::toString(v, true) + "]";
 

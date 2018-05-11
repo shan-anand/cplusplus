@@ -52,9 +52,30 @@ namespace Gratis {
 namespace Scsi {
 
 class Device_t;
-using Device_s = SmartPtr<Device_t*>;
+using Device_s = SmartPtr<Device_t>;
+
+struct DeviceInfo_t;
+using DeviceInfo_s = SmartPtr<DeviceInfo_t>;
 
 enum class DeviceType { Invalid = -1, Generic, IScsi };
+
+/**
+ * @class DeviceInfo_t
+ * @brief SCSI Device information interface
+ */
+struct DeviceInfo_t : public SmartRef
+{
+  DeviceInfo_t();
+  virtual ~DeviceInfo_t();
+
+  //! Virtual functions to implemented for the actual device
+  virtual bool set(const std::string& infoStr, std::string* pcsError = nullptr) throw (std::string) = 0;
+  virtual void clear() = 0;
+  virtual bool empty() const = 0;
+  virtual std::string id() const = 0;
+  virtual std::string toString() const = 0;
+  virtual Scsi::Device_s create() const throw (std::string) = 0;
+};
 
 /**
  * @class Device_t
@@ -77,6 +98,12 @@ public:
   //! Get the capacity of the device
   Scsi::Capacity_t capacity(bool force = false) throw (std::string);
 
+  //! Get the device information object
+  Scsi::DeviceInfo_s deviceInfo() const { return m_deviceInfo; }
+
+  //! Get the Scsi::Device_s pointer
+  Scsi::Device_s base_ptr() { return dynamic_cast<Scsi::Device_t*>(this); }
+
 public:
   //! Clone a new device object
   virtual Device_s clone() throw (std::string) = 0;
@@ -97,6 +124,7 @@ public:
   // Implement Scsi::DataTypeEx functions
   bool read(Scsi::Read16Ex_t& read16x) noexcept { return read(read16x, &read16x.sense); }
   bool write(Scsi::Write16Ex_t& write16x) noexcept { return write(write16x, &write16x.sense); }
+
 protected:
   //! Default constructor
   Device_t();
@@ -110,6 +138,9 @@ private:
   Verbose          m_verbose;
   std::string      m_error;
   Scsi::Capacity_t m_capacity;
+
+protected:
+  DeviceInfo_s     m_deviceInfo;
 };
 
 } // namespace Scsi
