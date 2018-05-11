@@ -1,11 +1,11 @@
 /**
  * @file Device.h
- * @brief Definintion of Generic Scsi Device API. C++ wrapper for libgsutil2.
- *        Send SCSI commands to sg device.
+ * @brief Definintion of IScsi Device API.
+ *        Send SCSI commands to IScsi device.
  */
 
-#ifndef _GRATIS_GSCSI_DEVICE_H_
-#define _GRATIS_GSCSI_DEVICE_H_
+#ifndef _GRATIS_ISCSI_DEVICE_H_
+#define _GRATIS_ISCSI_DEVICE_H_
 
 #include <string>
 
@@ -33,13 +33,35 @@ using DeviceInfo_s = SmartPtr<DeviceInfo_t>;
  */
 struct DeviceInfo_t : public Scsi::DeviceInfo_t
 {
-  std::string path; //! Device path
+  struct Target
+  {
+    std::string portal, iqn;
+    Target() {}
+    Target(const std::string& _portal, const std::string& _iqn) : portal(_portal), iqn(_iqn) {}
+    void clear() { portal.clear(); iqn.clear(); }
+    bool empty() const { return portal.empty() || iqn.empty(); }
+  };
+  // target["portal"] = "Target-IQN"
+  struct Targets : public std::vector<Target>
+  {
+    bool set(const Target& target);
+    bool set(const std::string& portal, const std::string& iqn);
+  };
+  Targets             targets;
+  //iscsi_session_type  type;
+  //iscsi_header_digest digest;
+  BasicCredential     chap;
+  BasicCredential     mutualChap;
+  LUN                 lun; //! Applicable only for normal login
+
+  std::string portal() const { return targets.empty()? std::string() : targets[0].portal; }
+  std::string iqn() const { return targets.empty()? std::string() : targets[0].iqn; }
 
   DeviceInfo_t();
   virtual ~DeviceInfo_t();
 
   //! Virtual functions override
-  Scsi::DeviceType type() const override { return Scsi::DeviceType::Generic; }
+  Scsi::DeviceType type() const override { return Scsi::DeviceType::IScsi; }
   bool set(const std::string& infoStr, std::string* pcsError = nullptr) throw (std::string) override;
   void clear() override;
   bool empty() const override;
@@ -56,7 +78,7 @@ class Device_t : public Scsi::Device_t
 {
 public:
   //! Get the device type
-  Scsi::DeviceType type() const override { return Scsi::DeviceType::Generic; }
+  Scsi::DeviceType type() const override { return Scsi::DeviceType::IScsi; }
 
 public:
   virtual ~Device_t();
@@ -79,17 +101,6 @@ public:
 
   // Other public functions
   void setVerboseLevel(int level);
-
-  int result() const { return m_res; }
-  std::string resultStr() const;
-  const std::string error() const { return m_error; }
-
-  bool set_warnings_strm(const std::string& filePath);
-  bool set_warnings_strm(int fd);
-  bool clear_warnings_strm();
-
-  int sg_reserved_size();
-  int sg_set_reserved_size(int rs);
 
 private:
   Device_t();
@@ -124,4 +135,4 @@ private:
 } // namespace GScsi
 } // namespace Gratis
 
-#endif // _GRATIS_GSCSI_DEVICE_H_
+#endif // _GRATIS_ISCSI_DEVICE_H_

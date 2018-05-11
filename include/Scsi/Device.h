@@ -69,6 +69,7 @@ struct DeviceInfo_t : public SmartRef
   virtual ~DeviceInfo_t();
 
   //! Virtual functions to implemented for the actual device
+  virtual Scsi::DeviceType type() const = 0;
   virtual bool set(const std::string& infoStr, std::string* pcsError = nullptr) throw (std::string) = 0;
   virtual void clear() = 0;
   virtual bool empty() const = 0;
@@ -105,10 +106,12 @@ public:
   Scsi::Device_s base_ptr() { return dynamic_cast<Scsi::Device_t*>(this); }
 
 public:
-  //! Clone a new device object
-  virtual Device_s clone() throw (std::string) = 0;
+  //! Get the device type
+  virtual Scsi::DeviceType type() const = 0;
   //! Check whether the device is empty
   virtual bool empty() const noexcept = 0;
+  //! Clone a new device object
+  virtual Scsi::Device_s clone() throw (std::string) = 0;
 
   virtual bool test_unit_ready() noexcept = 0;
   virtual bool read_capacity(Scsi::Capacity10_t& capacity10) noexcept = 0;
