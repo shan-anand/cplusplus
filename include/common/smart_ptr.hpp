@@ -1,0 +1,346 @@
+/*
+LICENSE: BEGIN
+===============================================================================
+@author Shanmuga (Anand) Gunasekaran
+@email anand.gs@gmail.com
+@source https://github.com/shan-anand
+@file smart_ptr.h
+@brief Implementation of a generic Smart pointer class
+===============================================================================
+MIT License
+
+Copyright (c) 2017 Shanmuga (Anand) Gunasekaran
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+===============================================================================
+LICENSE: END
+*/
+
+/**
+ * @file smart_ptr.h
+ * @brief New and improved implementation of Smart pointer class for handling
+ *        deletion of pointers automatically.
+ *        This version is a thread-safe implmentation of the smart pointer class.
+ *        However, the internal pointer itself is not thread-safe. It should be
+ *        taken care of by the implementer of that datatype.
+ *
+ *        1) All structs and classes MUST be derived from SmartRef in-order to use smart_ptr.
+ *           Any attempt to use it without deriving from SmartRef will result
+ *           in a compiler error.
+ *        2) Basic datatypes like int, char, bool etc. can be used directly.
+ *           See example (1) for details.
+ *        3) Any union or pre-defined struct/classes must be encapsulated in
+ *           SmartRefContainer before using it in smart_ptr.
+ *           See example (2) for details.
+ *
+ * @example
+ *       (1) smart_ptr<int> p1 = new int;
+ *           {
+ *             // Increments the reference count on the smart pointer
+ *             smart_ptr<int> p2 = p1;
+ *             // As we leave this scope the reference count is decremented by one
+ *           }
+ *           // In the above example when p1 goes out of scope, it will be
+ *           // destroyed automatically using smart_ptr_delete()
+ *
+ *           smart_ptr<int, smart_ptr_free> x1 = (int) malloc(sizeof(int));
+ *           // In the above example when x1 goes out of scope, it will be
+ *           // destroyed automatically using smart_ptr_free()
+ *
+ *       (2) typedef smart_ptr< SmartRefContainer<struct tm> > struct_tmPtr;
+ *           time_t now = time(NULL);
+ *           struct_tmPtr tm1 = SmartRefContainer<struct tm>::create_smart_ptr(new struct tm);
+ *           localtime_r(&now, tm1.ptr()->ptr()); // NOTE .ptr()->ptr()
+ *           {
+ *             struct_tmPtr tm2 = tm1; // reference count incremented
+ *           } // reference count decremented
+ *           cout << tm1.ptr()->ptr()->tm_sec << endl;
+ *
+ * @note THE FOLLOWING SCENARIOS MUST BE AVOIDED for non-struct/class smart_ptr:
+ *       ======================================================================
+ *       1) smart_ptr<int> p1 = new int;
+ *          smart_ptr<int> p2 = p1.ptr(); // DANGEROUS. p2 will create a new internal reference, for the same pointer as p1
+ *                                          Both p1 and p2 will try destroying the same pointer, the second delete will crash.
+ *
+ */
+#ifndef _SID_SMARTPTR_HPP_
+#define _SID_SMARTPTR_HPP_
+
+#include <type_traits>
+#include <typeinfo>
+#include <atomic>
+
+#include <iostream>
+using namespace std;
+
+namespace sid {
+
+/**
+ * @class SmartRef
+ * @brief Any class or struct planning use smart_ptr should derive from SmartRef class
+ *        for better handling of smart pointer
+ */
+class SmartRef
+{
+public:
+  SmartRef() :  __refcount__value(0) {}
+  SmartRef(const SmartRef&) : __refcount__value(0) {}
+  SmartRef& operator=(const SmartRef&) { return *this; }
+  virtual ~SmartRef() {}
+  // Allow smart_ptr to access the private members
+  template <class U, void (*pfnDelete)(U*)> friend class smart_ptr;
+private:
+  mutable std::atomic<int> __refcount__value;
+};
+
+//! Destroy the pointer using c++ delete operator
+template <class T> void smart_ptr_delete(T* ptr) { if ( ptr ) delete ptr; }
+//! Destroy the pointer using c++ delete[] operator
+template <class T> void smart_ptr_deleteArr(T* ptr) { if ( ptr ) delete[] ptr; }
+//! Destroy the pointer using c++ free operator
+template <class T> void smart_ptr_free(T* ptr) { if ( ptr ) free(ptr); }
+
+/**
+ * @brief A template class for handling smart pointers.
+ *        Users only have to allocate pointers using "new".
+ *        Deletion is taken care of automatically.
+ */
+template <class T, void (*pfnDelete)(T*) = smart_ptr_delete> class smart_ptr
+{
+public:
+  //! Any struct or class MUST be derived from SmartRef to be used as a smart_ptr
+  static_assert(!std::is_class<T>::value || std::is_base_of<SmartRef, T>::value, "T must inherit from SmartRef");
+  /**
+   * @brief Prevent using union as a smart_ptr because it cannot be derived from a structure
+   *        However, the main reason for preventing it is the danger of assigning the
+   *        "this" pointer to a smart_ptr within any function in the union.
+   */
+  static_assert(!std::is_union<T>::value, "We do not allow creating smart pointer with union to prevent mis-usage of this pointer");
+
+  //! Default constructor
+  smart_ptr() : m_data(nullptr) {}
+  //! One-arg constructor. Starts a fresh object with reference count 1. May throw T* exception
+  smart_ptr(T* ptr) : m_data(nullptr) { p_assign(ptr); }
+  //! Copy constructor (Increments the reference count)
+  smart_ptr(const smart_ptr& obj) : m_data(nullptr) { p_assign(obj); }
+  //! Virtual destructor. Releases the smart pointer by decrementing the reference count.
+  virtual ~smart_ptr() { p_release(); }
+
+  //! Returns the pointer to the object
+  T* ptr() const { return p_get(m_data); }
+  //! Checks whether the smart pointer is empty or not
+  bool empty() const { return !p_get(m_data); }
+  //! Clears the smart pointer by decrementing the reference count.
+  void clear() { p_release(); m_data = nullptr; }
+
+  // scope resolution operators ( throws a std::string() error if it is a null pointer)
+  const T* operator ->() const throw (std::string) { throw_if_empty(); return p_get(m_data); }
+  T* operator ->() throw (std::string) { throw_if_empty(); return p_get(m_data); }
+  const T& operator *() const throw (std::string) { throw_if_empty(); return *(p_get(m_data)); }
+  T& operator *() throw (std::string) { throw_if_empty(); return *(p_get(m_data)); }
+
+  // condition checking operators
+  bool operator ==(T* ptr) const { return (this->ptr() == ptr); }
+  bool operator ==(const smart_ptr& obj) const { return (m_data == obj.m_data); }
+  bool operator !=(T* ptr) const { return (this->ptr() != ptr); }
+  bool operator !=(const smart_ptr& obj) const { return (m_data != obj.m_data); }
+  bool operator !() const { return (!m_data || !p_get(m_data)); }
+  operator void*() const { return this->ptr(); }
+  int refCount() const { return getRefCount(); }
+
+  // assignment operators
+  //! Starts a fresh object with reference count 1. May throw T* exception
+  smart_ptr& operator =(T* ptr) { return p_assign(ptr); }
+  smart_ptr& operator =(const smart_ptr& obj) { return p_assign(obj); }
+
+//////////////////////////
+//
+// private members
+//
+//////////////////////////
+private:
+  struct SmartRefHelper
+  {
+  public:
+    static SmartRef* allocate(T* ptr)
+    {
+      //cout << "Calling SmartRefHelper allocate" << endl;
+      return dynamic_cast<SmartRef*>(ptr);
+    }
+    static void deallocate(SmartRef* pData)
+      {
+        if ( pData )
+        {
+          // Get T* and delete, or can we delete pData directly?
+          T* p = get(pData);
+          if ( p ) (*pfnDelete)(p);
+        }
+      }
+    static T* get(SmartRef* pData)
+      {
+        if ( !pData ) return nullptr;
+        T* p = dynamic_cast<T*>(pData);
+        if ( !p )
+        {
+          ///////////////////////////////////////////////////////////////////////////////////
+          //
+          //                    ***** THIS IS A SPECIAL CASE ******
+          //
+          ////////////////////////////////////////////////////////////////////////////////////
+          // This can happen when the upcasting class inherits SmartRef as private/protected.
+          // In this case, a dynamic_cast would return nullptr.
+          // So, we cast it using static_cast first, and then do a dynamic_cast.
+          // ***** If something is wrong, we need to revisit this code. *****
+          ////////////////////////////////////////////////////////////////////////////////////
+          p = dynamic_cast<T*>(static_cast<T*>(pData));
+          //cout << "Calling SmartRefHelper get: [" << pData << "] " << data << endl;
+        }
+        return p;
+      }
+  };
+
+  struct SmartRefEx : public SmartRef
+  {
+  private:
+    T* ptr;
+    SmartRefEx(T* p) : ptr(p) {}
+
+  public:
+    static SmartRef* allocate(T* ptr)
+      {
+        //cout << "Calling SmartRefEx allocate" << endl;
+        SmartRefEx* pDataEx = nullptr;
+        if ( ptr )
+        {
+          // allocate memory for handling smart pointer
+          pDataEx = new SmartRefEx(ptr);
+          // if memory allocation failed, throw "ptr" as an exception
+          // the caller must use catch() and perform necessary cleanup action on ptr
+          if ( pDataEx == nullptr ) throw ptr;
+        }
+        return dynamic_cast<SmartRef*>(pDataEx);
+      }
+    static void deallocate(SmartRef* pData)
+      {
+        if ( pData )
+        {
+          T* p = get(pData);
+          if ( p ) (*pfnDelete)(p);
+          delete pData;
+        }
+      }
+    static T* get(SmartRef* pData)
+      {
+        if ( !pData ) return nullptr;
+        SmartRefEx* pDataEx = dynamic_cast<SmartRefEx*>(pData);
+        return ( pDataEx )? pDataEx->ptr : nullptr;
+      }
+  };
+
+#define IS_ALREADY_SMARTREF (std::is_base_of<SmartRef, T>::value != 0)
+  typedef typename std::conditional<IS_ALREADY_SMARTREF, SmartRefHelper, SmartRefEx>::type SmartData;
+  SmartRef* m_data; // internal smart pointer object
+
+private:
+  int incRefCount() { return (!m_data)?  0:++m_data->__refcount__value; }
+  int decRefCount() { return (!m_data)? -1:--m_data->__refcount__value; }
+  int getRefCount() const { return (!m_data)? 0:m_data->__refcount__value.load(); }
+  void throw_if_empty() const throw (std::string) { if ( empty() ) throw std::string("Cannot reference null pointer"); }
+
+  T* p_get(SmartRef* pData) const { return SmartData::get(pData); }
+
+  smart_ptr& p_assign(T* ptr)
+  {
+    // Perform assignment only when both pointers are different
+    if ( this->ptr() != ptr )
+    {
+      p_release();
+      m_data = SmartData::allocate(ptr);
+      incRefCount();
+    }
+    return *this;
+  }
+
+  smart_ptr& p_assign(const smart_ptr& obj)
+  {
+    // Perform assignment only when both pointers are different
+    if ( m_data != obj.m_data )
+    {
+      p_release();
+      m_data = obj.m_data;
+      incRefCount();
+    }
+    return *this;
+  }
+
+  /**
+   * @brief releases the smart pointer object
+   */
+  void p_release()
+  {
+    // 1) decrement the reference count
+    // 2) if the reference count is zero, delete both the pointers
+    if ( m_data != nullptr && decRefCount() == 0 )
+    {
+      SmartData::deallocate(m_data);
+      m_data = nullptr;
+    }
+  }
+};
+
+/**
+ * @class SmartRefContainer
+ * @brief Used as SmartRef container class to support unions and c-defined structs
+ */
+template <class T, void (*pfnDelete)(T*) = smart_ptr_delete> class SmartRefContainer : public SmartRef
+{
+public:
+  //! The only way to create this object
+  static smart_ptr< SmartRefContainer<T, pfnDelete> > create_smart_ptr(T* p) throw (T*)
+  {
+    smart_ptr< SmartRefContainer<T, pfnDelete> > ptr;
+    if ( p )
+    {
+      try { ptr = new SmartRefContainer(p); } catch (...) { throw p; }
+      if ( ptr.empty() ) throw p;
+    }
+    return ptr;
+  }
+  //! Destructor
+  ~SmartRefContainer() { if ( m_p ) (*pfnDelete)(m_p); }
+  //! Checks for empty
+  bool empty() const { return (m_p == nullptr); }
+  //! Returns the pointer associated with this class
+  T* ptr() const { return m_p; }
+
+private:
+  T* m_p;
+
+private:
+  //! Private constructor
+  SmartRefContainer(T* p) : m_p(p) {}
+  SmartRefContainer(const SmartRefContainer&); // Copy construction is not allowed
+  SmartRefContainer& operator=(const SmartRefContainer&); // Copy operation is not allowed
+};
+
+typedef smart_ptr<SmartRef> SmartRefPtr;
+
+} // namespace sid
+
+#endif // _SID_SMARTPTR_
