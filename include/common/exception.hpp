@@ -4,7 +4,7 @@ LICENSE: BEGIN
 @author Shanmuga (Anand) Gunasekaran
 @email anand.gs@gmail.com
 @source https://github.com/shan-anand
-@brief Template class for having optional parameters
+@brief Exception object thrown by all the functions in the project
 ===============================================================================
 MIT License
 
@@ -30,52 +30,48 @@ SOFTWARE.
 ===============================================================================
 LICENSE: END
 */
+#ifndef _SID_EXCEPTION_H_
+#define _SID_EXCEPTION_H_
 
-/**
- * @file  optional.hpp
- * @brief Template class for handling optional parameters
- */
-
-#ifndef _SID_OPTIONAL_HPP_
-#define _SID_OPTIONAL_HPP_
+#include <string>
+#include <exception>
 
 namespace sid {
 
 /**
- * @class optional
- * @brief Template class for having optional parameters in a structure or in a function
+ * @class exception
+ * @brief exception class used by the library
  */
-template <typename T> struct optional
+class exception : public std::exception
 {
-private:
-  T    m_value;
-  bool m_exists;
 public:
-  //! Default constructor
-  optional() { clear(); }
-  //! Copy constructor
-  optional(const optional& _obj) { *this = _obj; }
-  //! Constructor with template type
-  optional(const T& _v) { *this = _v; }
+  using super = std::exception;
+  exception() noexcept { m_code = 0; }
+  exception(const std::string& _msg) noexcept : m_code(-1), m_msg(_msg) {}
+  exception(int _code, const std::string& _msg) noexcept : m_code(_code), m_msg(_msg) {}
+  //! Default copy constructor
+  exception(const exception&) = default;
+  virtual ~exception() {}
+  //! Default copy operator
+  exception& operator= (const exception&) = default;
+  
+  const char* what() const noexcept override { return m_msg.c_str(); }
+  const std::string& message() const noexcept { return m_msg; }
 
-  //! Set the object exists
-  void set() { m_exists = true; }
-  //! Clear the object
-  void clear() { m_exists = false; }
-  //! Clear the object with a given value
-  void clear(const T& _v) { m_exists = false; m_value = _v; }
-  //! Assignment operators
-  const optional& operator=(const optional& _obj) { m_value = _obj.m_value; m_exists = _obj.m_exists; return *this; }
-  const optional& operator=(const T& _v) { m_value = _v; m_exists = true; return *this; }
-  //! Value getter
-  const T& operator()() const { return m_value; }
-  T& operator()() { return m_value; }
-  //! Return the default value if it doesn't exist
-  const T& operator()(const T& _defaultIfNotExists) const { return m_exists? m_value : _defaultIfNotExists; }
-  //! Check for existence
-  bool exists(T* _p = nullptr) const { if ( m_exists && _p ) { *_p = m_value;} return m_exists; }
+  int code() const noexcept { return m_code; }
+  bool success() const noexcept { return m_code == 0; }
+  bool failure() const noexcept { return m_code != 0; }
+
+  void clear() { m_code = 0; m_msg.clear(); }
+
+  void set(const std::string& _msg) { m_code = -1; m_msg = _msg; }
+  void set(int _code, const std::string& _msg) { m_code = _code; m_msg = _msg; }
+
+protected:
+  int         m_code;
+  std::string m_msg;
 };
 
 } // namespace sid
 
-#endif // _SID_OPTIONAL_HPP_
+#endif // _SID_EXCEPTION_H_

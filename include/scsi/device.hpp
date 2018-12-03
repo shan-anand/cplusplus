@@ -63,7 +63,7 @@ enum class DeviceType { Invalid = -1, Generic, IScsi };
  * @class DeviceInfo_t
  * @brief SCSI Device information interface
  */
-struct DeviceInfo_t : public SmartRef
+struct DeviceInfo_t : public smart_ref
 {
   DeviceInfo_t();
   virtual ~DeviceInfo_t();
@@ -82,7 +82,7 @@ struct DeviceInfo_t : public SmartRef
  * @class Device_t
  * @brief Send SCSI commands
  */
-class Device_t : public SmartRef
+class Device_t : public smart_ref
 {
 public:
   virtual ~Device_t();
