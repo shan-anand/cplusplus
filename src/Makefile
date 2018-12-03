@@ -1,4 +1,4 @@
-SUBDIRS = Util Scsi
+SUBDIRS = common scsi
 
 .PHONY: subdirs $(SUBDIRS)
 
