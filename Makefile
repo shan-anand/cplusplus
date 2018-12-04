@@ -1,20 +1,5 @@
 SUBDIRS = src
 
-.PHONY: subdirs
+#rm -f $$(ls lib/* | egrep -v README)
 
-subdirs:
-	$(MAKE) -C src
-
-.PHONY: clean
-clean:
-	rm -f *~
-	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir clean; \
-	done
-
-.PHONY: unmake
-unmake: clean
-	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir unmake; \
-	done
-	rm -f $$(ls lib/* | egrep -v README)
+include $(SID_ROOT)/build.mk
