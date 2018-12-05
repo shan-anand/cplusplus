@@ -2,10 +2,13 @@ ifndef SID_ROOT
 	$(error You must set the environment variable SID_ROOT)
 endif
 
-#PWD:=$(CURDIR)
+# This is done to dereference if SID_ROOT is a symbolic link
+PROJECT_ROOT=$(shell readlink -f $(SID_ROOT))
+
+PWD:=$(CURDIR)
 #PWD:=$(PWD)
-ifeq ($(filter $(SID_ROOT) $(SID_ROOT)/%,$(PWD)),)
-$(warning Current directory $(PWD) is not inside SID_ROOT $(SID_ROOT); SID_ROOT may be incorrect.)
+ifeq ($(filter $(PROJECT_ROOT) $(PROJECT_ROOT)/%,$(PWD)),)
+$(warning Current directory $(PWD) is not inside SID_ROOT $(PROJECT_ROOT); SID_ROOT may be incorrect.)
 endif
 
 ######################################################
@@ -22,7 +25,7 @@ LD=$(if $(strip $(PUREC)),$(CC),$(CXX))
 CFLAGS = -Wall -g -O2 -fshort-wchar -Wno-frame-address -MD
 #CFLAGS = -g -c -MD -Wall
 
-CPPFLAGS = -D_GNU_SOURCE=1 -I$(SID_ROOT)/include $(LOCAL_INCLUDES)
+CPPFLAGS = -D_GNU_SOURCE=1 -I$(PROJECT_ROOT)/include $(LOCAL_INCLUDES)
 LDFLAGS = $(LOCAL_LIBS)
 
 CFLAGS += -Werror
@@ -39,9 +42,10 @@ endif
 CXXFLAGS = $(CFLAGS) -std=gnu++11
 ######################################################
 
-MODULE_PATH:=$(SID_ROOT)/$(shell echo "$(PWD:$(SID_ROOT)/%=%)" | cut -d/ -f1)
+MODULE_PATH:=$(PROJECT_ROOT)/$(shell echo "$(PWD:$(PROJECT_ROOT)/%=%)" | cut -d/ -f1)
 
-OUT_LIB_PATH:=$(MODULE_PATH)/lib
+#OUT_LIB_PATH:=$(MODULE_PATH)/lib
+OUT_LIB_PATH:=$(PROJECT_ROOT)/lib
 
 ifndef MACH
 MACH:=$(shell uname -m)
@@ -98,7 +102,7 @@ endif
 	cp -f $@ $(OUT_LIB_PATH)/
 
 # make X in subdirs
-$(SUBDIRS):
+$(PRE_SUBDIRS):
 	$(MAKE) -C $@
 
 # make X in subdirs
@@ -106,7 +110,7 @@ $(POST_SUBDIRS):
 	$(MAKE) -C $@
 
 subdir.%:
-	@for d in $(SUBDIRS) $(POST_SUBDIRS) ; do \
+	@for d in $(PRE_SUBDIRS) $(POST_SUBDIRS) ; do \
 		$(MAKE) -C $$d $* || exit 1 ; \
 	done
 
@@ -129,9 +133,9 @@ clean: subdir.clean local.clean
 unmake: subdir.unmake local.unmake
 
 # main target
-all: $(SUBDIRS) dircreate $(SOURCE_FILES) $(OUT_FILE) $(POST_SUBDIRS)
+all: $(PRE_SUBDIRS) dircreate $(SOURCE_FILES) $(OUT_FILE) $(POST_SUBDIRS)
 
-.PHONY: all clean unmake $(SUBDIRS) $(POST_SUBDIRS)
+.PHONY: all clean unmake $(PRE_SUBDIRS) $(POST_SUBDIRS)
 
 # include dependency files for each source file
 -include $(OBJECT_FILES:%.o=%.d)

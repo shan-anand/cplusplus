@@ -1,4 +1,4 @@
-SUBDIRS = src
+PRE_SUBDIRS = src
 
 #rm -f $$(ls lib/* | egrep -v README)
 
