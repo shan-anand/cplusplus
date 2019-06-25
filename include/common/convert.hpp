@@ -218,7 +218,13 @@ T to_num(const char* _nptr, const num_base& _baseType) throw (sid::exception)
     errno = 0;
 
     if ( std::is_unsigned<T>::value )
-      res = strtoull(csVal.c_str(), nullptr, static_cast<int>(base));
+    {
+      // An unsigned number cannot be negative. If it starts with a minus sign set the range error
+      if ( csVal[0] == '-' )
+	errno = ERANGE;
+      else
+	res = strtoull(csVal.c_str(), nullptr, static_cast<int>(base));
+    }
     else
       res = strtoll(csVal.c_str(), nullptr, static_cast<int>(base));
 
