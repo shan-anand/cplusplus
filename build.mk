@@ -97,7 +97,7 @@ $(OUT_FILE): $(OBJECT_FILES)
 ifdef LIB_PROJ
 	ar rcs $@ $(OBJECT_FILES)
 else
-	$(LD) $(OBJECT_FILES) $(LDFLAGS) -o $@
+	$(LD) $(OBJECT_FILES) -L$(SID_ROOT)/lib $(LDFLAGS) -o $@
 endif
 	cp -f $@ $(OUT_LIB_PATH)/
 
