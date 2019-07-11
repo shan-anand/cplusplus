@@ -1,0 +1,214 @@
+/*
+LICENSE: BEGIN
+===============================================================================
+@author Shan Anand
+@email anand.gs@gmail.com
+@source https://github.com/shan-anand
+@brief HTTP library implementation in C++
+===============================================================================
+MIT License
+
+Copyright (c) 2017 Shanmuga (Anand) Gunasekaran
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+===============================================================================
+LICENSE: END
+*/
+
+/**
+ * @file connection.hpp
+ * @brief Defines connection object.
+ *
+ * This is an abstract class that cannot be instantiated directly. You must use
+ * the create() method to create an instance of httpconnection or httpsconnection.
+ */
+#ifndef _SID_HTTP_CONNECTION_H_
+#define _SID_HTTP_CONNECTION_H_
+
+#include "method.hpp"
+#include "status.hpp"
+#include <common/smart_ptr.hpp>
+#include <string>
+#include <unistd.h>
+
+#define DEFAULT_PORT_HTTP  80
+#define DEFAULT_PORT_HTTPS 443
+
+#define DEFAULT_NONBLOCKING_TIMEOUT 30 // seconds
+
+namespace sid {
+namespace http {
+
+class connection;
+class request;
+class response;
+
+//! A smart pointer to the connection object.
+using connection_ptr = sid::smart_ptr<connection>;
+
+//! Available connection types
+enum connection_type : uint8_t { http, https };
+
+/**
+ * @class connection
+ * @brief An abstract class for HTTP/HTTPS connection.
+ */
+class connection : public sid::smart_ref
+{
+public:
+  //! Default constructor
+  connection();
+
+  //! Virtual destructor
+  virtual ~connection();
+
+  ////////////////////////////////////////////////////////////////////////////
+  // Virtual functions
+  // These functions will be overwritten in the derived class
+
+  //! Get the connection type
+  virtual const connection_type type() const = 0;
+
+  /**
+   * @fn bool open(const std::string& _server, const unsigned short& _port = 0);
+   * @brief Open a connection to the given server at the specified port
+   *
+   * @param _server [in] Server name or IP address
+   * @param _port [in] Port to be connected to at the server. If left unspecified or 0,
+   *                  it takes the default port as per the connection type.
+   *
+   * @return true if the connection was successful, false otherwise.
+   *         error() will contain the last error string in case of failure.
+   * @seealso error()
+   */
+  virtual bool open(const std::string& _server, const unsigned short& _port = 0) = 0;
+
+  /**
+   * @fn bool open(int _sockfd);
+   * @brief Open a connection object with the given sockfd.
+   *        This function is called on the server side after the accept() function
+   *        returns the client socket.
+   *
+   * @param _sockfd [in] Socket descriptor. (Usually the client socket).
+   *
+   * @return true if the connection object was successfully created, false otherwise.
+   *         On success, sockfd is owned by the connection object and caller should not close it.
+   *         On error, sockfd must be closed by the caller.
+   *         error() will contain the last error string in case of failure.
+   * @seealso error()
+   */
+  virtual bool open(int _sockfd) = 0;
+
+  //! Checks if the connection is open or not.
+  virtual bool is_open() const = 0;
+
+  /**
+   * @fn bool close();
+   * @brief Closes the open connection.
+   *
+   * @return true if the connection was closed successfully, false otherwise.
+   */
+  virtual bool close() = 0;
+
+  /**
+   * @fn ssize_t write(const void* _buffer, size_t _count);
+   * @brief Write data to the connection object.
+   *
+   * @param _buffer [in] pointer to the data to be written
+   * @param _count [in] length of data to be written
+   *
+   * @return The number of bytes written is returned.
+   *         On error, -1 is returned, and errno is set appropriately.
+   */
+  virtual ssize_t write(const void* _buffer, size_t _count) = 0;
+
+  /**
+   * @fn ssize_t read(void* _buffer, size_t _count);
+   * @brief Read data from the connection object.
+   *
+   * @param _buffer [in/out] pointer to the data where data is to be read. It should be preallocated by the user.
+   * @param _count [in] length of data to be read
+   *
+   * @return The number of bytes read is returned (zero indicates end of data).
+   *         On error, -1 is returned, and errno is set appropriately.
+   */
+  virtual ssize_t read(void* _buffer, size_t _count) = 0;
+
+  /**
+   * @fn void set_non_blocking(bool _bEnable);
+   * @brief Set or resets non-blocking mode
+   *
+   * @param _bEnable [in] if true, it enables non-blocking mode. If false, it enables blocking mode
+   *
+   * @return true, if the operation succeeded, false otherwise
+   */
+  virtual bool set_non_blocking(bool _bEnable) = 0;
+
+  //! returns true if the communication is non-blocking
+  virtual bool is_non_blocking() const = 0;
+  virtual bool is_blocking() const = 0;
+  //
+  ////////////////////////////////////////////////////////////////////////////
+
+  //! Get the non-blocking timeout value in seconds
+  uint32_t get_non_blocking_timeout() const { return m_nonBlockingTimeout; }
+  //! Set the non-blocking timeout value in seconds. Returns the old value.
+  uint32_t set_non_blocking_timeout(uint32_t _seconds)
+    {
+      uint32_t old = m_nonBlockingTimeout;
+      m_nonBlockingTimeout = _seconds;
+      return old;
+    }
+    
+  //! Returns the last error string
+  const std::string& error() const { return m_error; }
+  //! Used for setting the last error string
+  const std::string& error(const std::string& err) { m_error = err; return m_error; }
+
+  //! Get the server name or IP address as provided in the connection() method.
+  const std::string& server() const { return m_server; }
+
+  //! Get the actual server port in use.
+  const unsigned int port() const { return m_port; }
+
+  //! Checks if the error is a retryable error so that applications can retry the last method.
+  const bool is_retryable() const { return m_retryable; }
+
+  /**
+   * @fn connection_ptr create(const connection_type& _type) throw (sid::exception);
+   * @brief Creates a connection object based on the connection type specified. In case of error it throws a sid::exception.
+   *
+   * @param _type [in] Type of connection (HTTP or HTTPS)
+   *
+   * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
+   */
+  static connection_ptr create(const connection_type& _type) throw (sid::exception);
+
+protected:
+  std::string    m_server;        //! Server or IP address of the connection
+  std::string    m_error;         //! Last error
+  unsigned short m_port;          //! Port connected to at the server
+  bool           m_retryable;     //! Retryable error or not? Set by implemented virtual function.
+  uint32_t       m_nonBlockingTimeout; //! Timeout in seconds for non-blocking mode.
+};
+
+} // namespace http
+} // namespace sid
+
+#endif // _SID_HTTP_CONNECTION_H_
