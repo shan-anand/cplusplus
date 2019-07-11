@@ -47,7 +47,7 @@ LICENSE: END
 namespace sid {
 
 //! Base type of a number
-enum class num_base { any = 0, binary = 2, decimal = 10, hex = 16, octal = 8 };
+enum class num_base { any = 0, binary = 2, octal = 8, decimal = 10, hex = 16 };
 
 //! Match case options
 enum class match_case { exact, any, lower, upper, camel };
@@ -178,28 +178,30 @@ T to_num(const char* _nptr, const num_base& _baseType) throw (sid::exception)
     // if it starts with 0x or 0X then it's hexadecimal
     if ( *ps == '0' && tolower(*(ps+1)) == 'x' )
     {
-      base = num_base::hex;
-      ps+=2;
+      // if the _baseType is not set explicity, use hexadecimal, otherwise use the explicitly set type
+      base = (_baseType == num_base::any)? num_base::hex : _baseType;
+      // if the conversion type is hexadecimal move the pointer by 2, otherwise by 1
+      ps += (base == num_base::hex)? 2 : 1;
     }
     // if it starts with 0b or 0B then it's binary
     else if ( *ps == '0' && tolower(*(ps+1)) == 'b' )
     {
-      base = num_base::binary;
-      ps+=2;
+      // if the _baseType is not set explicity, use binary, otherwise use the explicitly set type
+      base = (_baseType == num_base::any)? num_base::binary : _baseType;
+      // if the conversion type is binary move the pointer by 2, otherwise by 1
+      ps += (base == num_base::binary)? 2 : 1;
     }
     // if it starts with 0 and does not follow with 'x' or 'b', then it may be octal
     else if ( *ps == '0' && *(ps+1) != '\0' )
     {
+      // if the _baseType is not set explicity, use octal, otherwise use the explicitly set type
       base = (_baseType == num_base::any)? num_base::octal : _baseType;
       ps++;
     }
     else
-      base = (_baseType == num_base::any)? num_base::decimal : _baseType;
-
-    if ( _baseType != num_base::any && _baseType != base )
     {
-      base = _baseType;
-      throw EINVAL;
+      // if the _baseType is not set explicity, use decimal, otherwise use the explicitly set type
+      base = (_baseType == num_base::any)? num_base::decimal : _baseType;
     }
 
     for ( const char* p = ps; p <= pe; p++ )
