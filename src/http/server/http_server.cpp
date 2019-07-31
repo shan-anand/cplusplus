@@ -87,22 +87,22 @@ void http_server::stop()
 
 void http_server::run(unsigned short port)
 {
-  struct sockaddr_in serv_addr, cli_addr;
+  struct sockaddr_in6 serv_addr, cli_addr;
   int clientSocket = -1;
   ClientData* client = NULL;
 
   try
   {
     m_port = port;
-    m_socket = socket(AF_INET, SOCK_STREAM, 0);
+    m_socket = socket(AF_INET6, SOCK_STREAM, 0);
     if ( m_socket < 0 )
       throw std::string("Error creating socket: ")+errStr(errno);
 
     // Initialize server socket address
     bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(m_port);
+    serv_addr.sin6_family = AF_INET6;
+    serv_addr.sin6_addr = in6addr_any;
+    serv_addr.sin6_port = htons(m_port);
 
     // bind the host address, port to the socket
     if ( bind(m_socket, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0 )

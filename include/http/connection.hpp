@@ -65,6 +65,9 @@ using connection_ptr = sid::smart_ptr<connection>;
 //! Available connection types
 enum connection_type : uint8_t { http, https };
 
+//! Available connection families
+enum connection_family : uint8_t { none = 0, ip_v4 = 4, ip_v6 = 6 };
+
 /**
  * @class connection
  * @brief An abstract class for HTTP/HTTPS connection.
@@ -184,6 +187,9 @@ public:
   //! Get the server name or IP address as provided in the connection() method.
   const std::string& server() const { return m_server; }
 
+  //! Connection family used
+  const connection_family family() const { return m_family; }
+
   //! Get the actual server port in use.
   const unsigned int port() const { return m_port; }
 
@@ -198,14 +204,15 @@ public:
    *
    * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
    */
-  static connection_ptr create(const connection_type& _type) throw (sid::exception);
+  static connection_ptr create(const connection_type& _type, const connection_family& _family = connection_family::none) throw (sid::exception);
 
 protected:
-  std::string    m_server;        //! Server or IP address of the connection
-  std::string    m_error;         //! Last error
-  unsigned short m_port;          //! Port connected to at the server
-  bool           m_retryable;     //! Retryable error or not? Set by implemented virtual function.
-  uint32_t       m_nonBlockingTimeout; //! Timeout in seconds for non-blocking mode.
+  std::string       m_server;        //! Server or IP address of the connection
+  connection_family m_family;        //! Connection family in use
+  std::string       m_error;         //! Last error
+  unsigned short    m_port;          //! Port connected to at the server
+  bool              m_retryable;     //! Retryable error or not? Set by implemented virtual function.
+  uint32_t          m_nonBlockingTimeout; //! Timeout in seconds for non-blocking mode.
 };
 
 } // namespace http

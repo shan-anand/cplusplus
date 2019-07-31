@@ -161,7 +161,7 @@ connection::~connection()
  *
  * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
  */
-connection_ptr connection::create(const connection_type& _type) throw (sid::exception)
+connection_ptr connection::create(const connection_type& _type, const connection_family& _family/* = connection_family::none*/) throw (sid::exception)
 {
   connection_ptr conn;
   http::connection* ptr = nullptr;
@@ -178,6 +178,7 @@ connection_ptr connection::create(const connection_type& _type) throw (sid::exce
 
     // Copy the created object to the smart pointer
     conn = ptr;
+    conn->m_family = _family;
   }
   catch ( http::connection* p )
   {
@@ -245,7 +246,8 @@ bool http_connection::open(const std::string& server, const unsigned short& port
       throw sid::exception("Server name cannot be empty");
 
     memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC;     // Allow IPv4 or IPv6
+    hints.ai_family = (m_family == connection_family::ip_v4)? AF_INET :
+                      (m_family == connection_family::ip_v6)? AF_INET6 : AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM; // Stream socket
     hints.ai_flags = 0;
     hints.ai_protocol = 0;           // Any protocol
@@ -260,25 +262,57 @@ bool http_connection::open(const std::string& server, const unsigned short& port
        If socket(2) (or connect(2)) fails, we (close the socket
        and) try the next address. */
 
-    for ( rp = result; rp; rp = rp->ai_next )
+    char szName[256] = {0};
+    bool found = false;
+    for ( rp = result; rp && !found; rp = rp->ai_next )
     {
       int sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-      if (sfd == -1) continue;
+      if ( sfd == -1 ) continue;
 
-      if ( connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1 )
+      switch ( rp->ai_addr->sa_family )
       {
-        struct sockaddr_in* saddr = (struct sockaddr_in*) rp->ai_addr;
-        // set the server and socket descriptor
-        m_server = inet_ntoa(saddr->sin_addr);
-        m_socket = sfd;
-        break;
+      case AF_INET:
+	{
+	  struct sockaddr_in* saddr = (struct sockaddr_in*) rp->ai_addr;
+	  // set the server and socket descriptor
+	  memset(szName, 0, sizeof(szName));
+	  inet_ntop(AF_INET, &(saddr->sin_addr), szName, INET_ADDRSTRLEN);
+	  //std::string svr = inet_ntoa(saddr->sin_addr);
+	  if ( connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1 )
+	  {
+	    // set the server and socket descriptor
+	    m_server = szName;
+	    m_socket = sfd;
+	    m_family = connection_family::ip_v4;
+	    found = true;
+	  }
+	}
+	break;
+      case AF_INET6:
+	{
+	  struct sockaddr_in6* saddr6 = (struct sockaddr_in6 *) rp->ai_addr;
+	  // set the server and socket descriptor
+	  memset(szName, 0, sizeof(szName));
+	  inet_ntop(AF_INET6, &(saddr6->sin6_addr), szName, INET6_ADDRSTRLEN);
+	  if ( connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1 )
+	  {
+	    // set the server and socket descriptor
+	    m_server = szName;
+	    m_socket = sfd;
+	    m_family = connection_family::ip_v6;
+	    found = true;
+	  }
+	}
+	break;
       }
-      ::close(sfd);
+      if ( !found )
+	::close(sfd);
     }
     freeaddrinfo(result);
-    if ( ! rp )
+    if ( ! found )
       throw sid::exception(std::string("Could not connect to server ") + server + " at port " + csPort);
 
+    cout << "SERVER: " << m_server << endl;
     // set the port member
     m_port = httpPort;
 

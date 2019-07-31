@@ -84,18 +84,38 @@ bool url::set(const std::string& _csUrl)
 
 
     p1+=3; // For "://"
-    p2 = _csUrl.find_first_of(":/?", p1);
-    if ( p2 == std::string::npos )
+    // Check for IPv6 format
+    while ( _csUrl[p1] == ' ' ) p1++;
+    if ( _csUrl[p1] == '[' )
     {
-      this->server = _csUrl.substr(p1);
-      if ( this->server.empty() )
-        throw std::string("Invalid URL format: No server name");
-    }
-    else
-    {
+      p2 = _csUrl.find(']', p1);
+      if ( p2 == std::string::npos )
+	throw std::string("Invalid IPV6 format. Requires ]");
+
+      p1++;
       this->server = _csUrl.substr(p1, p2-p1);
       if ( this->server.empty() )
         throw std::string("Invalid URL format: No server name");
+      p1 = p2+1;
+    }
+    p2 = _csUrl.find_first_of(":/?", p1);
+    if ( p2 == std::string::npos )
+    {
+      if ( this->server.empty() )
+      {
+	this->server = _csUrl.substr(p1);
+	if ( this->server.empty() )
+	  throw std::string("Invalid URL format: No server name");
+      }
+    }
+    else
+    {
+      if ( this->server.empty() )
+      {
+	this->server = _csUrl.substr(p1, p2-p1);
+	if ( this->server.empty() )
+	  throw std::string("Invalid URL format: No server name");
+      }
       if ( _csUrl[p2] == '/' || _csUrl[p2] == '?' )
       {
         if ( _csUrl[p2] == '?' ) this->resource = "/";

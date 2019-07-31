@@ -128,16 +128,16 @@ bool request::send(connection_ptr _conn)
     this->error.clear();
 
     if ( _conn.empty() || ! _conn->is_open() )
-      throw std::string("Connection is not established");
+      throw sid::exception("Connection is not established");
 
     std::string csRequest = this->to_str();
 
     // set the return status to true
     bStatus = send(_conn, csRequest);
   }
-  catch ( const std::string& csErr )
+  catch ( const sid::exception& e )
   {
-    this->error = __func__ + std::string(": ") + csErr;
+    this->error = __func__ + std::string(": ") + e.what();
   }
   catch (...)
   {
@@ -173,9 +173,9 @@ bool request::send(connection_ptr _conn, const void* _buffer, size_t _count)
     // set the return status to true
     bStatus = true;
   }
-  catch ( const std::string& csErr )
+  catch ( const sid::exception& e )
   {
-    this->error = __func__ + std::string(": ") + csErr;
+    this->error = __func__ + std::string(": ") + e.what();
   }
   catch (...)
   {
@@ -211,9 +211,9 @@ bool request::recv(connection_ptr _conn)
     // set the return status to true
     bStatus = true;
   }
-  catch ( const std::string& csErr )
+  catch ( const sid::exception& e )
   {
-    this->error = __func__ + std::string(": ") + csErr;
+    this->error = __func__ + std::string(": ") + e.what();
   }
   catch (...)
   {
