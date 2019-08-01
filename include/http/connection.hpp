@@ -53,6 +53,43 @@ LICENSE: END
 #define DEFAULT_NONBLOCKING_TIMEOUT 30 // seconds
 
 namespace sid {
+
+namespace ssl
+{
+//! SSL Certificate type
+enum class certificate_type : uint8_t { none = 0, client, server };
+
+//! SSL Certificate
+struct certificate
+{
+  //! Client certificate
+  struct client_certificate
+  {
+    std::string chainFile;
+    std::string privateKeyFile;
+    int         privateKeyType;
+    client_certificate() : chainFile(), privateKeyFile(), privateKeyType(0) {}
+    void clear() { chainFile.clear(); privateKeyFile.clear(); privateKeyType = 0; }
+  };
+  //! Server certificate
+  struct server_certificate
+  {
+    std::string caFile;
+    std::string caPath;
+    void clear() { caFile.clear(); caPath.clear(); }
+  };
+  //! Default constructor
+  certificate() : type(certificate_type::none), client(), server() {}
+  void clear() { type = certificate_type::none; client.clear(); server.clear(); }
+
+  // Member variables
+  certificate_type   type;
+  client_certificate client;
+  server_certificate server;
+};
+
+} // namespace ssl
+
 namespace http {
 
 class connection;
@@ -196,15 +233,43 @@ public:
   //! Checks if the error is a retryable error so that applications can retry the last method.
   const bool is_retryable() const { return m_retryable; }
 
+  // Certificate used
+  const ssl::certificate& certificate() const { return m_sslCert; }
+
   /**
-   * @fn connection_ptr create(const connection_type& _type) throw (sid::exception);
+   * @fn connection_ptr create(const connection_type& _type, const connection_family& _family) throw (sid::exception);
    * @brief Creates a connection object based on the connection type specified. In case of error it throws a sid::exception.
    *
    * @param _type [in] Type of connection (HTTP or HTTPS)
+   * @param _family [in] Connection family to use (ipv4 or ipv6 or any)
    *
    * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
    */
   static connection_ptr create(const connection_type& _type, const connection_family& _family = connection_family::none) throw (sid::exception);
+
+  /**
+   * @fn connection_ptr create(const ssl::certificate& _sslCert, const connection_family& _family) throw (sid::exception);
+   * @brief Creates a connection object based on the connection type specified. In case of error it throws a sid::exception.
+   *
+   * @param _sslCert [in] SSL Certificate to be used for HTTPS connection
+   * @param _family [in] Connection family to use (ipv4 or ipv6 or any)
+   *
+   * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
+   */
+  static connection_ptr create(const ssl::certificate& _sslCert, const connection_family& _family = connection_family::none) throw (sid::exception);
+
+private:
+  /**
+   * @fn connection_ptr create(const ssl::certificate& _sslCert, const connection_family& _family) throw (sid::exception);
+   * @brief Creates a connection object based on the connection type specified. In case of error it throws a sid::exception.
+   *
+   * @param _type [in] Type of connection (HTTP or HTTPS)
+   * @param _sslCert [in] SSL Certificate to be used for HTTPS connection
+   * @param _family [in] Connection family to use (ipv4 or ipv6 or any)
+   *
+   * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
+   */
+  static connection_ptr p_create(const connection_type& _type, const ssl::certificate& _sslCert, const connection_family& _family) throw (sid::exception);
 
 protected:
   std::string       m_server;        //! Server or IP address of the connection
@@ -213,6 +278,7 @@ protected:
   unsigned short    m_port;          //! Port connected to at the server
   bool              m_retryable;     //! Retryable error or not? Set by implemented virtual function.
   uint32_t          m_nonBlockingTimeout; //! Timeout in seconds for non-blocking mode.
+  ssl::certificate  m_sslCert;       //! SSL Certificate to be used for https
 };
 
 } // namespace http

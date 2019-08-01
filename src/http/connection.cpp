@@ -68,6 +68,9 @@ using namespace sid::http;
 #define IO_WRITE 2
 #define IO_BOTH  3
 
+#define __SSL_free(s) if ( s ) { SSL_free(s); s = nullptr; }
+#define __SSL_CTX_free(s) if ( s ) { SSL_CTX_free(s); s = nullptr; }
+
 /**
  * @class http_connection
  * @brief Class definition for a HTTP connection.
@@ -163,6 +166,35 @@ connection::~connection()
  */
 connection_ptr connection::create(const connection_type& _type, const connection_family& _family/* = connection_family::none*/) throw (sid::exception)
 {
+  return connection::p_create(_type, ssl::certificate(), _family);
+}
+
+/**
+ * @fn connection_ptr create(const ssl::certificate& _sslCert, const connection_family& _family) throw (sid::exception);
+ * @brief Creates a connection object based on the connection type specified. In case of error it throws a sid::exception.
+ *
+ * @param _sslCert [in] SSL Certificate to be used for HTTPS connection
+ * @param _family [in] Connection family to use (ipv4 or ipv6 or any)
+ *
+ * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
+ */
+connection_ptr connection::create(const ssl::certificate& _sslCert, const connection_family& _family) throw (sid::exception)
+{
+  return connection::p_create(connection_type::https, _sslCert, _family);
+}
+
+/**
+ * @fn connection_ptr create(const ssl::certificate& _sslCert, const connection_family& _family) throw (sid::exception);
+ * @brief Creates a connection object based on the connection type specified. In case of error it throws a sid::exception.
+ *
+ * @param _type [in] Type of connection (HTTP or HTTPS)
+ * @param _sslCert [in] SSL Certificate to be used for HTTPS connection
+ * @param _family [in] Connection family to use (ipv4 or ipv6 or any)
+ *
+ * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
+ */
+connection_ptr connection::p_create(const connection_type& _type, const ssl::certificate& _sslCert, const connection_family& _family) throw (sid::exception)
+{
   connection_ptr conn;
   http::connection* ptr = nullptr;
 
@@ -179,6 +211,7 @@ connection_ptr connection::create(const connection_type& _type, const connection
     // Copy the created object to the smart pointer
     conn = ptr;
     conn->m_family = _family;
+    conn->m_sslCert = _sslCert;
   }
   catch ( http::connection* p )
   {
@@ -553,35 +586,96 @@ https_connection::~https_connection()
 
 bool https_connection::close()
 {
-  if ( m_ssl )
-  {
-    SSL_free(m_ssl);
-    m_ssl = nullptr;
-  }
-  if ( m_sslctx )
-  {
-    SSL_CTX_free(m_sslctx);
-    m_sslctx = nullptr;
-  }
+  __SSL_free(m_ssl);
+  __SSL_CTX_free(m_sslctx);
   http_connection::close();
   return true;
 }
 
+static std::string s_ssl_error_string()
+{
+  char szError[1024] = {0};
+  unsigned long e = ERR_get_error();
+  ERR_error_string_n(e, szError, sizeof(szError)-1);
+  return std::string(szError);
+}
+
 void https_connection::attach_ssl()
 {
-  m_sslctx = SSL_CTX_new ( (SSL_METHOD *) g_clientMethod );
-  if ( !m_sslctx )
-    throw sid::exception("Unable to create new SSL context");
+  try
+  {
+    // Ensure m_ssl and m_sslctx are cleared before starting
+    __SSL_free(m_ssl);
+    __SSL_CTX_free(m_sslctx);
 
-  m_ssl = SSL_new(m_sslctx);
-  if ( !m_ssl )
-    throw sid::exception("Unable to create new SSL object");
+    m_sslctx = SSL_CTX_new ( (SSL_METHOD *) g_clientMethod );
+    if ( !m_sslctx )
+      throw sid::exception("Unable to create new SSL context");
 
-  if ( 0 == SSL_set_fd(m_ssl, m_socket) )
-    throw sid::exception("Unable to set socket on SSL");
+    // Clear the error queue
+    ERR_clear_error();
 
-  if ( 1 != SSL_connect(m_ssl) )
-    throw sid::exception("SSL handshake was unsuccessful");
+    int ret = 0;
+    // Set the certificate if provided
+    const ssl::certificate& cert = this->certificate();;
+    switch ( cert.type )
+    {
+    case ssl::certificate_type::none:
+      break;
+    case ssl::certificate_type::client:
+      if ( cert.client.chainFile.empty() && cert.client.privateKeyFile.empty() )
+	throw sid::exception("Client certificate error: Chain file and private key file are both empty");
+
+      ret = SSL_CTX_use_certificate_chain_file(
+              m_sslctx,
+	      cert.client.chainFile.empty()? nullptr : cert.client.chainFile.c_str()
+            );
+      if ( ret != 1 )
+	throw sid::exception("SSL Ceritificate chain file error: " + s_ssl_error_string());
+
+      ret = SSL_CTX_use_PrivateKey_file(
+	      m_sslctx,
+	      cert.client.privateKeyFile.empty()? nullptr : cert.client.privateKeyFile.c_str(),
+	      cert.client.privateKeyType
+            );
+      if ( ret != 1 )
+	throw sid::exception("SSL Private key file error: " + s_ssl_error_string());
+
+      break;
+    case ssl::certificate_type::server:
+      if ( cert.server.caFile.empty() && cert.server.caPath.empty() )
+	throw sid::exception("Server certificate error: CA file and directory are both empty");
+
+      ret = SSL_CTX_load_verify_locations(
+	      m_sslctx,
+	      cert.server.caFile.empty()? nullptr : cert.server.caFile.c_str(),
+	      cert.server.caPath.empty()? nullptr : cert.server.caPath.c_str()
+            );
+      if ( ret != 1 )
+	throw sid::exception("SSL server certificate error: " + s_ssl_error_string());
+
+      SSL_CTX_set_verify(m_sslctx, SSL_VERIFY_PEER, NULL);
+      break;
+    }
+
+    m_ssl = SSL_new(m_sslctx);
+    if ( !m_ssl )
+      throw sid::exception("Unable to create new SSL object");
+
+    if ( 0 == SSL_set_fd(m_ssl, m_socket) )
+      throw sid::exception("Unable to set socket on SSL");
+
+    if ( 1 != SSL_connect(m_ssl) )
+      throw sid::exception("SSL handshake was unsuccessful");
+  }
+  catch (...)
+  {
+    // clear the context
+    __SSL_free(m_ssl);
+    __SSL_CTX_free(m_sslctx);
+    // rethrow the exception
+    throw;
+  }
 }
 
 bool https_connection::open(const std::string& server, const unsigned short& port)
