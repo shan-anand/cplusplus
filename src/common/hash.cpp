@@ -74,7 +74,7 @@ std::string md_algorithm::name() const
   return std::string(OBJ_nid2sn(m_nid));
 }
 
-digest md_algorithm::get_hash(const uint8_t* _data, uint64_t _dataLen) throw (sid::exception)
+digest md_algorithm::get_hash(const uint8_t* _data, uint64_t _dataLen)
 {
   digest md_digest;
 
@@ -99,7 +99,7 @@ digest md_algorithm::get_hash(const uint8_t* _data, uint64_t _dataLen) throw (si
   return md_digest;
 }
 
-digest md_algorithm::get_hmac(const uint8_t* _key, uint64_t _keyLen, const uint8_t* _data, uint64_t _dataLen) throw (sid::exception)
+digest md_algorithm::get_hmac(const uint8_t* _key, uint64_t _keyLen, const uint8_t* _data, uint64_t _dataLen)
 {
   digest md_digest;
 

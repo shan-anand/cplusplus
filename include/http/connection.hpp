@@ -237,7 +237,7 @@ public:
   const ssl::certificate& certificate() const { return m_sslCert; }
 
   /**
-   * @fn connection_ptr create(const connection_type& _type, const connection_family& _family) throw (sid::exception);
+   * @fn connection_ptr create(const connection_type& _type, const connection_family& _family);
    * @brief Creates a connection object based on the connection type specified. In case of error it throws a sid::exception.
    *
    * @param _type [in] Type of connection (HTTP or HTTPS)
@@ -245,10 +245,10 @@ public:
    *
    * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
    */
-  static connection_ptr create(const connection_type& _type, const connection_family& _family = connection_family::none) throw (sid::exception);
+  static connection_ptr create(const connection_type& _type, const connection_family& _family = connection_family::none);
 
   /**
-   * @fn connection_ptr create(const ssl::certificate& _sslCert, const connection_family& _family) throw (sid::exception);
+   * @fn connection_ptr create(const ssl::certificate& _sslCert, const connection_family& _family);
    * @brief Creates a connection object based on the connection type specified. In case of error it throws a sid::exception.
    *
    * @param _sslCert [in] SSL Certificate to be used for HTTPS connection
@@ -256,11 +256,11 @@ public:
    *
    * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
    */
-  static connection_ptr create(const ssl::certificate& _sslCert, const connection_family& _family = connection_family::none) throw (sid::exception);
+  static connection_ptr create(const ssl::certificate& _sslCert, const connection_family& _family = connection_family::none);
 
 private:
   /**
-   * @fn connection_ptr create(const ssl::certificate& _sslCert, const connection_family& _family) throw (sid::exception);
+   * @fn connection_ptr create(const ssl::certificate& _sslCert, const connection_family& _family);
    * @brief Creates a connection object based on the connection type specified. In case of error it throws a sid::exception.
    *
    * @param _type [in] Type of connection (HTTP or HTTPS)
@@ -269,7 +269,7 @@ private:
    *
    * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
    */
-  static connection_ptr p_create(const connection_type& _type, const ssl::certificate& _sslCert, const connection_family& _family) throw (sid::exception);
+  static connection_ptr p_create(const connection_type& _type, const ssl::certificate& _sslCert, const connection_family& _family);
 
 protected:
   std::string       m_server;        //! Server or IP address of the connection

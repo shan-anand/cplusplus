@@ -73,7 +73,7 @@ int is_hex(int c);
  * @see num_base, to_bool()
  */
 std::string to_str(const bool& _bVal, const match_case _matchCase = match_case::exact);
-bool to_bool(const std::string& _input, const match_case _matchCase = match_case::exact) throw (sid::exception);
+bool to_bool(const std::string& _input, const match_case _matchCase = match_case::exact);
 bool to_bool(const std::string& _input, const bool& _defValueOnError) noexcept;
 bool to_bool(const std::string& _input, const match_case _matchCase, const bool& _defValueOnError) noexcept;
 bool to_bool(const std::string& _input, /*out*/ bool& _outVal, /*out*/ std::string* _pcsError = nullptr) noexcept;
@@ -155,7 +155,7 @@ std::string to_str(const double& _number);
  *          to_num("0755", num_base::any), to_num("0755", num_base::octal) to_num("755", num_base::octal) are all same.
  */
 template <typename T>
-T to_num(const char* _nptr, const num_base& _baseType) throw (sid::exception)
+T to_num(const char* _nptr, const num_base& _baseType)
 {
   typedef typename std::conditional<std::is_unsigned<T>::value, unsigned long long int, long long int>::type _num_type;
   _num_type res = 0;
@@ -264,7 +264,7 @@ T to_num(const char* _nptr, const num_base& _baseType) throw (sid::exception)
 }
 
 template <typename T>
-T to_num(const char* _nptr) throw (sid::exception)
+T to_num(const char* _nptr)
 {
   return to_num<T>(_nptr, DEFAULT_NUM_BASE);
 }
@@ -273,13 +273,13 @@ T to_num(const char* _nptr) throw (sid::exception)
  * @brief Convert from std::string to decimal. Throws an std::string exception on error.
  */
 template <typename T>
-T to_num(const std::string& _csVal, const num_base& _baseType) throw (sid::exception)
+T to_num(const std::string& _csVal, const num_base& _baseType)
 {
   return to_num<T>(_csVal.c_str(), _baseType);
 }
 
 template <typename T>
-T to_num(const std::string& _csVal) throw (sid::exception)
+T to_num(const std::string& _csVal)
 {
   return to_num<T>(_csVal.c_str(), DEFAULT_NUM_BASE);
 }
@@ -340,8 +340,8 @@ T to_num(const std::string& _csVal, const num_base& _baseType, const T& _default
   return _defaultValueOnError;
 }
 
-template <> double to_num<double>(const char* _nptr) throw (sid::exception);
-template <> double to_num<double>(const std::string& _csVal) throw (sid::exception);
+template <> double to_num<double>(const char* _nptr);
+template <> double to_num<double>(const std::string& _csVal);
 template <> bool to_num<double>(const char* _nptr, /*out*/ double& _outVal, /*out*/ std::string* _pcsError/* = nullptr*/);
 template <> bool to_num<double>(const std::string& _csVal, /*out*/ double& _outVal, /*out*/ std::string* _pcsError/* = nullptr*/);
 
@@ -355,8 +355,8 @@ namespace base64
 {
   std::string encode(const std::string& _input);
   std::string encode(const char* _input, size_t _inputLen = std::string::npos);
-  std::string decode(const std::string& _input) throw (sid::exception);
-  std::string decode(const char* _input, size_t _inputLen = std::string::npos) throw (sid::exception);
+  std::string decode(const std::string& _input);
+  std::string decode(const char* _input, size_t _inputLen = std::string::npos);
 }
 
 namespace rc4
@@ -427,9 +427,9 @@ bool to_size(const std::string& _input, uint64_t& _outVal, const uint64_t _defau
   std::string to_lower(const std::string& _input);
   std::string to_upper(const std::string& _input);
 
-  std::string bytes_to_hex(const std::string& _input) throw (sid::exception);
+  std::string bytes_to_hex(const std::string& _input);
   bool bytes_to_hex(const std::string& _input, std::string& _output, std::string* _pcsError = nullptr) noexcept;
-  std::string hex_to_bytes(const std::string& _input) throw (sid::exception);
+  std::string hex_to_bytes(const std::string& _input);
   bool hex_to_bytes(const std::string& _input, std::string& _output, std::string* _pcsError = nullptr) noexcept;
 } // namespace sid
 

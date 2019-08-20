@@ -70,12 +70,12 @@ struct DeviceInfo_t : public smart_ref
 
   //! Virtual functions to implemented for the actual device
   virtual scsi::DeviceType type() const = 0;
-  virtual bool set(const std::string& infoStr, std::string* pcsError = nullptr) throw (std::string) = 0;
+  virtual bool set(const std::string& infoStr, std::string* pcsError = nullptr) = 0;
   virtual void clear() = 0;
   virtual bool empty() const = 0;
   virtual std::string id() const = 0;
   virtual std::string toString() const = 0;
-  virtual scsi::Device_s create() const throw (std::string) = 0;
+  virtual scsi::Device_s create() const = 0;
 };
 
 /**
@@ -97,7 +97,7 @@ public:
   std::string& error(const std::string& str) { m_error = str; return m_error; }
 
   //! Get the capacity of the device
-  scsi::Capacity_t capacity(bool force = false) throw (std::string);
+  scsi::Capacity_t capacity(bool force = false);
 
   //! Get the device information object
   scsi::DeviceInfo_s deviceInfo() const { return m_deviceInfo; }
@@ -111,7 +111,7 @@ public:
   //! Check whether the device is empty
   virtual bool empty() const noexcept = 0;
   //! Clone a new device object
-  virtual scsi::Device_s clone() throw (std::string) = 0;
+  virtual scsi::Device_s clone() = 0;
 
   virtual bool test_unit_ready() noexcept = 0;
   virtual bool read_capacity(scsi::Capacity10_t& capacity10) noexcept = 0;

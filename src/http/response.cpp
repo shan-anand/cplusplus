@@ -103,7 +103,7 @@ response_handler(connection_ptr _conn) : m_conn(_conn)
 
   
 public:
-  void parse(const char* buffer, int nread, const method& _requestMethod, /*in/out*/ response& _response) throw (std::string);
+  void parse(const char* buffer, int nread, const method& _requestMethod, /*in/out*/ response& _response);
   bool is_end_of_data() const { return m_endOfData; }
   bool is_force_stop() const { return m_forceStop; }
   bool continue_parsing() const { return ( ! (m_endOfData || m_forceStop) ); } 
@@ -483,7 +483,7 @@ void response_handler::parse_data_chunked(/*in/out*/ response& _response)
   return;
 }
 
-void response_handler::parse(const char* buffer, int nread, const method& _requestMethod, /*in/out*/ response& _response) throw (std::string)
+void response_handler::parse(const char* buffer, int nread, const method& _requestMethod, /*in/out*/ response& _response)
 {
   //cerr.write(buffer, nread); return;
 

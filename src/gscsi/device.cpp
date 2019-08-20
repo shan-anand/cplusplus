@@ -33,7 +33,7 @@ DeviceInfo_t::~DeviceInfo_t()
 {
 }
 
-bool DeviceInfo_t::set(const std::string& infoStr, std::string* pcsError = nullptr) throw (std::string)
+bool DeviceInfo_t::set(const std::string& infoStr, std::string* pcsError = nullptr)
 {
   bool bStatus = false;
   std::string csError;
@@ -89,7 +89,7 @@ std::string DeviceInfo_t::toString() const
   return out.str();
 }
 
-Scsi::Device_s DeviceInfo_t::create() const throw (std::string)
+Scsi::Device_s DeviceInfo_t::create() const
 {
   return Device_t::create(*this, 0)->base_ptr();
 }
@@ -123,7 +123,7 @@ struct Connection_t
 };
 
 /*static*/
-Device_s Device_t::create(const DeviceInfo_t& info, int verboseLevel/*= 0*/) throw (std::string)
+Device_s Device_t::create(const DeviceInfo_t& info, int verboseLevel/*= 0*/)
 {
   Device_s sg_device;
 
@@ -598,7 +598,7 @@ bool Device_t::read(Scsi::Read16_t& read16, Scsi::Sense_t* sense/* = nullptr */)
   return bStatus;
 }
 
-void Device_t::p_read(Scsi::Read16_t& read16, Scsi::Sense_t* sense/* = nullptr */) throw (std::string)
+void Device_t::p_read(Scsi::Read16_t& read16, Scsi::Sense_t* sense/* = nullptr */)
 {
   try
   {
@@ -702,7 +702,7 @@ bool Device_t::write(Scsi::Write16_t& write16, Scsi::Sense_t* sense/* = nullptr 
   return bStatus;
 }
 
-void Device_t::p_write(Scsi::Write16_t& write16, Scsi::Sense_t* sense/* = nullptr */) throw (std::string)
+void Device_t::p_write(Scsi::Write16_t& write16, Scsi::Sense_t* sense/* = nullptr */)
 {
   try
   {

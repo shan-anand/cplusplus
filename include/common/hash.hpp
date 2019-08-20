@@ -94,12 +94,12 @@ public:
 
   std::string name() const;
 
-  digest get_hash(const uint8_t* _data, uint64_t _dataLen) throw (sid::exception);
-  digest get_hash(const std::string& _data) throw (sid::exception)
+  digest get_hash(const uint8_t* _data, uint64_t _dataLen);
+  digest get_hash(const std::string& _data)
     { return get_hash((const uint8_t*) _data.c_str(), _data.length()); }
 
-  digest get_hmac(const uint8_t* _key, uint64_t _keyLen, const uint8_t* _data, uint64_t _dataLen) throw (sid::exception);
-  digest get_hmac(const std::string& _key, const std::string& _data) throw (sid::exception)
+  digest get_hmac(const uint8_t* _key, uint64_t _keyLen, const uint8_t* _data, uint64_t _dataLen);
+  digest get_hmac(const std::string& _key, const std::string& _data)
     { return get_hmac((const uint8_t*) _key.c_str(), _key.length(), (const uint8_t*) _data.c_str(), _data.length()); };
 
 protected:

@@ -60,7 +60,7 @@ using namespace std;
 #define WHITESPACE " \t\r\n"
 
 template <>
-double sid::to_num<double>(const char* _nptr) throw (sid::exception)
+double sid::to_num<double>(const char* _nptr)
 {
   double res = 0;
   try
@@ -100,7 +100,7 @@ double sid::to_num<double>(const char* _nptr) throw (sid::exception)
 }
 
 template <>
-double sid::to_num<double>(const std::string& _csVal) throw (sid::exception)
+double sid::to_num<double>(const std::string& _csVal)
 {
   return to_num<double>(_csVal.c_str());
 }
@@ -197,7 +197,7 @@ std::string sid::to_upper(const std::string& _input)
 //
 // Conversion between Bytes and Hex values
 //
-std::string sid::bytes_to_hex(const std::string& _input) throw (sid::exception)
+std::string sid::bytes_to_hex(const std::string& _input)
 {
   std::ostringstream out;
   std::string csHex;
@@ -229,7 +229,7 @@ bool sid::bytes_to_hex(const std::string& _input, std::string& _output, std::str
   return true;
 }
 
-std::string sid::hex_to_bytes(const std::string& _input) throw (sid::exception)
+std::string sid::hex_to_bytes(const std::string& _input)
 {
   std::ostringstream out;
   unsigned char ch = 0;
@@ -291,7 +291,7 @@ std::string sid::to_str(const bool& _bVal, const match_case _matchCase /*= match
   return val;
 }
 
-bool sid::to_bool(const std::string& _input, const match_case _matchCase) throw (sid::exception)
+bool sid::to_bool(const std::string& _input, const match_case _matchCase)
 {
   const char* valid_values[5] = {"true", "false", nullptr};
   for ( size_t i = 0; valid_values[i] != nullptr; i++ )
@@ -448,7 +448,7 @@ std::string sid::base64::encode(const char* _input, size_t _inputLen)
   return encode(csInput);
 }
 
-std::string sid::base64::decode(const std::string& _input) throw (sid::exception)
+std::string sid::base64::decode(const std::string& _input)
 {
   std::ostringstream out;
 
@@ -488,7 +488,7 @@ std::string sid::base64::decode(const std::string& _input) throw (sid::exception
   return out.str();
 }
 
-std::string sid::base64::decode(const char* _input, size_t _inputLen) throw (sid::exception)
+std::string sid::base64::decode(const char* _input, size_t _inputLen)
 {
   if ( _input && _inputLen == std::string::npos )
     _inputLen = strlen(_input);

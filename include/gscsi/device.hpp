@@ -40,12 +40,12 @@ struct DeviceInfo_t : public Scsi::DeviceInfo_t
 
   //! Virtual functions override
   Scsi::DeviceType type() const override { return Scsi::DeviceType::Generic; }
-  bool set(const std::string& infoStr, std::string* pcsError = nullptr) throw (std::string) override;
+  bool set(const std::string& infoStr, std::string* pcsError = nullptr) override;
   void clear() override;
   bool empty() const override;
   std::string id() const override;
   std::string toString() const override;
-  Scsi::Device_s create() const throw (std::string) override;
+  Scsi::Device_s create() const override;
 };
 
 /**
@@ -61,11 +61,11 @@ public:
 public:
   virtual ~Device_t();
 
-  static Device_s create(const DeviceInfo_t& info, int verboseLevel = 0) throw (std::string);
+  static Device_s create(const DeviceInfo_t& info, int verboseLevel = 0);
 
   // Virtual functions override
   bool empty() const override { return ( m_fd == -1 ); }
-  Scsi::Device_s clone() throw (std::string) override;
+  Scsi::Device_s clone() override;
   bool test_unit_ready() override;
   bool read_capacity(Scsi::Capacity10_t& capacity10) override;
   bool read_capacity(Scsi::Capacity16_t& capacity16) override;
@@ -100,8 +100,8 @@ private:
   void p_close();
   bool p_inquiry(Scsi::Inquiry::BasicVPD* vpd);
 
-  void p_read(Scsi::Read16_t& read16, Scsi::Sense_t* sense = nullptr) throw (std::string);
-  void p_write(Scsi::Write16_t& write16, Scsi::Sense_t* sense = nullptr) throw (std::string);
+  void p_read(Scsi::Read16_t& read16, Scsi::Sense_t* sense = nullptr);
+  void p_write(Scsi::Write16_t& write16, Scsi::Sense_t* sense = nullptr);
 
 private:
   struct Info

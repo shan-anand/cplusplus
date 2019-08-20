@@ -150,10 +150,10 @@ public:
   void clear() { p_release(); m_data = nullptr; }
 
   // scope resolution operators ( throws a sid::exception() error if it is a null pointer)
-  const T* operator ->() const throw (sid::exception) { throw_if_empty(); return p_get(m_data); }
-  T* operator ->() throw (sid::exception) { throw_if_empty(); return p_get(m_data); }
-  const T& operator *() const throw (sid::exception) { throw_if_empty(); return *(p_get(m_data)); }
-  T& operator *() throw (sid::exception) { throw_if_empty(); return *(p_get(m_data)); }
+  const T* operator ->() const { throw_if_empty(); return p_get(m_data); }
+  T* operator ->() { throw_if_empty(); return p_get(m_data); }
+  const T& operator *() const { throw_if_empty(); return *(p_get(m_data)); }
+  T& operator *() { throw_if_empty(); return *(p_get(m_data)); }
 
   // condition checking operators
   bool operator ==(T* _ptr) const { return (this->ptr() == _ptr); }
@@ -261,7 +261,7 @@ private:
   int inc_ref_count() { return (!m_data)?  0 : ++m_data->__refcount__value; }
   int dec_ref_count() { return (!m_data)? -1 : --m_data->__refcount__value; }
   int get_ref_count() const { return (!m_data)? 0 : m_data->__refcount__value.load(); }
-  void throw_if_empty() const throw (sid::exception) { if ( empty() ) throw sid::exception("Cannot reference null pointer"); }
+  void throw_if_empty() const { if ( empty() ) throw sid::exception("Cannot reference null pointer"); }
 
   T* p_get(smart_ref* _pData) const { return smart_data::get(_pData); }
 
@@ -312,7 +312,7 @@ template <typename T, void (*pfnDelete)(T*) = smart_ptr_delete> class smart_ref_
 {
 public:
   //! The only way to create this object
-  static smart_ptr< smart_ref_container<T, pfnDelete> > create_smart_ptr(T* _p) throw (T*)
+  static smart_ptr< smart_ref_container<T, pfnDelete> > create_smart_ptr(T* _p)
   {
     smart_ptr< smart_ref_container<T, pfnDelete> > ptr;
     if ( _p )

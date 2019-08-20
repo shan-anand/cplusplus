@@ -53,7 +53,7 @@ Device_t::Device_t()
   m_verbose = Verbose::None;
 }
 
-scsi::Capacity_t Device_t::capacity(bool force/* = false*/) throw (std::string)
+scsi::Capacity_t Device_t::capacity(bool force/* = false*/)
 {
   if ( m_capacity.empty() || force )
   {
