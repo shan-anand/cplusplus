@@ -121,13 +121,13 @@ bool cookie::set(const std::string& _value)
   return true;
 }
 
-std::string cookie::to_str(bool _bForRequest) const
+std::string cookie::to_str(bool _forRequest) const
 {
   std::ostringstream out;
 
   out << this->entry.to_str();
 
-  if ( ! _bForRequest )
+  if ( ! _forRequest )
   {
     switch ( expiration.type )
     {
@@ -155,25 +155,25 @@ std::string cookie::to_str(bool _bForRequest) const
 
 bool cookie::is_expired() const
 {
-  bool bIsExpired = false;
+  bool isExpired = false;
 
   switch ( this->expiration.type )
   {
   case cookie_expiration::expire:
-    bIsExpired = ( difftime(this->expiration.time, this->time_received) <= 0 ); 
+    isExpired = ( difftime(this->expiration.time, this->time_received) <= 0 ); 
     break;
   case cookie_expiration::max_age:
     {
       time_t currentTime = std::time(nullptr);
       time_t expirationTime = this->time_received + this->expiration.max_age;
-      bIsExpired = ( difftime(currentTime, expirationTime) <= 0 );
+      isExpired = ( difftime(currentTime, expirationTime) <= 0 );
     }
     break;
   case cookie_expiration::none:
     break;
   }
 
-  return bIsExpired;
+  return isExpired;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -239,7 +239,7 @@ size_t cookies::add(http::request& _request, const http::connection_ptr _conn) c
 
 //! Get all the cookies from the response headers
 /*static*/
-http::cookies cookies::get_response_cookies(const http::headers& _headers, bool _bForceGetAll)
+http::cookies cookies::get_response_cookies(const http::headers& _headers, bool _forceGetAll)
 {
   http::cookies cookies;
 
@@ -248,7 +248,7 @@ http::cookies cookies::get_response_cookies(const http::headers& _headers, bool 
     if ( strcasecmp(header.key.c_str(), "Set-cookie") == 0 )
     {
       http::cookie cookie;
-      if ( cookie.set(header.value) && (_bForceGetAll || !cookie.is_expired() ) )
+      if ( cookie.set(header.value) && (_forceGetAll || !cookie.is_expired() ) )
         cookies.push_back(cookie);
     }
   }

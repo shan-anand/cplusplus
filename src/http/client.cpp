@@ -55,7 +55,7 @@ void client::clear()
 {
 }
 
-bool client::run(bool _bFollowRedirects)
+bool client::run(bool _followRedirects)
 {
   // A lambda function for redirect callback
   http::FNRedirectCallback redirect_callback = [&](http::request& request)
@@ -63,13 +63,13 @@ bool client::run(bool _bFollowRedirects)
       // Nothing to do here
     };
 
-  return run(redirect_callback, _bFollowRedirects);
+  return run(redirect_callback, _followRedirects);
 }
 
-bool client::run(FNRedirectCallback& _redirect_callback, bool _bFollowRedirects)
+bool client::run(FNRedirectCallback& _redirect_callback, bool _followRedirects)
 {
-  bool bStatus = false;
-  bool loop = _bFollowRedirects;
+  bool isSuccess = false;
+  bool loop = _followRedirects;
   http::connection_ptr currentConn;  //! HTTP connection pointer used for request/response
 
   try
@@ -81,14 +81,14 @@ bool client::run(FNRedirectCallback& _redirect_callback, bool _bFollowRedirects)
     do
     {
       bool expecting100Continue = false;
-      bStatus = false;
+      isSuccess = false;
       this->response.clear();
 
       if ( this->request.method == method_type::post || this->request.method == method_type::put )
       {
-        bool bExists = false;
-        std::string hval = this->request.headers.get("Expect", &bExists);
-        expecting100Continue = ( bExists && strcasecmp(hval.c_str(), "100-continue") == 0 );
+        bool isFound = false;
+        std::string hval = this->request.headers.get("Expect", &isFound);
+        expecting100Continue = ( isFound && strcasecmp(hval.c_str(), "100-continue") == 0 );
       }
       std::string data = this->request.to_str(!expecting100Continue);
 
@@ -162,9 +162,9 @@ bool client::run(FNRedirectCallback& _redirect_callback, bool _bFollowRedirects)
         }
       }
       
-      bStatus = (static_cast<int>(this->response.status.code()) >= 200 && static_cast<int>(this->response.status.code()) < 300 );
+      isSuccess = (static_cast<int>(this->response.status.code()) >= 200 && static_cast<int>(this->response.status.code()) < 300 );
 
-      if ( _bFollowRedirects )
+      if ( _followRedirects )
       {
         http::status::redirect_info redirectInfo;
         if ( this->response.status.is_redirect(&redirectInfo) )
@@ -205,19 +205,19 @@ bool client::run(FNRedirectCallback& _redirect_callback, bool _bFollowRedirects)
     while ( loop );
 
     // If the status failed, set the status message
-    if ( !bStatus )
+    if ( !isSuccess )
       throw sid::exception((int)this->response.status.code(), std::string("[") + sid::to_str((int)this->response.status.code()) + "] " + this->response.status.message());
   }
   catch (const sid::exception& e)
   {
     this->exception() = e;
-    bStatus = false;
+    isSuccess = false;
   }
   catch (...)
   {
     this->exception() = sid::exception("An unhandled exception occurred while send and receiving data");
-    bStatus = false;
+    isSuccess = false;
   }
 
-  return bStatus;
+  return isSuccess;
 }

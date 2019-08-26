@@ -121,7 +121,7 @@ std::string request::to_str(bool _withContent) const
 
 bool request::send(connection_ptr _conn)
 {
-  bool bStatus = false;
+  bool isSuccess = false;
 
   try
   {
@@ -133,7 +133,7 @@ bool request::send(connection_ptr _conn)
     std::string csRequest = this->to_str();
 
     // set the return status to true
-    bStatus = send(_conn, csRequest);
+    isSuccess = send(_conn, csRequest);
   }
   catch ( const sid::exception& e )
   {
@@ -144,7 +144,7 @@ bool request::send(connection_ptr _conn)
     this->error = __func__ + std::string(": Unhandled exception occurred");
   }
 
-  return bStatus;
+  return isSuccess;
 }
 
 bool request::send(connection_ptr _conn, const std::string& _data)
@@ -154,7 +154,7 @@ bool request::send(connection_ptr _conn, const std::string& _data)
 
 bool request::send(connection_ptr _conn, const void* _buffer, size_t _count)
 {
-  bool bStatus = false;
+  bool isSuccess = false;
 
   try
   {
@@ -171,7 +171,7 @@ bool request::send(connection_ptr _conn, const void* _buffer, size_t _count)
     }
 
     // set the return status to true
-    bStatus = true;
+    isSuccess = true;
   }
   catch ( const sid::exception& e )
   {
@@ -182,12 +182,12 @@ bool request::send(connection_ptr _conn, const void* _buffer, size_t _count)
     this->error = __func__ + std::string(": Unhandled exception occurred");
   }
 
-  return bStatus;
+  return isSuccess;
 }
 
 bool request::recv(connection_ptr _conn)
 {
-  bool bStatus = false;
+  bool isSuccess = false;
   char buffer[32*1024] = {0};
   int nread = 0;
 
@@ -209,7 +209,7 @@ bool request::recv(connection_ptr _conn)
     ////////////////////////////////////////////////////
 
     // set the return status to true
-    bStatus = true;
+    isSuccess = true;
   }
   catch ( const sid::exception& e )
   {
@@ -220,7 +220,7 @@ bool request::recv(connection_ptr _conn)
     this->error = __func__ + std::string(": Unhandled exception occurred");
   }
 
-  return bStatus;
+  return isSuccess;
 }
 
 /**

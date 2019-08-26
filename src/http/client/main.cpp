@@ -20,7 +20,7 @@ using namespace std;
 
 struct CommonParams
 {
-  CommonParams() : method(http::method_type::get) {}
+  CommonParams() : method(http::method_type::get) { ip.v4 = ip.v6 = 0; }
   std::string      url;
   http::method     method;
   http::version    version;
@@ -30,6 +30,11 @@ struct CommonParams
   std::string      outfile;
   std::string      userName;
   std::string      password;
+  struct
+  {
+    uint8_t v4 : 1;
+    uint8_t v6 : 1;
+  }ip;
   void setUser(const std::string& value)
     {
       size_t pos = value.find(':');
@@ -81,14 +86,28 @@ struct Global
 } global;
 
 enum ParamType {
-  PT_none =  -1, PT_class, PT_url, PT_method, PT_version, PT_header, PT_user, PT_data, PT_infile, PT_outfile, PT_blocking, PT_timeout, PT_verbose
+  PT_none =  -1,
+  PT_class,
+  PT_url,
+  PT_method,
+  PT_version,
+  PT_ipv4,
+  PT_ipv6,
+  PT_header,
+  PT_user,
+  PT_data,
+  PT_infile,
+  PT_outfile,
+  PT_blocking,
+  PT_timeout,
+  PT_verbose
 };
 
 enum AWSPType {
-    PT_aws_version,
-    PT_aws_bucket,
-    PT_aws_id,
-    PT_aws_key
+  PT_aws_version,
+  PT_aws_bucket,
+  PT_aws_id,
+  PT_aws_key
 };
 
 enum AzurePType {
@@ -123,7 +142,9 @@ ValidParams global_valid_params[] =
   {"--class",    "-c", PT_class,    OPTIONAL_SINGLE_NON_EMPTY},
   {"--url",      "-l", PT_url,      REQUIRED_SINGLE_NON_EMPTY},
   {"--method",   "-m", PT_method,   OPTIONAL_SINGLE_NON_EMPTY},
-  {"--verson",   "-v", PT_version,  OPTIONAL_SINGLE_NON_EMPTY},
+  {"--version",  "-v", PT_version,  OPTIONAL_SINGLE_NON_EMPTY},
+  {"--ipv4",     "-4", PT_ipv4,     OPTIONAL_SINGLE_NO_DATA},
+  {"--ipv6",     "-6", PT_ipv6,     OPTIONAL_SINGLE_NO_DATA},
   {"--header",   "-h", PT_header,   OPTIONAL_MULTIPLE_NON_EMPTY},
   {"--user",     "-u", PT_user,     OPTIONAL_SINGLE_NON_EMPTY},
   {"--data",     "-d", PT_data,     REQUIRED_SINGLE_NON_EMPTY},
@@ -178,6 +199,8 @@ void showUsage(const std::string& csErr = "")
   cout << "    -l --url=(http|https)://<url>" << endl;
   cout << "    -m --method=GET|POST|PUT|DELETE|HEAD (Optional: Defaults to GET)" << endl;
   cout << "    -v --version=1.1|1.0 (Optional: Defaults to 1.1)" << endl;
+  cout << "    -4 --ipv4 (default)" << endl;
+  cout << "    -6 --ipv6" << endl;
   cout << "    -h --header=name:value" << endl;
   cout << "    -u --user=<user>:<password>" << endl;
   cout << "    -c --class=(none|aws|atmos|azure) (Optional: Defaults to none)" << endl;
@@ -416,6 +439,8 @@ void parseCommandLine(std::vector<std::string>& args, std::string& location, htt
       case PT_url:      global.http.url = param.value;   break;
       case PT_method:   global.http.method = http::method::get(param.value); break;
       case PT_version:  global.http.version = http::version::get(param.value); break;
+      case PT_ipv4:     global.http.ip.v4 = 1; break;
+      case PT_ipv6:     global.http.ip.v6 = 1; break;
       case PT_header:   global.http.headers.add(param.value); break;
       case PT_data:     global.http.data = param.value; break;
       case PT_user:     global.http.setUser(param.value); break;
@@ -428,6 +453,8 @@ void parseCommandLine(std::vector<std::string>& args, std::string& location, htt
       }
     }
   }
+  if ( global.http.ip.v4 == 0 && global.http.ip.v6 == 0 )
+    global.http.ip.v4 = 1;
 
   if ( timeoutSet )
   {
@@ -546,7 +573,14 @@ int makeHttpCall(const std::vector<std::string>& args)
     */
     cookies = http::cookies::get_session_cookies(url.server);
 
-    cmd.conn = http::connection::create(url.type);
+    http::connection_family family = connection_family::none;
+    if ( global.http.ip.v6 && global.http.ip.v4 )
+      family = http::connection_family::none;
+    else if ( global.http.ip.v6 )
+      family = http::connection_family::ip_v6;
+    else if ( global.http.ip.v4 )
+      family = http::connection_family::ip_v4;
+    cmd.conn = http::connection::create(url.type, family);
     if ( ! cmd.conn->open(url.server, url.port) )
       throw cmd.conn->error();
 

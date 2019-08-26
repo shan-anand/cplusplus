@@ -86,13 +86,13 @@ public:
   ////////////////////////////////////////////////////////////////////////////
   // Virtual functions - These functions are overwritten from the base class
   const connection_type type() const override { return connection_type::http; }
-  bool open(const std::string& server, const unsigned short& port = 0) override;
-  bool open(int sockfd) override;
+  bool open(const std::string& _server, const unsigned short& _port = 0) override;
+  bool open(int _sockfd) override;
   bool is_open() const override { return m_socket > 0; }
   bool close() override;
-  ssize_t write(const void* buffer, size_t count) override;
-  ssize_t read(void* buffer, size_t count) override;
-  bool set_non_blocking(bool bEnable) final;
+  ssize_t write(const void* _buffer, size_t _count) override;
+  ssize_t read(void* _buffer, size_t _count) override;
+  bool set_non_blocking(bool _isEnable) final;
   bool is_non_blocking() const final;
   bool is_blocking() const final;
   ////////////////////////////////////////////////////////////////////////////
@@ -119,12 +119,12 @@ public:
   ////////////////////////////////////////////////////////////////////////////
   // Virtual functions - These functions are overwritten from the base class
   const connection_type type() const override { return connection_type::https; }
-  bool open(const std::string& server, const unsigned short& port = 0) override;
-  bool open(int sockfd) override;
+  bool open(const std::string& _server, const unsigned short& _port = 0) override;
+  bool open(int _sockfd) override;
   bool is_open() const override { return http_connection::is_open(); }
   bool close() override;
-  ssize_t write(const void* buffer, size_t count) override;
-  ssize_t read(void* buffer, size_t count) override;
+  ssize_t write(const void* _buffer, size_t _count) override;
+  ssize_t read(void* _buffer, size_t _count) override;
   ////////////////////////////////////////////////////////////////////////////
 
 private:
@@ -260,13 +260,13 @@ bool http_connection::close()
   return false;
 }
 
-bool http_connection::open(const std::string& server, const unsigned short& port)
+bool http_connection::open(const std::string& _server, const unsigned short& _port)
 {
-  bool bStatus = false;
+  bool isSuccess = false;
   struct addrinfo hints;
   struct addrinfo *result, *rp;
   std::string csPort;
-  unsigned short httpPort = ( port )? port : DEFAULT_PORT_HTTP;
+  unsigned short httpPort = ( _port )? _port : DEFAULT_PORT_HTTP;
 
   try
   {
@@ -275,7 +275,7 @@ bool http_connection::open(const std::string& server, const unsigned short& port
     if ( this->is_open() )
       throw sid::exception("Connection is already established. Close the connection before opening it.");
 
-    if ( server.empty() )
+    if ( _server.empty() )
       throw sid::exception("Server name cannot be empty");
 
     memset(&hints, 0, sizeof(struct addrinfo));
@@ -286,7 +286,7 @@ bool http_connection::open(const std::string& server, const unsigned short& port
     hints.ai_protocol = 0;           // Any protocol
 
     csPort = sid::to_str(httpPort);
-    int s = getaddrinfo(server.c_str(), csPort.c_str(), &hints, &result);
+    int s = getaddrinfo(_server.c_str(), csPort.c_str(), &hints, &result);
     if ( s != 0 )
       throw sid::exception(std::string("getaddrinfo: ") + gai_strerror(s));
 
@@ -343,14 +343,14 @@ bool http_connection::open(const std::string& server, const unsigned short& port
     }
     freeaddrinfo(result);
     if ( ! found )
-      throw sid::exception(std::string("Could not connect to server ") + server + " at port " + csPort);
+      throw sid::exception(std::string("Could not connect to server ") + _server + " at port " + csPort + " over " + szName);
 
     cout << "SERVER: " << m_server << endl;
     // set the port member
     m_port = httpPort;
 
     // set the return status to true
-    bStatus = true;
+    isSuccess = true;
   }
   catch ( const sid::exception& e )
   {
@@ -361,12 +361,12 @@ bool http_connection::open(const std::string& server, const unsigned short& port
     m_error = __func__ + std::string(": Unhandled exception occurred");
   }
 
-  return bStatus;
+  return isSuccess;
 }
 
-bool http_connection::open(int sockfd)
+bool http_connection::open(int _sockfd)
 {
-  bool bStatus = false;
+  bool isSuccess = false;
 
   try
   {
@@ -375,7 +375,7 @@ bool http_connection::open(int sockfd)
     if ( this->is_open() )
       throw sid::exception("Connection is already established. Close the connection before opening it.");
 
-    if ( sockfd <= 0 )
+    if ( _sockfd <= 0 )
       throw sid::exception("Invalid socket descriptor");
 
     struct sockaddr_storage addr;
@@ -385,7 +385,7 @@ bool http_connection::open(int sockfd)
     memset(&addr, 0, sizeof(addr));
     memset(ipstr, 0, sizeof(ipstr));
 
-    if ( -1 == getpeername(sockfd, (struct sockaddr*) &addr, &len) )
+    if ( -1 == getpeername(_sockfd, (struct sockaddr*) &addr, &len) )
       throw http::errno_str(errno);
 
     if ( addr.ss_family == AF_INET)
@@ -394,13 +394,13 @@ bool http_connection::open(int sockfd)
       inet_ntop(AF_INET, &s->sin_addr, ipstr, sizeof(ipstr));
 
       // set the server and port members
-      m_socket = sockfd;
+      m_socket = _sockfd;
       m_port = ntohs(s->sin_port);
       m_server = ipstr;
     }
 
     // set the return status to true
-    bStatus = true;
+    isSuccess = true;
   }
   catch ( const std::string& csErr )
   {
@@ -411,10 +411,10 @@ bool http_connection::open(int sockfd)
     m_error = __func__ + std::string(": Unhandled exception occurred");
   }
 
-  return bStatus;
+  return isSuccess;
 }
 
-ssize_t http_connection::write(const void* buffer, size_t count)
+ssize_t http_connection::write(const void* _buffer, size_t _count)
 {
   bool operationTimedOut = false;
   if ( ! isReadyForIO(IO_WRITE, &operationTimedOut) )
@@ -423,13 +423,13 @@ ssize_t http_connection::write(const void* buffer, size_t count)
   bool isActualNonBlocking = is_non_blocking();
   if ( isActualNonBlocking )
     set_non_blocking(false);
-  ssize_t written = ::write(m_socket, buffer, count);
+  ssize_t written = ::write(m_socket, _buffer, _count);
   if ( isActualNonBlocking )
     set_non_blocking(true);
   return written;
 }
 
-ssize_t http_connection::read(void* buffer, size_t count)
+ssize_t http_connection::read(void* _buffer, size_t _count)
 {
   bool operationTimedOut = false;
   if ( ! isReadyForIO(IO_READ, &operationTimedOut) )
@@ -438,7 +438,7 @@ ssize_t http_connection::read(void* buffer, size_t count)
   bool isActualNonBlocking = is_non_blocking();
   if ( isActualNonBlocking )
     set_non_blocking(false);
-  ssize_t read = ::read(m_socket, buffer, count);
+  ssize_t read = ::read(m_socket, _buffer, _count);
   if ( isActualNonBlocking )
     set_non_blocking(true);
   return read;
@@ -456,12 +456,12 @@ inline bool http_connection::is_blocking() const
   return !is_non_blocking();
 }
 
-bool http_connection::set_non_blocking(bool bEnable)
+bool http_connection::set_non_blocking(bool _isEnable)
 {
   int flags = ::fcntl(m_socket, F_GETFL);
   if ( flags == -1 ) return false;
   
-  if ( bEnable )
+  if ( _isEnable )
     flags |= O_NONBLOCK;
   else
     flags &= ~O_NONBLOCK;
@@ -678,20 +678,20 @@ void https_connection::attach_ssl()
   }
 }
 
-bool https_connection::open(const std::string& server, const unsigned short& port)
+bool https_connection::open(const std::string& _server, const unsigned short& _port)
 {
-  bool bStatus = false;
-  unsigned short httpsPort = ( port )? port : DEFAULT_PORT_HTTPS;
+  bool isSuccess = false;
+  unsigned short httpsPort = ( _port )? _port : DEFAULT_PORT_HTTPS;
 
   try
   {
-    if ( ! http_connection::open(server, httpsPort) )
+    if ( ! http_connection::open(_server, httpsPort) )
       return false;
 
     attach_ssl();
 
     // set the return status to true
-    bStatus = true;
+    isSuccess = true;
   }
   catch (const std::string& csErr)
   {
@@ -704,22 +704,22 @@ bool https_connection::open(const std::string& server, const unsigned short& por
     m_error = __func__ + std::string(": Unhandled exception occurred");
   }
 
-  return bStatus;
+  return isSuccess;
 }
 
-bool https_connection::open(int sockfd)
+bool https_connection::open(int _sockfd)
 {
-  bool bStatus = false;
+  bool isSuccess = false;
 
   try
   {
-    if ( ! http_connection::open(sockfd) )
+    if ( ! http_connection::open(_sockfd) )
       return false;
 
     attach_ssl();
 
     // set the return status to true
-    bStatus = true;
+    isSuccess = true;
   }
   catch (const std::string& csErr)
   {
@@ -730,10 +730,10 @@ bool https_connection::open(int sockfd)
     m_error = __func__ + std::string(": Unhandled exception occurred");
   }
 
-  return bStatus;
+  return isSuccess;
 }
 
-ssize_t https_connection::write(const void* buffer, size_t count)
+ssize_t https_connection::write(const void* _buffer, size_t _count)
 {
   bool operationTimedOut = false;
   if ( ! isReadyForIO(IO_WRITE, &operationTimedOut) )
@@ -742,7 +742,7 @@ ssize_t https_connection::write(const void* buffer, size_t count)
   bool isActualNonBlocking = is_non_blocking();
   if ( isActualNonBlocking )
     set_non_blocking(false);
-  ssize_t written = SSL_write(m_ssl, buffer, count);
+  ssize_t written = SSL_write(m_ssl, _buffer, _count);
   if ( isActualNonBlocking )
     set_non_blocking(true);
   return written;
@@ -782,7 +782,7 @@ ssize_t https_connection::write(const void* buffer, size_t count)
 */
 }
 
-ssize_t https_connection::read(void* buffer, size_t count)
+ssize_t https_connection::read(void* _buffer, size_t _count)
 {
   bool operationTimedOut = false;
   if ( ! isReadyForIO(IO_READ, &operationTimedOut) )
@@ -791,7 +791,7 @@ ssize_t https_connection::read(void* buffer, size_t count)
   bool isActualNonBlocking = is_non_blocking();
   if ( isActualNonBlocking )
     set_non_blocking(false);
-  ssize_t read = SSL_read(m_ssl, buffer, count);
+  ssize_t read = SSL_read(m_ssl, _buffer, _count);
   if ( isActualNonBlocking )
     set_non_blocking(true);
   return read;

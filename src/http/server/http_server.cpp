@@ -87,7 +87,7 @@ void http_server::stop()
 
 void http_server::run(unsigned short port)
 {
-  struct sockaddr_in6 serv_addr, cli_addr;
+  struct sockaddr_in6 serv_addr6, cli_addr6;
   int clientSocket = -1;
   ClientData* client = NULL;
 
@@ -99,13 +99,13 @@ void http_server::run(unsigned short port)
       throw std::string("Error creating socket: ")+errStr(errno);
 
     // Initialize server socket address
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin6_family = AF_INET6;
-    serv_addr.sin6_addr = in6addr_any;
-    serv_addr.sin6_port = htons(m_port);
+    bzero((char *) &serv_addr6, sizeof(serv_addr6));
+    serv_addr6.sin6_family = AF_INET6;
+    serv_addr6.sin6_addr = in6addr_any;
+    serv_addr6.sin6_port = htons(m_port);
 
     // bind the host address, port to the socket
-    if ( bind(m_socket, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0 )
+    if ( bind(m_socket, (struct sockaddr *) &serv_addr6, sizeof(serv_addr6)) < 0 )
       throw std::string("Error binding socket to host: ")+errStr(errno);
 
     int flags = fcntl(m_socket, F_GETFD);
@@ -117,7 +117,7 @@ void http_server::run(unsigned short port)
       throw std::string("Error listening for connections: ")+errStr(errno);
 
     pollfd fds = { m_socket, POLLIN, 0 };
-    socklen_t clientLen = sizeof(cli_addr);
+    socklen_t clientLen = sizeof(cli_addr6);
     while ( !gbExitLoop )
     {
       int pollRes = poll(&fds, 1, 10);
@@ -125,7 +125,7 @@ void http_server::run(unsigned short port)
       if ( pollRes == -1 )
         throw std::string("Polling failed: ")+errStr(errno);
 
-      clientSocket = accept(m_socket, (struct sockaddr *)&cli_addr, &clientLen);
+      clientSocket = accept(m_socket, (struct sockaddr *)&cli_addr6, &clientLen);
       if ( clientSocket < 0 )
         throw std::string("Error accepting socket: ")+errStr(errno);
       cout << "Request received" << endl;

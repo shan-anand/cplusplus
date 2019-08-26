@@ -48,7 +48,7 @@ namespace sid {
 namespace http {
 
 // A lambda function for redirect callback
-typedef std::function<void(request& request)> FNRedirectCallback;
+typedef std::function<void(request&)> FNRedirectCallback;
 
 /**
  * @class client
@@ -81,31 +81,31 @@ public:
   sid::exception& exception() { return m_exception; }
 
   /**
-   * @fn bool run(bool bFollowRedirects)
+   * @fn bool run(bool followRedirects)
    * @brief Used for sending a request and receiving a response from the server.
    *        The conn and request objects must be set. On receiving a response,
    *        the response object is populated.
    *
-   * @param _bFollowRedirects [in] Handle 301 and 302 redirect messages by resetting request object and re-sending the message.
+   * @param _followRedirects [in] Handle 301 and 302 redirect messages by resetting request object and re-sending the message.
    *
    * @return true if exchange was successful, false otherwise.
    *         exception() will contain the last exception object in case of failure.
    */
-  bool run(bool _bFollowRedirects = false);
+  bool run(bool _followRedirects = false);
 
   /**
-   * @fn bool run(FNRedirectCallback& _fnRedirectCallbackbool _bFollowRedirects)
+   * @fn bool run(FNRedirectCallback& _fnRedirectCallbackbool _followRedirects)
    * @brief Used for sending a request and receiving a response from the server.
    *        The conn and request objects must be set. On receiving a response,
    *        the response object is populated.
    *
    * @param _fnRedirectCallback [in] Callback function called just before doing a redirect
-   * @param _bFollowRedirects [in] Handle 301 and 302 redirect messages by resetting request object and re-sending the message.
+   * @param _followRedirects [in] Handle 301 and 302 redirect messages by resetting request object and re-sending the message.
    *
    * @return true if exchange was successful, false otherwise.
    *         exception() will contain the last exception object in case of failure.
    */
-  bool run(FNRedirectCallback& _fnRedirectCallback, bool _bFollowRedirects = false);
+  bool run(FNRedirectCallback& _fnRedirectCallback, bool _followRedirects = false);
 };
 
 } // namespace http

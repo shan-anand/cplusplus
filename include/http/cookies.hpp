@@ -67,7 +67,7 @@ public:
 
   bool set(const std::string& _value);
   void clear();
-  std::string to_str(bool _bForRequest = true) const;
+  std::string to_str(bool _forRequest = true) const;
   bool is_expired() const;
   bool equals(const std::string& _name) const;
 
@@ -112,7 +112,7 @@ public:
   bool remove(const std::string& name, cookie* _pCookie = nullptr);
 
   //! Get all the cookies from the response headers
-  static cookies get_response_cookies(const headers& _headers, bool _bForceGetAll = false);
+  static cookies get_response_cookies(const headers& _headers, bool _forceGetAll = false);
   static cookies get_session_cookies(const std::string& _host);
   static void set_session_cookie(const std::string& _host, const cookie& _cookie);
   static bool remove_session_cookie(const std::string& _host, const std::string& _name, cookie* _pCookie = nullptr);

@@ -171,15 +171,15 @@ public:
   bool exists(const std::string& _key, std::string* _pValue = nullptr) const;
 
   /**
-   * @fn std::string get(const std::string& _key, bool* _pbFound);
+   * @fn std::string get(const std::string& _key, bool* _pisFound);
    * @brief Get the requested value for the key from the headers. If the key doesn't exist it returns an empty string.
    *
    * @param _key [in] header key.
-   * @param _pbFound [out] If the header key is found it is set to true, otherwise it is set to false.
+   * @param _pisFound [out] If the header key is found it is set to true, otherwise it is set to false.
    *
-   * @return The value associated with the key if found, otherwise it returns empty string. _pbFound variable is set to false in that case.
+   * @return The value associated with the key if found, otherwise it returns empty string. _pisFound variable is set to false in that case.
    */
-  std::string get(const std::string& _key, bool* _pbFound = nullptr) const;
+  std::string get(const std::string& _key, bool* _pisFound = nullptr) const;
 
   /**
    * @fn std::vector<std::string> get_all(const std::string& _key) const;
@@ -204,17 +204,17 @@ public:
   //! Return a CRLF separated list of header key/value pair as string.
   std::string to_str() const;
 
-  // Get the "Content-Length" header. Returns 0 if it is not found. Check for *pbExists for existence
-  uint64_t content_length(bool* pbExists = nullptr) const;
+  // Get the "Content-Length" header. Returns 0 if it is not found. Check for *_pisFound for existence
+  uint64_t content_length(bool* _pisFound = nullptr) const;
 
   //! Get "Content-Encoding" header
-  http::content_encoding content_encoding(bool* pbExists = nullptr) const;
+  http::content_encoding content_encoding(bool* _pisFound = nullptr) const;
 
   //! Get "Transfer-Encoding" header
-  http::transfer_encoding transfer_encoding(bool* pbExists = nullptr) const;
+  http::transfer_encoding transfer_encoding(bool* _pisFound = nullptr) const;
 
   //! Get "Connection" header
-  http::header_connection connection(bool* pbExists = nullptr) const;
+  http::header_connection connection(bool* _pisFound = nullptr) const;
 
 protected:
   /**

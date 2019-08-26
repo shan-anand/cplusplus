@@ -172,7 +172,7 @@ std::string response::to_str(bool _showContent/* = true*/) const
 
 bool response::send(connection_ptr _conn)
 {
-  bool bStatus = false;
+  bool isSuccess = false;
 
   try
   {
@@ -192,7 +192,7 @@ bool response::send(connection_ptr _conn)
     ////////////////////////////////////////////////////
 
     // set the return status to true
-    bStatus = true;
+    isSuccess = true;
   }
   catch ( const std::string& csErr )
   {
@@ -203,12 +203,12 @@ bool response::send(connection_ptr _conn)
     this->error = __func__ + std::string(": Unhandled exception occurred");
   }
 
-  return bStatus;
+  return isSuccess;
 }
 
 bool response::recv(connection_ptr _conn, const method& _requestMethod)
 {
-  bool bStatus = false;
+  bool isSuccess = false;
   char buffer[32*1024] = {0};
   int nread = 0;
 
@@ -224,7 +224,7 @@ bool response::recv(connection_ptr _conn, const method& _requestMethod)
       rd.parse(buffer, nread, _requestMethod, /*in/out*/ *this);
 
     // set the return status to true
-    bStatus = true;
+    isSuccess = true;
   }
   catch ( const std::string& csErr )
   {
@@ -235,7 +235,7 @@ bool response::recv(connection_ptr _conn, const method& _requestMethod)
     this->error = __func__ + std::string(": Unhandled exception occurred");
   }
 
-  return bStatus;
+  return isSuccess;
 }
 
 void response::set(const std::string& input)
@@ -361,8 +361,8 @@ bool response_handler::parse_headers(const method& _requestMethod, /*in/out*/ re
       m_csResponse = m_csResponse.substr(m_pos);
       m_pos = 0;
 
-      bool bFound;
-      m_contentLength = _response.headers.content_length(&bFound);
+      bool isFound;
+      m_contentLength = _response.headers.content_length(&isFound);
       m_encoding = _response.headers.transfer_encoding();
       m_keepAlive = ( _response.headers.connection() == http::header_connection::keep_alive );
       break;
@@ -389,9 +389,9 @@ void response_handler::parse_data_normal(/*in/out*/ response& _response)
 void response_handler::parse_data_chunked(/*in/out*/ response& _response)
 {
   std::string line;
-  bool bContinueLoop = true;
+  bool continueLoop = true;
 
-  while ( bContinueLoop && !m_forceStop && !m_endOfData )
+  while ( continueLoop && !m_forceStop && !m_endOfData )
   {
     if ( m_chunkToBeRead <= 0 )
     {
@@ -460,7 +460,7 @@ void response_handler::parse_data_chunked(/*in/out*/ response& _response)
         m_chunkToBeRead = -balanceLen;
         m_pos = 2-balanceLen;
         //cerr << "S2: end: m_csResponse: " << m_csResponse.length() << ", m_chunkToBeRead: " << m_chunkToBeRead << ", m_pos: " << m_pos << endl;
-        bContinueLoop = false;
+        continueLoop = false;
       }
       else
       {
@@ -514,9 +514,9 @@ void response_handler::parse(const char* buffer, int nread, const method& _reque
       size_t copyLen = m_csResponse.length() - m_pos;
       _response.content.append(m_csResponse, m_pos, copyLen);
 
-      bool bFound;
-      http::header_connection header_conn = _response.headers.connection(&bFound);
-      if ( bFound && header_conn == http::header_connection::close )
+      bool isFound;
+      http::header_connection header_conn = _response.headers.connection(&isFound);
+      if ( isFound && header_conn == http::header_connection::close )
       {
         m_csResponse.clear(); m_pos = 0;
       }

@@ -61,7 +61,7 @@ void url::clear()
 
 bool url::set(const std::string& _csUrl)
 {
-  bool bStatus = false;
+  bool isSuccess = false;
 
   try
   {
@@ -143,7 +143,7 @@ bool url::set(const std::string& _csUrl)
     if ( this->resource.empty() )
       this->resource = "/";
 
-    bStatus = true;
+    isSuccess = true;
   }
   catch (const std::string& csErr)
   {
@@ -153,5 +153,5 @@ bool url::set(const std::string& _csUrl)
   {
     this->error = "Unable to parse URL due to unhandled exception";
   }
-  return bStatus;
+  return isSuccess;
 }

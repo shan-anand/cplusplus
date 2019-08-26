@@ -150,22 +150,22 @@ void headers::add(const http::headers& _headers, const header_action& _action)
 
 bool headers::exists(const std::string& _key, std::string* _pValue) const
 {
-  bool bFound = false;
+  bool isFound = false;
 
   headers::const_iterator it = this->find(_key);
   if ( it != this->end() )
   {
-    bFound = true;
+    isFound = true;
     if ( _pValue ) *_pValue = it->value;
   }
-  return bFound;
+  return isFound;
 }
 
-std::string headers::get(const std::string& _key, bool* _pbFound) const
+std::string headers::get(const std::string& _key, bool* _pisFound) const
 {
   std::string value;
-  bool bFound = exists(_key, &value);
-  if ( _pbFound ) *_pbFound = bFound;
+  bool isFound = exists(_key, &value);
+  if ( _pisFound ) *_pisFound = isFound;
   return value;
 }
 
@@ -225,24 +225,24 @@ headers::const_iterator headers::find(const std::string& _key) const
   return this->end();
 }
 
-uint64_t headers::content_length(bool* pbExists/* = nullptr*/) const
+uint64_t headers::content_length(bool* _pisFound/* = nullptr*/) const
 {
   uint64_t contentLength = 0;
   std::string value;
-  bool bExists = this->exists("Content-Length", &value);
-  if ( pbExists ) *pbExists = bExists;
-  if ( bExists )
+  bool isFound = this->exists("Content-Length", &value);
+  if ( _pisFound ) *_pisFound = isFound;
+  if ( isFound )
     sid::to_num(value, /*out*/ contentLength);
   return contentLength;
 }
 
-http::content_encoding headers::content_encoding(bool* pbExists/* = nullptr*/) const
+http::content_encoding headers::content_encoding(bool* _pisFound/* = nullptr*/) const
 {
   http::content_encoding encoding = http::content_encoding::identity;
   std::string value;
-  bool bExists = this->exists("Content-Encoding", &value);
-  if ( pbExists ) *pbExists = bExists;
-  if ( bExists )
+  bool isFound = this->exists("Content-Encoding", &value);
+  if ( _pisFound ) *_pisFound = isFound;
+  if ( isFound )
   {
     std::vector<std::string> encodingVec;
     if ( 0 < sid::split(/*out*/ encodingVec, value, ',', SPLIT_TRIM_SKIP_EMPTY) )
@@ -263,13 +263,13 @@ http::content_encoding headers::content_encoding(bool* pbExists/* = nullptr*/) c
   return encoding;
 }
 
-http::transfer_encoding headers::transfer_encoding(bool* pbExists/* = nullptr*/) const
+http::transfer_encoding headers::transfer_encoding(bool* _pisFound/* = nullptr*/) const
 {
   http::transfer_encoding encoding = http::transfer_encoding::none;
   std::string value;
-  bool bExists = this->exists("Transfer-Encoding", &value);
-  if ( pbExists ) *pbExists = bExists;
-  if ( bExists )
+  bool isFound = this->exists("Transfer-Encoding", &value);
+  if ( _pisFound ) *_pisFound = isFound;
+  if ( isFound )
   {
     size_t tpos = value.find(':');
     if ( tpos != std::string::npos )
@@ -292,13 +292,13 @@ http::transfer_encoding headers::transfer_encoding(bool* pbExists/* = nullptr*/)
 }
 
 //! Get "Connection" header
-http::header_connection headers::connection(bool* pbExists/* = nullptr*/) const
+http::header_connection headers::connection(bool* _pisFound/* = nullptr*/) const
 {
   http::header_connection res = http::header_connection::close;
   std::string value;
-  bool bExists = this->exists("Connection", &value);
-  if ( pbExists ) *pbExists = bExists;
-  if ( bExists )
+  bool isFound = this->exists("Connection", &value);
+  if ( _pisFound ) *_pisFound = isFound;
+  if ( isFound )
   {
     if ( strcasecmp(value.c_str(), "Close") == 0 )
       res = http::header_connection::close;

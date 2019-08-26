@@ -192,12 +192,12 @@ http::status status::get(const std::string& _input)
   if ( code == 0 ) throw sid::exception("Invalid HTTP status code");
   status = (status_code) code;
 
-  bool bFound = false;
+  bool isFound = false;
   size_t cnt = sizeof(gMapStatus)/sizeof(gMapStatus[0]);
   for ( size_t i = 0; i < cnt; i++ )
-    if ( status.code() == gMapStatus[i].code ) { bFound = true; break; }
+    if ( status.code() == gMapStatus[i].code ) { isFound = true; break; }
 
-  if ( !bFound ) throw sid::exception(code, std::string("Invalid HTTP status code: ") + codeStr);
+  if ( !isFound ) throw sid::exception(code, std::string("Invalid HTTP status code: ") + codeStr);
 
   return status;
 }
