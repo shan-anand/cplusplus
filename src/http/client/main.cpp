@@ -588,7 +588,7 @@ int makeHttpCall(const std::vector<std::string>& args)
     if ( !global.blocking && global.timeout > 0 )
       cmd.conn->set_non_blocking_timeout(global.timeout);
 
-    out << "******* " << cmd.conn->description() << endl;
+    out << "******* " << cmd.conn->description().to_str() << endl;
 
     if ( global.verbose )
       cerr << out.str();

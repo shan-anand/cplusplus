@@ -49,6 +49,7 @@ LICENSE: END
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <sys/select.h>
 #include <arpa/inet.h>
 
@@ -95,7 +96,7 @@ public:
   bool set_non_blocking(bool _isEnable) final;
   bool is_non_blocking() const final;
   bool is_blocking() const final;
-  std::string description() const override;
+  connection_description description() const override;
   ////////////////////////////////////////////////////////////////////////////
 
 protected:
@@ -126,7 +127,7 @@ public:
   bool close() override;
   ssize_t write(const void* _buffer, size_t _count) override;
   ssize_t read(void* _buffer, size_t _count) override;
-  std::string description() const override;
+  connection_description description() const override;
   ////////////////////////////////////////////////////////////////////////////
 
 private:
@@ -390,17 +391,33 @@ bool http_connection::open(int _sockfd)
     if ( -1 == getpeername(_sockfd, (struct sockaddr*) &addr, &len) )
       throw http::errno_str(errno);
 
-    if ( addr.ss_family == AF_INET)
+    switch ( addr.ss_family )
     {
-      struct sockaddr_in *s = (struct sockaddr_in *) &addr;
-      inet_ntop(AF_INET, &s->sin_addr, ipstr, sizeof(ipstr));
-
-      // set the server and port members
-      m_socket = _sockfd;
-      m_port = ntohs(s->sin_port);
-      m_server = ipstr;
+    case AF_INET:
+      {
+	struct sockaddr_in* saddr = (struct sockaddr_in *) &addr;
+	inet_ntop(AF_INET, &(saddr->sin_addr), ipstr, sizeof(ipstr));
+	// set the server and port members
+	m_socket = _sockfd;
+	m_port = ntohs(saddr->sin_port);
+	m_server = ipstr;
+	m_family = connection_family::ip_v4;
+      }
+      break;
+    case AF_INET6:
+      {
+	struct sockaddr_in6* saddr6 = (struct sockaddr_in6 *) &addr;
+	inet_ntop(AF_INET6, &(saddr6->sin6_addr), ipstr, sizeof(ipstr));
+	// set the server and port members
+	m_socket = _sockfd;
+	m_port = ntohs(saddr6->sin6_port);
+	m_server = ipstr;
+	m_family = connection_family::ip_v6;
+      }
+      break;
+    default:
+      throw sid::exception("Invalid address family (" + sid::to_str(addr.ss_family) + ") returnedgetpeername()");
     }
-
     // set the return status to true
     isSuccess = true;
   }
@@ -463,21 +480,19 @@ std::string to_str(const connection_family& family)
   return (family == connection_family::ip_v4)? "ip_v4" : (family == connection_family::ip_v6? "ip_v6" : "ip_any");
 }
 
-std::string http_connection::description() const
+connection_description http_connection::description() const
 {
-  std::ostringstream desc;
-  desc << (this->type() == connection_type::http? "http" : "https");
-  if ( m_socket > 0 )
-  {
-    desc << (this->is_blocking()? " blocking":" non-blocking");
-    if ( this->is_non_blocking() )
-      desc << " (timeout " << m_nonBlockingTimeout << " secs)";
-    desc << " connected on port " << m_port
-	 << ", family " << to_str(m_family);
-  }
-  else
-    desc << " not connected, family " << to_str(m_family);
-  return desc.str();
+  connection_description desc;
+
+  desc.isConnected = ( m_socket > 0 );
+  desc.server = m_server;
+  desc.port = m_port;
+  desc.type = this->type();
+  desc.family = m_family;
+  desc.isBlocking = this->is_blocking();
+  desc.nonBlockingTimeout = m_nonBlockingTimeout;
+
+  return desc;
 }
 
 bool http_connection::set_non_blocking(bool _isEnable)
@@ -500,46 +515,85 @@ bool http_connection::isReadyForIO(int ioType, bool* pOperationTimedOut) const
   if ( is_blocking() )
     return true;
 
-  fd_set r_fds, w_fds, e_fds;
-  FD_ZERO(&r_fds);
-  FD_ZERO(&w_fds);
-  FD_ZERO(&e_fds);
+  bool isReady = false;
+  bool isError = false;
 
-  fd_set* pr_fds = NULL;
-  fd_set* pw_fds = NULL;
+  auto check_using_poll = [&]()->void
+    {
+      struct timespec ts = {m_nonBlockingTimeout, 0};
+      pollfd poll_fd = {m_socket, POLLRDHUP, 0};
+      if ( ioType & IO_READ )
+	poll_fd.events |= (POLLIN | POLLPRI);
+      if ( ioType & IO_WRITE )
+	poll_fd.events |= POLLOUT;
+      int ret = ppoll(&poll_fd, 1, &ts, nullptr);
+      if ( ret == -1 )
+	throw http::errno_str(errno);
 
-  if ( ioType & IO_READ )
+      if ( ret > 0 )
+      {
+	const int& revents = poll_fd.revents;
+	if ( (ioType & IO_READ) && (revents & POLLIN) )
+	  isReady = true;
+	else if ( (ioType & IO_WRITE) && (revents & POLLOUT) )
+	  isReady = true;
+	if ( (revents & POLLERR) )
+	  throw std::string("Error polling for read data");
+	if ( (revents & POLLHUP) )
+	  throw std::string("Error polling for read data as the peer closed the connection");
+	if ( (revents & POLLNVAL) )
+	  throw std::string("Error polling for read data due to invalid request");
+      }
+    };
+
+  auto check_using_select = [&]()->void
+    {
+      fd_set r_fds, w_fds, e_fds;
+      FD_ZERO(&r_fds);
+      FD_ZERO(&w_fds);
+      FD_ZERO(&e_fds);
+
+      fd_set* pr_fds = nullptr;
+      fd_set* pw_fds = nullptr;
+
+      if ( ioType & IO_READ )
+	{
+	  pr_fds = &r_fds;
+	  FD_SET(m_socket, pr_fds);
+	}
+      if ( ioType & IO_WRITE )
+	{
+	  pw_fds = &w_fds;
+	  FD_SET(m_socket, pw_fds);
+	}
+      FD_SET(m_socket, &e_fds);
+
+      struct timeval tv = {0};
+      tv.tv_sec = m_nonBlockingTimeout;
+      int ret = select(m_socket+1, pr_fds, pw_fds, &e_fds, &tv);
+      if ( ret == -1 )
+	throw http::errno_str(errno);
+
+      if ( ret > 0 )
+      {
+	if ( pr_fds && FD_ISSET(m_socket, pr_fds ) )
+	  isReady = true;
+	else if ( pw_fds && FD_ISSET(m_socket, pw_fds ) )
+	  isReady = true;
+	// If an error occurred, return false
+	else if ( FD_ISSET(m_socket, &e_fds ) )
+	  isError = true;
+      }
+    };
+
+  check_using_poll();
+
+  if ( !isReady && !isError )
   {
-    pr_fds = &r_fds;
-    FD_SET(m_socket, pr_fds);
+    // possibly a timeout error
+    if ( pOperationTimedOut ) *pOperationTimedOut = true;
   }
-  if ( ioType & IO_WRITE )
-  {
-    pw_fds = &w_fds;
-    FD_SET(m_socket, pw_fds);
-  }
-  FD_SET(m_socket, &e_fds);
-
-  struct timeval tv = {0};
-  tv.tv_sec = m_nonBlockingTimeout;
-  int ret = select(m_socket+1, pr_fds, pw_fds, &e_fds, &tv);
-  if ( ret == -1 )
-    throw http::errno_str(errno);
-
-  if ( ret > 0 )
-  {
-    if ( pr_fds && FD_ISSET(m_socket, pr_fds ) )
-      return true;
-    if ( pw_fds && FD_ISSET(m_socket, pw_fds ) )
-      return true;
-    // If an error occurred, return false
-    if ( FD_ISSET(m_socket, &e_fds ) )
-      return false;
-  }
-
-  // possibly a timeout error
-  if ( pOperationTimedOut ) *pOperationTimedOut = true;
-  return false;
+  return isReady;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -821,18 +875,100 @@ ssize_t https_connection::read(void* _buffer, size_t _count)
   return read;
 }
 
-std::string https_connection::description() const
+connection_description https_connection::description() const
 {
-  std::ostringstream desc;
-  desc << http_connection::description();
-  desc << " SSL info: ";
+  connection_description desc = http_connection::description();
+
+  // More info from https://www.openssl.org/docs/man1.1.0/man3/SSL_CIPHER_get_name.html
   if ( m_ssl )
   {
     char szDesc[256] = {0};
     SSL_CIPHER_description(SSL_get_current_cipher(m_ssl), szDesc, sizeof(szDesc)-1);
-    desc << szDesc;
+    desc.ssl.isAvailable = true;
+    desc.ssl.info = szDesc;
+  }
+
+  return desc;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+// Implementation of connection_description::ssl_info structure
+//
+//////////////////////////////////////////////////////////////////////////////////////
+//! Default constructor
+connection_description::ssl_info::ssl_info()
+{
+  clear();
+}
+
+connection_description::ssl_info::~ssl_info()
+{
+}
+
+void connection_description::ssl_info::clear()
+{
+  isAvailable = false;
+  info.clear();
+}
+
+std::string connection_description::ssl_info::to_str() const
+{
+  std::ostringstream desc;
+
+  if ( !isAvailable )
+    desc << "Not available";
+  else
+    desc << info;
+
+  return desc.str();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+// Implementation of connection_description structure
+//
+//////////////////////////////////////////////////////////////////////////////////////
+//! Default constructor
+connection_description::connection_description()
+{
+  clear();
+}
+
+connection_description::~connection_description()
+{
+}
+
+void connection_description::clear()
+{
+  isConnected = false;
+  server.clear();
+  port = 0;
+  type = connection_type::http;
+  family = connection_family::none;
+  isBlocking = false;
+  nonBlockingTimeout = 0;
+  ssl.clear();
+}
+
+std::string connection_description::to_str() const
+{
+  std::ostringstream desc;
+
+  desc << (type == connection_type::http? "http" : "https");
+  if ( isConnected )
+  {
+    desc << (isBlocking? " blocking":" non-blocking");
+    if ( !isBlocking )
+      desc << " (timeout " << nonBlockingTimeout << " secs)";
+    desc << " connected to " << server << " on port " << port
+	 << ", family " << ::to_str(family);
   }
   else
-    desc << "Not available";
+    desc << " not connected, family " << ::to_str(family);
+
+  if ( type == connection_type::https )
+    desc << " SSL Info: " << ssl.to_str();
+
   return desc.str();
 }

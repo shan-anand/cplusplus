@@ -106,6 +106,48 @@ enum connection_type : uint8_t { http, https };
 enum connection_family : uint8_t { none = 0, ip_v4 = 4, ip_v6 = 6 };
 
 /**
+ * @class connection_description
+ * @brief Description of the connection
+ */
+struct connection_description
+{
+  struct ssl_info
+  {
+    bool         isAvailable;
+    std::string  info;
+    //! Default constructor
+    ssl_info();
+    //! Virtual destructor
+    virtual ~ssl_info();
+    //! Clear the objecgt
+    void clear();
+    //! Convert to string
+    std::string to_str() const;
+  };
+
+  bool              isConnected;
+  std::string       server;
+  uint16_t          port;
+  connection_type   type;
+  connection_family family;
+  bool              isBlocking;
+  uint32_t          nonBlockingTimeout;
+  ssl_info          ssl;
+
+  //! Default constructor
+  connection_description();
+
+  //! Virtual destructor
+  virtual ~connection_description();
+
+  //! Clear the objecgt
+  void clear();
+
+  //! Convert to string
+  std::string to_str() const;
+};
+
+/**
  * @class connection
  * @brief An abstract class for HTTP/HTTPS connection.
  */
@@ -206,7 +248,7 @@ public:
 
 
   //! A string representation of the connect used
-  virtual std::string description() const = 0;
+  virtual connection_description description() const = 0;
   //
   ////////////////////////////////////////////////////////////////////////////
 
