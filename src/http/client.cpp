@@ -161,7 +161,7 @@ bool client::run(FNRedirectCallback& _redirect_callback, bool _followRedirects)
           cerr << this->response.to_str() << endl;
         }
       }
-      
+
       isSuccess = (static_cast<int>(this->response.status.code()) >= 200 && static_cast<int>(this->response.status.code()) < 300 );
 
       if ( _followRedirects )

@@ -203,6 +203,10 @@ public:
   //! returns true if the communication is non-blocking
   virtual bool is_non_blocking() const = 0;
   virtual bool is_blocking() const = 0;
+
+
+  //! A string representation of the connect used
+  virtual std::string description() const = 0;
   //
   ////////////////////////////////////////////////////////////////////////////
 

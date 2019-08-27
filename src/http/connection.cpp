@@ -95,6 +95,7 @@ public:
   bool set_non_blocking(bool _isEnable) final;
   bool is_non_blocking() const final;
   bool is_blocking() const final;
+  std::string description() const override;
   ////////////////////////////////////////////////////////////////////////////
 
 protected:
@@ -125,6 +126,7 @@ public:
   bool close() override;
   ssize_t write(const void* _buffer, size_t _count) override;
   ssize_t read(void* _buffer, size_t _count) override;
+  std::string description() const override;
   ////////////////////////////////////////////////////////////////////////////
 
 private:
@@ -454,6 +456,28 @@ bool http_connection::is_non_blocking() const
 inline bool http_connection::is_blocking() const
 {
   return !is_non_blocking();
+}
+
+std::string to_str(const connection_family& family)
+{
+  return (family == connection_family::ip_v4)? "ip_v4" : (family == connection_family::ip_v6? "ip_v6" : "ip_any");
+}
+
+std::string http_connection::description() const
+{
+  std::ostringstream desc;
+  desc << (this->type() == connection_type::http? "http" : "https");
+  if ( m_socket > 0 )
+  {
+    desc << (this->is_blocking()? " blocking":" non-blocking");
+    if ( this->is_non_blocking() )
+      desc << " (timeout " << m_nonBlockingTimeout << " secs)";
+    desc << " connected on port " << m_port
+	 << ", family " << to_str(m_family);
+  }
+  else
+    desc << " not connected, family " << to_str(m_family);
+  return desc.str();
 }
 
 bool http_connection::set_non_blocking(bool _isEnable)
@@ -795,4 +819,20 @@ ssize_t https_connection::read(void* _buffer, size_t _count)
   if ( isActualNonBlocking )
     set_non_blocking(true);
   return read;
+}
+
+std::string https_connection::description() const
+{
+  std::ostringstream desc;
+  desc << http_connection::description();
+  desc << " SSL info: ";
+  if ( m_ssl )
+  {
+    char szDesc[256] = {0};
+    SSL_CIPHER_description(SSL_get_current_cipher(m_ssl), szDesc, sizeof(szDesc)-1);
+    desc << szDesc;
+  }
+  else
+    desc << "Not available";
+  return desc.str();
 }
