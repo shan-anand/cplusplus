@@ -123,7 +123,7 @@ public:
   const connection_type type() const override { return connection_type::https; }
   bool open(const std::string& _server, const unsigned short& _port = 0) override;
   bool open(int _sockfd) override;
-  bool is_open() const override { return http_connection::is_open(); }
+  bool is_open() const override { return super::is_open(); }
   bool close() override;
   ssize_t write(const void* _buffer, size_t _count) override;
   ssize_t read(void* _buffer, size_t _count) override;
@@ -300,15 +300,17 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
 
     char szName[256] = {0};
     bool found = false;
+    int iErrNo = 0;
     for ( rp = result; rp && !found; rp = rp->ai_next )
     {
-      int sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-      if ( sfd == -1 ) continue;
+      int sfd = -1;
 
       switch ( rp->ai_addr->sa_family )
       {
       case AF_INET:
 	{
+	  sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+	  if ( sfd == -1 ) break;
 	  struct sockaddr_in* saddr = (struct sockaddr_in*) rp->ai_addr;
 	  // set the server and socket descriptor
 	  memset(szName, 0, sizeof(szName));
@@ -322,10 +324,14 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
 	    m_family = connection_family::ip_v4;
 	    found = true;
 	  }
+	  if ( !found )
+	    ::close(sfd);
 	}
 	break;
       case AF_INET6:
 	{
+	  sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+	  if ( sfd == -1 ) break;
 	  struct sockaddr_in6* saddr6 = (struct sockaddr_in6 *) rp->ai_addr;
 	  // set the server and socket descriptor
 	  memset(szName, 0, sizeof(szName));
@@ -338,17 +344,20 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
 	    m_family = connection_family::ip_v6;
 	    found = true;
 	  }
+	  else
+	    iErrNo = errno;
+
+	  if ( !found )
+	    ::close(sfd);
 	}
 	break;
-      }
-      if ( !found )
-	::close(sfd);
-    }
+      } // switch
+    } // for
     freeaddrinfo(result);
-    if ( ! found )
-      throw sid::exception(std::string("Could not connect to server ") + _server + " at port " + csPort + " over " + szName);
 
-    cout << "SERVER: " << m_server << endl;
+    if ( ! found )
+      throw sid::exception(std::string("Could not connect to server ") + _server + " at port " + csPort + " over " + szName + ". " + http::errno_str(iErrNo));
+
     // set the port member
     m_port = httpPort;
 
@@ -416,7 +425,7 @@ bool http_connection::open(int _sockfd)
       }
       break;
     default:
-      throw sid::exception("Invalid address family (" + sid::to_str(addr.ss_family) + ") returnedgetpeername()");
+      throw sid::exception("Invalid address family (" + sid::to_str(addr.ss_family) + ") returned for getpeername()");
     }
     // set the return status to true
     isSuccess = true;
@@ -666,7 +675,7 @@ bool https_connection::close()
 {
   __SSL_free(m_ssl);
   __SSL_CTX_free(m_sslctx);
-  http_connection::close();
+  super::close();
   return true;
 }
 
@@ -763,7 +772,7 @@ bool https_connection::open(const std::string& _server, const unsigned short& _p
 
   try
   {
-    if ( ! http_connection::open(_server, httpsPort) )
+    if ( ! super::open(_server, httpsPort) )
       return false;
 
     attach_ssl();
@@ -791,7 +800,7 @@ bool https_connection::open(int _sockfd)
 
   try
   {
-    if ( ! http_connection::open(_sockfd) )
+    if ( ! super::open(_sockfd) )
       return false;
 
     attach_ssl();
@@ -877,7 +886,7 @@ ssize_t https_connection::read(void* _buffer, size_t _count)
 
 connection_description https_connection::description() const
 {
-  connection_description desc = http_connection::description();
+  connection_description desc = super::description();
 
   // More info from https://www.openssl.org/docs/man1.1.0/man3/SSL_CIPHER_get_name.html
   if ( m_ssl )

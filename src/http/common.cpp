@@ -38,6 +38,7 @@ LICENSE: END
 */
 
 #include "http/common.hpp"
+#include "common/convert.hpp"
 #include <string.h>
 #include <sstream>
 #include <iomanip>
@@ -56,9 +57,10 @@ bool http::is_verbose() { return gbVerbose; }
 std::string http::errno_str(const int _errno)
 {
   char buff[1024] = {0};
-
-  strerror_r(_errno, buff, sizeof(buff)-1);
-  return std::string(buff);
+  const char* out = strerror_r(_errno, buff, sizeof(buff)-1);
+  std::string _errStr = std::string("errno (") + sid::to_str(_errno) + ") ";
+  _errStr += (out && *out != '\0')? out : (_errno == 0)? "Success" : "Unknown error";
+  return _errStr;
 }
 
 bool http::get_line(const std::string& _input, size_t& _pos1, std::string& _output)
