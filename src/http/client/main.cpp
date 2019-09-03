@@ -454,7 +454,7 @@ void parseCommandLine(std::vector<std::string>& args, std::string& location, htt
     }
   }
   if ( global.http.ip.v4 == 0 && global.http.ip.v6 == 0 )
-    global.http.ip.v4 = 1;
+    global.http.ip.v4 = global.http.ip.v6 = 1;
 
   if ( timeoutSet )
   {

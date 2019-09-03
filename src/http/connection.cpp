@@ -291,7 +291,7 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
     csPort = sid::to_str(httpPort);
     int s = getaddrinfo(_server.c_str(), csPort.c_str(), &hints, &result);
     if ( s != 0 )
-      throw sid::exception(std::string("getaddrinfo: ") + gai_strerror(s));
+      throw sid::exception(std::string("getaddrinfo() failed with gai_error(") + sid::to_str(s) + ") " + gai_strerror(s));
 
     /* getaddrinfo() returns a list of address structures.
        Try each address until we successfully connect(2).
@@ -324,6 +324,9 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
 	    m_family = connection_family::ip_v4;
 	    found = true;
 	  }
+	  else
+	    iErrNo = errno;
+
 	  if ( !found )
 	    ::close(sfd);
 	}
