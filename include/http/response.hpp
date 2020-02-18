@@ -65,7 +65,7 @@ public:
   void clear();
 
   /**
-   * @fn void set(const std::string& input);
+   * @fn void set(const std::string& _input);
    * @brief Set the contents of the object using the complete HTTP response string.
    *        If there is an error an exception of std::string() is thrown.
    */

@@ -103,7 +103,7 @@ response_handler(connection_ptr _conn) : m_conn(_conn)
 
   
 public:
-  void parse(const char* buffer, int nread, const method& _requestMethod, /*in/out*/ response& _response);
+  void parse(const char* _buffer, int _nread, const method& _requestMethod, /*in/out*/ response& _response);
   bool is_end_of_data() const { return m_endOfData; }
   bool is_force_stop() const { return m_forceStop; }
   bool continue_parsing() const { return ( ! (m_endOfData || m_forceStop) ); } 
@@ -238,7 +238,7 @@ bool response::recv(connection_ptr _conn, const method& _requestMethod)
   return isSuccess;
 }
 
-void response::set(const std::string& input)
+void response::set(const std::string& _input)
 {
   size_t pos1, pos2;
   size_t eol;
@@ -248,25 +248,25 @@ void response::set(const std::string& input)
   {
     // HTTP/1.x <CODE> <CODESTR>\r\n
     pos1 = 0;
-    eol = input.find(CRLF, pos1);
-    pos2 = input.find(' ', pos1);
+    eol = _input.find(CRLF, pos1);
+    pos2 = _input.find(' ', pos1);
     if ( pos2 == std::string::npos || pos2 > eol )
       throw std::string("Invalid response from server");
-    version = http::version::get(input.substr(pos1, (pos2-pos1)));
+    version = http::version::get(_input.substr(pos1, (pos2-pos1)));
     pos1 = pos2+1;
 
-    pos2 = input.find(CRLF, pos1);
+    pos2 = _input.find(CRLF, pos1);
     if ( pos2 == std::string::npos || pos2 > eol )
       throw std::string("Invalid response from server");
-    status = http::status::get(input.substr(pos1, (pos2-pos1)));
+    status = http::status::get(_input.substr(pos1, (pos2-pos1)));
     pos1 = pos2+2;
 
     // Followed by response headers
     do
     {
-      pos2 = input.find(CRLF, pos1);
+      pos2 = _input.find(CRLF, pos1);
       if ( pos2 == std::string::npos ) throw std::string("Invalid response from server");
-      headerStr = input.substr(pos1, (pos2-pos1));
+      headerStr = _input.substr(pos1, (pos2-pos1));
       pos1 = pos2+2;
       if ( headerStr.empty() ) break;
       this->headers.add(headerStr);
@@ -274,7 +274,7 @@ void response::set(const std::string& input)
     while (true);
 
     // Followed by data
-    this->content = input.substr(pos1);
+    this->content = _input.substr(pos1);
   }
   catch (const std::string& csErr)
   {
@@ -483,7 +483,7 @@ void response_handler::parse_data_chunked(/*in/out*/ response& _response)
   return;
 }
 
-void response_handler::parse(const char* buffer, int nread, const method& _requestMethod, /*in/out*/ response& _response)
+void response_handler::parse(const char* _buffer, int _nread, const method& _requestMethod, /*in/out*/ response& _response)
 {
   //cerr.write(buffer, nread); return;
 
@@ -491,7 +491,7 @@ void response_handler::parse(const char* buffer, int nread, const method& _reque
   {
     //cerr << "New data received: " << nread << endl;
     //cerr.write(buffer, nread);
-    m_csResponse.append(buffer, nread);
+    m_csResponse.append(_buffer, _nread);
 
     // Parse status from the first line
     if ( ! m_endOfStatus && ! parse_status(_response) )
