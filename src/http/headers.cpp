@@ -286,7 +286,7 @@ http::transfer_encoding headers::transfer_encoding(bool* _pisFound/* = nullptr*/
     else if ( strcasecmp(value.c_str(), "identity") == 0 )
       encoding = http::transfer_encoding::identity;
     else
-      throw std::string("Invalid Transfer-Encoding enountered: ") + value;
+      throw sid::exception("Invalid Transfer-Encoding enountered: " + value);
   }
   return encoding;
 }

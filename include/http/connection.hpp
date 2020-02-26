@@ -50,7 +50,7 @@ LICENSE: END
 #define DEFAULT_PORT_HTTP  80
 #define DEFAULT_PORT_HTTPS 443
 
-#define DEFAULT_NONBLOCKING_TIMEOUT 30 // seconds
+#define DEFAULT_IO_TIMEOUT_SECS 30 // seconds
 
 namespace sid {
 
@@ -233,18 +233,19 @@ public:
   virtual ssize_t read(void* _buffer, size_t _count) = 0;
 
   /**
-   * @fn void set_non_blocking(bool _bEnable);
-   * @brief Set or resets non-blocking mode
+   * @fn void set_blocking(bool _bEnable);
+   * @brief Set or resets blocking mode
    *
-   * @param _bEnable [in] if true, it enables non-blocking mode. If false, it enables blocking mode
+   * @param _bEnable [in] if true, it enables blocking mode. If false, it enables non-blocking mode
+   * @param _ioTimeoutSeconds [in] IO timeout in seconds. If 0, it defaults to DEFAULT_IO_TIMEOUT_SECS
    *
-   * @return true, if the operation succeeded, false otherwise
    */
-  virtual bool set_non_blocking(bool _bEnable) = 0;
+  void set_blocking(bool _bEnable) { m_isBlocking = _bEnable; }
+  void set_blocking(bool _bEnable, uint32_t _ioTimeoutSeconds) { set_blocking(_bEnable); set_timeout(_ioTimeoutSeconds); }
 
   //! returns true if the communication is non-blocking
-  virtual bool is_non_blocking() const = 0;
-  virtual bool is_blocking() const = 0;
+  bool is_non_blocking() const { return !m_isBlocking; }
+  bool is_blocking() const { return m_isBlocking; }
 
 
   //! A string representation of the connect used
@@ -253,12 +254,12 @@ public:
   ////////////////////////////////////////////////////////////////////////////
 
   //! Get the non-blocking timeout value in seconds
-  uint32_t get_non_blocking_timeout() const { return m_nonBlockingTimeout; }
+  uint32_t get_timeout() const { return m_ioTimeout; }
   //! Set the non-blocking timeout value in seconds. Returns the old value.
-  uint32_t set_non_blocking_timeout(uint32_t _seconds)
+  uint32_t set_timeout(uint32_t _seconds)
     {
-      uint32_t old = m_nonBlockingTimeout;
-      m_nonBlockingTimeout = _seconds;
+      uint32_t old = m_ioTimeout;
+      m_ioTimeout = (_seconds > 0)? _seconds : DEFAULT_IO_TIMEOUT_SECS;
       return old;
     }
     
@@ -323,7 +324,8 @@ protected:
   std::string       m_error;         //! Last error
   unsigned short    m_port;          //! Port connected to at the server
   bool              m_retryable;     //! Retryable error or not? Set by implemented virtual function.
-  uint32_t          m_nonBlockingTimeout; //! Timeout in seconds for non-blocking mode.
+  bool              m_isBlocking;    //! Set blocking I/O. Internally it is non-blocking, but for blocking we just keep looping over infinitely.
+  uint32_t          m_ioTimeout;     //! I/O timeout in seconds.
   ssl::certificate  m_sslCert;       //! SSL Certificate to be used for https
 };
 

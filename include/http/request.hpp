@@ -41,6 +41,7 @@ LICENSE: END
 #include "method.hpp"
 #include "version.hpp"
 #include "headers.hpp"
+#include "content.hpp"
 #include "connection.hpp"
 #include <string>
 
@@ -75,7 +76,7 @@ public:
   /**
    * @fn void set(const std::string& _input);
    * @brief Set the contents of the object using the complete HTTP request string.
-   *        If there is an error an exception of std::string() is thrown.
+   *        If there is an error a sid::exception is thrown.
    */
   void set(const std::string& _input);
 
@@ -87,7 +88,7 @@ public:
   std::string to_str(bool _withContent) const;
 
   /**
-   * @fn void setContent(const std::string& data, size_t len);
+   * @fn void set_content(const std::string& data, size_t len);
    * @brief Sets the payload of the request
    *
    * @param data Payload
@@ -98,10 +99,11 @@ public:
   void set_content(const std::string& _data, size_t _len = std::string::npos);
 
   /**
-   * @fn const std::string& content() const;
+   * @fn const http::content& content() const;
    * @brief Gets the payload of the request.
    */
-  const std::string& content() const { return m_content; }
+  const http::content& content() const { return m_content; }
+  http::content& content() { return m_content; }
 
   bool send(connection_ptr _conn);
   bool send(connection_ptr _conn, const std::string& _data);
@@ -109,7 +111,7 @@ public:
   bool recv(connection_ptr _conn);
 
 private:
-  std::string   m_content;   //! HTTP request payload
+  http::content m_content;   //! HTTP request payload
 
 public:
   http::method  method;      //! HTTP method in Line-1 of request

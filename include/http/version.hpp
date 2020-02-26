@@ -39,6 +39,7 @@ LICENSE: END
 #define _SID_HTTP_VERSION_H_
 
 #include <string>
+#include "common/exception.hpp"
 
 namespace sid {
 namespace http {

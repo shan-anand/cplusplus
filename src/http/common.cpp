@@ -142,14 +142,14 @@ std::string http::url_decode(const std::string& _input)
       // make sure there are atleast 2 characters after %
       //   otherwise throw an exception
       if ( i+2 > _input.length() )
-        throw std::string("Invalid input to urlDecode: ") + _input;
+        throw sid::exception("Invalid input to urlDecode: " + _input);
       // get the next 2 characters (after %)
       ia[0] = _input[++i];
       ia[1] = _input[++i];
       // make sure the 2 characters are hexdecimal characters,
       //   otherwise throw an exception
       if ( !isxdigit(ia[0]) || !isxdigit(ia[1]) )
-        throw std::string("Invalid hex input to urlDecode: ") + _input;
+        throw sid::exception("Invalid hex input to urlDecode: " + _input);
       // convert the hexadecimal string to long and
       //   write it to the buffer as a character
       out << (char) strtol(ia, NULL, 16);

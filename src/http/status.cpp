@@ -144,7 +144,7 @@ const std::string& status::message() const
   size_t cnt = sizeof(gMapStatus)/sizeof(gMapStatus[0]);
   for ( size_t i = 0; i < cnt; i++ )
     if ( m_code == gMapStatus[i].code ) return gMapStatus[i].description;
-  throw std::string("Invalid Status code");
+  throw sid::exception("Invalid Status code");
 }
 
 //! Check whether the current status is a redirect request

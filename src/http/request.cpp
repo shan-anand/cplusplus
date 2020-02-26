@@ -81,12 +81,8 @@ void request::clear()
  */
 void request::set_content(const std::string& _data, size_t _len)
 {
-  if ( _len == std::string::npos )
-    this->m_content = _data;
-  else
-    this->m_content = _data.substr(0, _len);
-
-  _len = this->m_content.size();
+  this->m_content.set_data(_data, _len);
+  _len = this->m_content.length();
   this->headers("Content-Length", sid::to_str(_len));
 }
 
@@ -110,10 +106,10 @@ std::string request::to_str(bool _withContent) const
 
   if ( _withContent )
   {
-    if ( ! this->content_is_file_path )
-      out << this->m_content;
+    if ( this->m_content.is_string() )
+      out << this->m_content.to_str();
     else
-      out << "File: " << this->m_content;
+      out << "File: " << this->m_content.file_path();
   }
 
   return out.str();
@@ -226,7 +222,7 @@ bool request::recv(connection_ptr _conn)
 /**
  * @fn void set(const std::string& _input);
  * @brief Set the contents of the object using the complete HTTP request string.
- *        If there is an error an exception of std::string() is thrown.
+ *        If there is an error a sid::exception() is thrown.
  */
 void request::set(const std::string& _input)
 {
@@ -264,12 +260,9 @@ void request::set(const std::string& _input)
       this->headers.add(headerStr);
     }
     while (true);
-    this->m_content = _input.substr(pos1);
+    this->m_content.set_data(_input.substr(pos1));
   }
-  catch (const std::string& csErr)
-  {
-    throw sid::exception(csErr);
-  }
+  catch ( const sid::exception& ) { /* Rethrow string exception */ throw; }
   catch (...)
   {
     throw sid::exception("Unhandled exception in request::set");

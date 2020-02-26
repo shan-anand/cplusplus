@@ -131,7 +131,7 @@ bool client::run(FNRedirectCallback& _redirect_callback, bool _followRedirects)
       {
         this->response.clear();
 
-        data = this->request.content();
+        data = this->request.content().to_str();
         cerr << "=================================" << endl;
         cerr << "Sending actual data of size " << data.length() << endl;
         /*
@@ -206,7 +206,7 @@ bool client::run(FNRedirectCallback& _redirect_callback, bool _followRedirects)
 
     // If the status failed, set the status message
     if ( !isSuccess )
-      throw sid::exception((int)this->response.status.code(), std::string("[") + sid::to_str((int)this->response.status.code()) + "] " + this->response.status.message());
+      throw sid::exception((int)this->response.status.code(), "[" + sid::to_str((int)this->response.status.code()) + "] " + this->response.status.message());
   }
   catch (const sid::exception& e)
   {

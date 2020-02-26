@@ -200,7 +200,7 @@ size_t cookies::add(http::response& _response) const
 size_t cookies::add(http::request& _request, const http::connection_ptr _conn) const
 {
   if ( _conn.empty() )
-    throw std::string("Expecting the connection object to be set while generating cookie headers");
+    throw sid::exception("Expecting the connection object to be set while generating cookie headers");
 
   std::string key = "cookie";
   std::string value, values;

@@ -113,7 +113,7 @@ std::string www_authenticate::get_auth_string(const http::request& _request)
       HA2 = sid::to_lower(md5.get_hash(_request.method.to_str() + ":" + _request.uri).to_hex_str());
     else if ( qop == QOP::auth_int )
     {
-      std::string contentMD5 = sid::to_lower(md5.get_hash(_request.content()).to_hex_str());
+      std::string contentMD5 = sid::to_lower(md5.get_hash(_request.content().to_str()).to_hex_str());
       HA2 = sid::to_lower(md5.get_hash(_request.method.to_str() + ":" + _request.uri + ":" + contentMD5).to_hex_str());
     }
 
@@ -174,7 +174,7 @@ void www_authenticate_list::set(const std::string& _wwwAuthStr)
     else // if = is present
     {
       if ( wwwAuth.type.empty() )
-        throw std::string("Wrong WWW-Authentication: ") + _wwwAuthStr + " at " + sid::to_str(wpos) + ", type not found";
+        throw sid::exception("Wrong WWW-Authentication: " + _wwwAuthStr + " at " + sid::to_str(wpos) + ", type not found");
 
       std::string key = sid::trim(_wwwAuthStr.substr(pos, wpos-pos));
       pos = wpos+1;
@@ -195,7 +195,7 @@ void www_authenticate_list::set(const std::string& _wwwAuthStr)
         if ( endQuote )
         {
           if ( ch != ' ' && ch != ',' && !endOfData )
-            throw std::string("Wrong WWW-Authentication: ") + _wwwAuthStr + " at " + sid::to_str(wpos);
+            throw sid::exception("Wrong WWW-Authentication: " + _wwwAuthStr + " at " + sid::to_str(wpos));
         }
 
         if ( !hasQuote )
@@ -226,7 +226,7 @@ void www_authenticate_list::set(const std::string& _wwwAuthStr)
       }
       //cout << key << " endQuote: " << sid::to_str(endQuote) << ", properLoop: " << sid::to_str(properLoop) << endl;
       if ( !properLoop )
-        throw std::string("Wrong WWW-Authentication: ") + _wwwAuthStr + ", improper loop at " + sid::to_str(wpos);
+        throw sid::exception("Wrong WWW-Authentication: " + _wwwAuthStr + ", improper loop at " + sid::to_str(wpos));
       std::string value = sid::trim(_wwwAuthStr.substr(pos, lpos-pos+1));
       wwwAuth.info[key] = value;
       pos = wpos+1;

@@ -72,6 +72,15 @@ using namespace sid::http;
 #define __SSL_free(s) if ( s ) { SSL_free(s); s = nullptr; }
 #define __SSL_CTX_free(s) if ( s ) { SSL_CTX_free(s); s = nullptr; }
 
+struct io_exec_output
+{
+  int retVal;
+  bool timedOut;
+  bool ioNotReady;
+  io_exec_output(int _r = 0) : retVal(_r), timedOut(false), ioNotReady(false) {}
+};
+typedef std::function<int(bool&)> IOLoopCallback;
+
 /**
  * @class http_connection
  * @brief Class definition for a HTTP connection.
@@ -93,13 +102,12 @@ public:
   bool close() override;
   ssize_t write(const void* _buffer, size_t _count) override;
   ssize_t read(void* _buffer, size_t _count) override;
-  bool set_non_blocking(bool _isEnable) final;
-  bool is_non_blocking() const final;
-  bool is_blocking() const final;
   connection_description description() const override;
   ////////////////////////////////////////////////////////////////////////////
 
 protected:
+  bool do_set_non_blocking(int fd);
+  io_exec_output io_exec(IOLoopCallback& fnIOCallback, int ioType, int default_retVal = 0);
   bool isReadyForIO(int ioType, bool* pOperationTimedOut = nullptr) const;
   
 protected:
@@ -149,7 +157,7 @@ connection::connection() :
   m_error(""),
   m_port(0),
   m_retryable(false),
-  m_nonBlockingTimeout(DEFAULT_NONBLOCKING_TIMEOUT)
+  m_ioTimeout(DEFAULT_IO_TIMEOUT_SECS)
 {
 }
 
@@ -161,7 +169,7 @@ connection::~connection()
 
 /**
  * @fn connection_ptr create(const connection_type& _type);
- * @brief Creates a connection object based on the connection type specified. In case of error it throws a string exception.
+ * @brief Creates a connection object based on the connection type specified. In case of error it throws a sid::exception.
  *
  * @param type [in] Type of connection (HTTP or HTTPS)
  *
@@ -221,7 +229,7 @@ connection_ptr connection::p_create(const connection_type& _type, const ssl::cer
     if ( p ) delete p;
     throw sid::exception(std::string("Unable to create smart pointer object for ") + ( (_type == connection_type::http)? "HTTP":"HTTPS") + std::string(" connection"));
   }
-  catch ( const sid::exception& ) { /* Rethrow string exception */ throw; }
+  catch ( const sid::exception& ) { /* Rethrow sid exception */ throw; }
   catch (...)
   {
     if ( ptr ) { delete ptr; ptr = nullptr; }
@@ -248,6 +256,126 @@ http_connection::http_connection() : super(), m_socket(-1)
 http_connection::~http_connection()
 {
   close();
+}
+
+bool http_connection::do_set_non_blocking(int fd)
+{
+  int flags = ::fcntl(fd, F_GETFL);
+  if ( flags == -1 ) return false;
+  flags |= O_NONBLOCK;
+  return (::fcntl(fd, F_SETFL, flags) == 0);
+}
+
+io_exec_output http_connection::io_exec(IOLoopCallback& fnIOCallback, int ioType, int default_retVal/* = 0*/)
+{
+  io_exec_output out(default_retVal);
+
+  for ( bool bContinue = true; bContinue; )
+  {
+    bContinue = false;
+    out.timedOut = false;
+    if ( ! isReadyForIO(ioType, &out.timedOut) )
+    {
+      // if operation timedout and if the socket was set for blocking, continue to loop again
+      if ( out.timedOut && is_blocking() )
+      {
+	bContinue = true;
+	continue;
+      }
+      out.retVal = 0;
+      out.ioNotReady = true;
+      break;
+    }
+
+    out.retVal = fnIOCallback(/*out*/bContinue);
+  } // for loop
+  return out;
+}
+
+bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
+{
+  if ( _pOperationTimedOut ) *_pOperationTimedOut = false;
+
+  bool isReady = false;
+  bool isError = true;
+
+  auto check_using_poll = [&]()->void
+    {
+      struct timespec ts = {this->get_timeout(), 0};
+      pollfd poll_fd = {m_socket, POLLRDHUP, 0};
+      if ( _ioType & IO_READ )
+	poll_fd.events |= (POLLIN | POLLPRI);
+      if ( _ioType & IO_WRITE )
+	poll_fd.events |= POLLOUT;
+      int ret = ppoll(&poll_fd, 1, &ts, nullptr);
+      if ( ret == -1 )
+	throw sid::exception(http::errno_str(errno));
+
+      if ( ret > 0 )
+      {
+	const int& revents = poll_fd.revents;
+	if ( (_ioType & IO_READ) && (revents & POLLIN) )
+	  isReady = true;
+	else if ( (_ioType & IO_WRITE) && (revents & POLLOUT) )
+	  isReady = true;
+	if ( (revents & POLLERR) )
+	  throw sid::exception("Error polling for read data");
+	if ( (revents & POLLHUP) )
+	  throw sid::exception("Error polling for read data as the peer closed the connection");
+	if ( (revents & POLLNVAL) )
+	  throw sid::exception("Error polling for read data due to invalid request");
+      }
+    };
+
+  auto check_using_select = [&]()->void
+    {
+      fd_set r_fds, w_fds, e_fds;
+      FD_ZERO(&r_fds);
+      FD_ZERO(&w_fds);
+      FD_ZERO(&e_fds);
+
+      fd_set* pr_fds = nullptr;
+      fd_set* pw_fds = nullptr;
+
+      if ( _ioType & IO_READ )
+	{
+	  pr_fds = &r_fds;
+	  FD_SET(m_socket, pr_fds);
+	}
+      if ( _ioType & IO_WRITE )
+	{
+	  pw_fds = &w_fds;
+	  FD_SET(m_socket, pw_fds);
+	}
+      FD_SET(m_socket, &e_fds);
+
+      struct timeval tv = {0};
+      tv.tv_sec = this->get_timeout();
+      int ret = select(m_socket+1, pr_fds, pw_fds, &e_fds, &tv);
+      if ( ret == -1 )
+	throw sid::exception(http::errno_str(errno));
+
+      if ( ret > 0 )
+      {
+	if ( pr_fds && FD_ISSET(m_socket, pr_fds ) )
+	  isReady = true;
+	else if ( pw_fds && FD_ISSET(m_socket, pw_fds ) )
+	  isReady = true;
+	// If an error occurred, return false
+	else if ( FD_ISSET(m_socket, &e_fds ) )
+	  isError = true;
+      }
+    };
+
+  // Check for availability of I/O
+  check_using_poll();
+
+  if ( !isReady && !isError )
+  {
+    // possibly a timeout error
+    if ( _pOperationTimedOut ) *_pOperationTimedOut = true;
+  }
+  return isReady;
 }
 
 bool http_connection::close()
@@ -364,6 +492,9 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
     // set the port member
     m_port = httpPort;
 
+    // set the socket to non-blocking mode internally
+    do_set_non_blocking(m_socket);
+
     // set the return status to true
     isSuccess = true;
   }
@@ -401,7 +532,7 @@ bool http_connection::open(int _sockfd)
     memset(ipstr, 0, sizeof(ipstr));
 
     if ( -1 == getpeername(_sockfd, (struct sockaddr*) &addr, &len) )
-      throw http::errno_str(errno);
+      throw sid::exception(http::errno_str(errno));
 
     switch ( addr.ss_family )
     {
@@ -430,12 +561,14 @@ bool http_connection::open(int _sockfd)
     default:
       throw sid::exception("Invalid address family (" + sid::to_str(addr.ss_family) + ") returned for getpeername()");
     }
+    // set the socket to non-blocking mode internally
+    do_set_non_blocking(m_socket);
     // set the return status to true
     isSuccess = true;
   }
-  catch ( const std::string& csErr )
+  catch ( const sid::exception& e )
   {
-    m_error = __func__ + std::string(": ") + csErr;
+    m_error = __func__ + std::string(": ") + e.what();
   }
   catch (...)
   {
@@ -447,44 +580,42 @@ bool http_connection::open(int _sockfd)
 
 ssize_t http_connection::write(const void* _buffer, size_t _count)
 {
-  bool operationTimedOut = false;
-  if ( ! isReadyForIO(IO_WRITE, &operationTimedOut) )
-    return 0;
+  IOLoopCallback write_callback = [&](bool& bContinue)->int
+    {
+      int retVal = ::write(m_socket, _buffer, _count);
+      if ( retVal < 0 )
+      {
+	if ( errno == EAGAIN || errno == EWOULDBLOCK )
+	{
+	  bContinue = true;
+	  //cout << "write: EWOULDBLOCK returned. Continuing the loop" << endl;
+	}
+      }
+      return retVal;
+    };
 
-  bool isActualNonBlocking = is_non_blocking();
-  if ( isActualNonBlocking )
-    set_non_blocking(false);
-  ssize_t written = ::write(m_socket, _buffer, _count);
-  if ( isActualNonBlocking )
-    set_non_blocking(true);
-  return written;
+  io_exec_output out = io_exec(write_callback, IO_WRITE, 0);
+  return out.retVal;
 }
 
 ssize_t http_connection::read(void* _buffer, size_t _count)
 {
-  bool operationTimedOut = false;
-  if ( ! isReadyForIO(IO_READ, &operationTimedOut) )
-    return 0;
+  IOLoopCallback read_callback = [&](bool& bContinue)->int
+    {
+      int retVal = ::read(m_socket, _buffer, _count);
+      if ( retVal < 0 )
+      {
+	if ( errno == EAGAIN || errno == EWOULDBLOCK )
+	{
+	  bContinue = true;
+	  //cout << "read: EWOULDBLOCK returned. Continuing the loop" << endl;
+	}
+      }
+      return retVal;
+    };
 
-  bool isActualNonBlocking = is_non_blocking();
-  if ( isActualNonBlocking )
-    set_non_blocking(false);
-  ssize_t read = ::read(m_socket, _buffer, _count);
-  if ( isActualNonBlocking )
-    set_non_blocking(true);
-  return read;
-}
-
-bool http_connection::is_non_blocking() const
-{
-  int flags = ::fcntl(m_socket, F_GETFL);
-  if ( flags == -1 ) return false;
-  return ( flags & O_NONBLOCK );
-}
-
-inline bool http_connection::is_blocking() const
-{
-  return !is_non_blocking();
+  io_exec_output out = io_exec(read_callback, IO_READ, 0);
+  return out.retVal;
 }
 
 std::string to_str(const connection_family& family)
@@ -502,112 +633,10 @@ connection_description http_connection::description() const
   desc.type = this->type();
   desc.family = m_family;
   desc.isBlocking = this->is_blocking();
-  desc.nonBlockingTimeout = m_nonBlockingTimeout;
+  desc.nonBlockingTimeout = this->get_timeout();
 
   return desc;
 }
-
-bool http_connection::set_non_blocking(bool _isEnable)
-{
-  int flags = ::fcntl(m_socket, F_GETFL);
-  if ( flags == -1 ) return false;
-  
-  if ( _isEnable )
-    flags |= O_NONBLOCK;
-  else
-    flags &= ~O_NONBLOCK;
-
-  return (::fcntl(m_socket, F_SETFL, flags) == 0);
-}
-
-bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
-{
-  if ( _pOperationTimedOut ) *_pOperationTimedOut = false;
-
-  if ( is_blocking() )
-    return true;
-
-  bool isReady = false;
-  bool isError = false;
-
-  auto check_using_poll = [&]()->void
-    {
-      struct timespec ts = {m_nonBlockingTimeout, 0};
-      pollfd poll_fd = {m_socket, POLLRDHUP, 0};
-      if ( _ioType & IO_READ )
-	poll_fd.events |= (POLLIN | POLLPRI);
-      if ( _ioType & IO_WRITE )
-	poll_fd.events |= POLLOUT;
-      int ret = ppoll(&poll_fd, 1, &ts, nullptr);
-      if ( ret == -1 )
-	throw http::errno_str(errno);
-
-      if ( ret > 0 )
-      {
-	const int& revents = poll_fd.revents;
-	if ( (_ioType & IO_READ) && (revents & POLLIN) )
-	  isReady = true;
-	else if ( (_ioType & IO_WRITE) && (revents & POLLOUT) )
-	  isReady = true;
-	if ( (revents & POLLERR) )
-	  throw std::string("Error polling for read data");
-	if ( (revents & POLLHUP) )
-	  throw std::string("Error polling for read data as the peer closed the connection");
-	if ( (revents & POLLNVAL) )
-	  throw std::string("Error polling for read data due to invalid request");
-      }
-    };
-
-  auto check_using_select = [&]()->void
-    {
-      fd_set r_fds, w_fds, e_fds;
-      FD_ZERO(&r_fds);
-      FD_ZERO(&w_fds);
-      FD_ZERO(&e_fds);
-
-      fd_set* pr_fds = nullptr;
-      fd_set* pw_fds = nullptr;
-
-      if ( _ioType & IO_READ )
-	{
-	  pr_fds = &r_fds;
-	  FD_SET(m_socket, pr_fds);
-	}
-      if ( _ioType & IO_WRITE )
-	{
-	  pw_fds = &w_fds;
-	  FD_SET(m_socket, pw_fds);
-	}
-      FD_SET(m_socket, &e_fds);
-
-      struct timeval tv = {0};
-      tv.tv_sec = m_nonBlockingTimeout;
-      int ret = select(m_socket+1, pr_fds, pw_fds, &e_fds, &tv);
-      if ( ret == -1 )
-	throw http::errno_str(errno);
-
-      if ( ret > 0 )
-      {
-	if ( pr_fds && FD_ISSET(m_socket, pr_fds ) )
-	  isReady = true;
-	else if ( pw_fds && FD_ISSET(m_socket, pw_fds ) )
-	  isReady = true;
-	// If an error occurred, return false
-	else if ( FD_ISSET(m_socket, &e_fds ) )
-	  isError = true;
-      }
-    };
-
-  check_using_poll();
-
-  if ( !isReady && !isError )
-  {
-    // possibly a timeout error
-    if ( _pOperationTimedOut ) *_pOperationTimedOut = true;
-  }
-  return isReady;
-}
-
 //////////////////////////////////////////////////////////////////////////////////////
 //
 // Implementation of https_connection class
@@ -755,8 +784,25 @@ void https_connection::attach_ssl()
     if ( 0 == SSL_set_fd(m_ssl, m_socket) )
       throw sid::exception("Unable to set socket on SSL");
 
-    if ( 1 != SSL_connect(m_ssl) )
-      throw sid::exception("SSL handshake was unsuccessful");
+    IOLoopCallback ssl_connect_callback = [&](bool& bContinue)->int
+      {
+	int retVal = SSL_connect(m_ssl);
+	if ( retVal == 1 )
+	  ;
+	else if ( retVal < 0 )
+	{
+	  int sslErr = SSL_get_error(m_ssl, retVal);
+	  if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
+	    bContinue = true;
+	  else
+	    throw sid::exception("SSL handshake was unsuccessful. retVal=" + sid::to_str(retVal) + ", sslErr=" + sid::to_str(sslErr));
+	}
+	else
+	  throw sid::exception("SSL handshake was unsuccessful");
+	return retVal;
+      };
+
+    io_exec(ssl_connect_callback, IO_READ|IO_WRITE);
   }
   catch (...)
   {
@@ -783,10 +829,10 @@ bool https_connection::open(const std::string& _server, const unsigned short& _p
     // set the return status to true
     isSuccess = true;
   }
-  catch (const std::string& csErr)
+  catch ( const sid::exception& e )
   {
     close();
-    m_error = __func__ + std::string(": ") + csErr;
+    m_error = __func__ + std::string(": ") + e.what();
   }
   catch (...)
   {
@@ -811,9 +857,9 @@ bool https_connection::open(int _sockfd)
     // set the return status to true
     isSuccess = true;
   }
-  catch (const std::string& csErr)
+  catch ( const sid::exception& e )
   {
-    m_error = __func__ + std::string(": ") + csErr;
+    m_error = __func__ + std::string(": ") + e.what();
   }
   catch (...)
   {
@@ -823,82 +869,47 @@ bool https_connection::open(int _sockfd)
   return isSuccess;
 }
 
+
 ssize_t https_connection::write(const void* _buffer, size_t _count)
 {
-  bool operationTimedOut = false;
-  if ( ! isReadyForIO(IO_WRITE, &operationTimedOut) )
-    return 0;
-
-  bool isActualNonBlocking = is_non_blocking();
-  if ( isActualNonBlocking )
-    set_non_blocking(false);
-  ssize_t written = SSL_write(m_ssl, _buffer, _count);
-  if ( isActualNonBlocking )
-    set_non_blocking(true);
-  return written;
-/*
-  if ( is_blocking() )
-    return SSL_write(m_ssl, buffer, count);
-
-  const size_t defaultWriteSize = 32*1024;
-  size_t bytesToWrite;
-  ssize_t written = 0, wrt = 0;
-  const unsigned char* buf = (const unsigned char*) buffer;
-  while ( count != (size_t) written )
-  {
-    bool operationTimedOut = false;
-    if ( ! isReadyForIO(IO_WRITE, &operationTimedOut) )
-      return 0;
-
-    size_t remainingBytes = count - written;
-    if ( remainingBytes <= defaultWriteSize )
-      bytesToWrite = remainingBytes;
-    else
-      bytesToWrite = defaultWriteSize;
-
-    wrt = SSL_write(m_ssl, buf, bytesToWrite);
-    if ( wrt == -1 )
+  IOLoopCallback ssl_write_callback = [&](bool& bContinue)->int
     {
-      if ( errno == EAGAIN || errno == EWOULDBLOCK )
-        continue;
-      written = wrt;
-      break;
-    }
-    written += wrt;
-    buf += wrt;
-    cout << written << endl;
-  }
-  return written;
-*/
+      int retVal = SSL_write(m_ssl, _buffer, _count);
+      if ( retVal < 0 )
+      {
+	int sslErr = SSL_get_error(m_ssl, retVal);
+	if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
+	{
+	  bContinue = true;
+	  //cout << "SSL_write: SSL_ERROR_WANT_WRITE returned. Continuing the loop" << endl;
+	}
+      }
+      return retVal;
+    };
+
+  io_exec_output out = io_exec(ssl_write_callback, IO_WRITE, 0);
+  return out.retVal;
 }
 
 ssize_t https_connection::read(void* _buffer, size_t _count)
 {
-  ssize_t retVal = 0;
-  for ( bool bContinue = true; bContinue; )
-  {
-    bContinue = false;
-    bool operationTimedOut = false;
-    if ( ! isReadyForIO(IO_READ, &operationTimedOut) )
-      return 0;
-
-    bool isActualNonBlocking = is_non_blocking();
-    if ( isActualNonBlocking )
-      set_non_blocking(false);
-    retVal = SSL_read(m_ssl, _buffer, _count);
-    if ( retVal < 0 )
+  IOLoopCallback ssl_read_callback = [&](bool& bContinue)->int
     {
-      int sslErr = SSL_get_error(m_ssl, retVal);
-      if ( sslErr == SSL_ERROR_WANT_READ )
+      int retVal = SSL_read(m_ssl, _buffer, _count);
+      if ( retVal < 0 )
       {
-	bContinue = true;
-	//cout << "SSL_read: SSL_ERROR_WANT_READ returned. Continuing the loop" << endl;
+	int sslErr = SSL_get_error(m_ssl, retVal);
+	if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
+	{
+	  bContinue = true;
+	  //cout << "SSL_read: SSL_ERROR_WANT_READ returned. Continuing the loop" << endl;
+	}
       }
-    }
-    if ( isActualNonBlocking )
-      set_non_blocking(true);
-  }
-  return retVal;
+      return retVal;
+    };
+
+  io_exec_output out = io_exec(ssl_read_callback, IO_READ, 0);
+  return out.retVal;
 }
 
 connection_description https_connection::description() const

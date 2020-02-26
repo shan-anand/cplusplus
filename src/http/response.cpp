@@ -147,7 +147,6 @@ void response::clear()
   status = http::status_code::NotFound;
   headers.clear();
   content.clear();
-  content_is_file_path = false;
   error.clear();
 }
 
@@ -160,13 +159,13 @@ std::string response::to_str(bool _showContent/* = true*/) const
       << CRLF;
   out << this->headers.to_str();
   out << CRLF; // marks end of data
-  if ( ! this->content_is_file_path )
+  if ( this->content.is_string() )
   {
     if ( _showContent )
-      out << this->content;
+      out << this->content.to_str();
   }
   else
-    out << "File: " << this->content;
+    out << "File: " << this->content.file_path();
   return out.str();
 }
 
@@ -179,7 +178,7 @@ bool response::send(connection_ptr _conn)
     this->error.clear();
 
     if ( _conn.empty() || ! _conn->is_open() )
-      throw std::string("Connection is not established");
+      throw sid::exception("Connection is not established");
 
     ////////////////////////////////////////////////////
     // NOTE: BASIC IMPLEMENTATION. TO BE CHANGED LATER.
@@ -188,15 +187,15 @@ bool response::send(connection_ptr _conn)
 
     ssize_t written = _conn->write(csResponse.c_str(), csResponse.length());
     if ( written < 0 || csResponse.length() != static_cast<size_t>(written) )
-      throw std::string("Failed to write data");
+      throw sid::exception("Failed to write data");
     ////////////////////////////////////////////////////
 
     // set the return status to true
     isSuccess = true;
   }
-  catch ( const std::string& csErr )
+  catch ( const sid::exception& e )
   {
-    this->error = __func__ + std::string(": ") + csErr;
+    this->error = __func__ + std::string(": ") + e.what();
   }
   catch (...)
   {
@@ -217,7 +216,7 @@ bool response::recv(connection_ptr _conn, const method& _requestMethod)
     this->error.clear();
 
     if ( _conn.empty() || ! _conn->is_open() )
-      throw std::string("Connection is not established");
+      throw sid::exception("Connection is not established");
 
     response_handler rd(_conn);
     while ( rd.continue_parsing() && (nread = _conn->read(buffer, sizeof(buffer)-1)) > 0 )
@@ -226,9 +225,9 @@ bool response::recv(connection_ptr _conn, const method& _requestMethod)
     // set the return status to true
     isSuccess = true;
   }
-  catch ( const std::string& csErr )
+  catch ( const sid::exception& e )
   {
-    this->error = __func__ + std::string(": ") + csErr;
+    this->error = __func__ + std::string(": ") + e.what();
   }
   catch (...)
   {
@@ -251,13 +250,13 @@ void response::set(const std::string& _input)
     eol = _input.find(CRLF, pos1);
     pos2 = _input.find(' ', pos1);
     if ( pos2 == std::string::npos || pos2 > eol )
-      throw std::string("Invalid response from server");
+      throw sid::exception("Invalid response from server");
     version = http::version::get(_input.substr(pos1, (pos2-pos1)));
     pos1 = pos2+1;
 
     pos2 = _input.find(CRLF, pos1);
     if ( pos2 == std::string::npos || pos2 > eol )
-      throw std::string("Invalid response from server");
+      throw sid::exception("Invalid response from server");
     status = http::status::get(_input.substr(pos1, (pos2-pos1)));
     pos1 = pos2+2;
 
@@ -265,7 +264,7 @@ void response::set(const std::string& _input)
     do
     {
       pos2 = _input.find(CRLF, pos1);
-      if ( pos2 == std::string::npos ) throw std::string("Invalid response from server");
+      if ( pos2 == std::string::npos ) throw sid::exception("Invalid response from server");
       headerStr = _input.substr(pos1, (pos2-pos1));
       pos1 = pos2+2;
       if ( headerStr.empty() ) break;
@@ -274,15 +273,12 @@ void response::set(const std::string& _input)
     while (true);
 
     // Followed by data
-    this->content = _input.substr(pos1);
+    this->content.append(_input.substr(pos1));
   }
-  catch (const std::string& csErr)
-  {
-    throw;
-  }
+  catch ( const sid::exception& ) { /* Rethrow string exception */ throw; }
   catch (...)
   {
-    throw std::string("Unhandled exception in response::set");
+    throw sid::exception("Unhandled exception in response::set");
   }
 }
 
@@ -294,13 +290,13 @@ bool response_handler::parse_status(/*in/out*/ response& _response)
 
   m_pos = 0;
   if ( ! http::get_line(m_csResponse, m_pos, line) )
-    throw std::string("Invalid response received");
+    throw sid::exception("Invalid response received");
 
   // HTTP/1.x <CODE> <CODESTR>\r\n
   size_t pos1 = 0;
   size_t pos2 = line.find(' ', pos1);
   if ( pos2 == std::string::npos )
-    throw std::string("Invalid response from server");
+    throw sid::exception("Invalid response from server");
   _response.version = http::version::get(line.substr(pos1, (pos2-pos1)));
   _response.status = http::status::get(line.substr(pos2+1));
   //cerr << "End of Status" << endl;
@@ -405,10 +401,10 @@ void response_handler::parse_data_chunked(/*in/out*/ response& _response)
         //cerr << "S1: end" << endl;
         m_pos = 0;
         break;
-        //throw std::string("No benefit of doubt");
+        //throw sid::exception("No benefit of doubt");
       }
       if ( ! sid::to_num(line, sid::num_base::hex, /*out*/ m_chunk.length) )
-        throw std::string("Expecting chunk length. Encountered ") + line.substr(0, line.length() > 10? 10:line.length());
+        throw sid::exception("Expecting chunk length. Encountered " + line.substr(0, line.length() > 10? 10:line.length()));
       m_chunkToBeRead = m_chunk.length;
       if ( pCallback && ! pCallback->is_valid(m_conn, m_chunk, _response, true) )
         m_forceStop = true; // Force stop
@@ -529,14 +525,10 @@ void response_handler::parse(const char* _buffer, int _nread, const method& _req
       if ( pCallback ) pCallback->is_valid(m_conn, _response);
     }
   }
-  catch (const std::string& csErr)
-  {
-    // rethrow the exception
-    throw;
-  }
+  catch ( const sid::exception& ) { /* Rethrow string exception */ throw; }
   catch (...)
   {
-    throw __func__ + std::string(": An unhandled exception occurred");
+    throw sid::exception(__func__ + std::string("Unhandled exception in response::set"));
   }
 }
 

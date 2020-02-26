@@ -71,16 +71,16 @@ bool url::set(const std::string& _csUrl)
 
     p1 = _csUrl.find("://");
     if ( p1 == std::string::npos )
-      throw std::string("Invalid URL format");
+      throw sid::exception("Invalid URL format");
     std::string value = _csUrl.substr(0, p1);
     if ( value == "http" )
       this->type = connection_type::http;
     else if ( value == "https" )
       this->type = connection_type::https;
     else if ( value.empty() )
-      throw std::string("Protocol cannot be empty");
+      throw sid::exception("Protocol cannot be empty");
     else
-      throw std::string("Invalid protocol: ") + value;
+      throw sid::exception("Invalid protocol: " + value);
 
 
     p1+=3; // For "://"
@@ -90,12 +90,12 @@ bool url::set(const std::string& _csUrl)
     {
       p2 = _csUrl.find(']', p1);
       if ( p2 == std::string::npos )
-	throw std::string("Invalid IPV6 format. Requires ]");
+	throw sid::exception("Invalid IPV6 format. Requires ]");
 
       p1++;
       this->server = _csUrl.substr(p1, p2-p1);
       if ( this->server.empty() )
-        throw std::string("Invalid URL format: No server name");
+        throw sid::exception("Invalid URL format: No server name");
       p1 = p2+1;
     }
     p2 = _csUrl.find_first_of(":/?", p1);
@@ -105,7 +105,7 @@ bool url::set(const std::string& _csUrl)
       {
 	this->server = _csUrl.substr(p1);
 	if ( this->server.empty() )
-	  throw std::string("Invalid URL format: No server name");
+	  throw sid::exception("Invalid URL format: No server name");
       }
     }
     else
@@ -114,7 +114,7 @@ bool url::set(const std::string& _csUrl)
       {
 	this->server = _csUrl.substr(p1, p2-p1);
 	if ( this->server.empty() )
-	  throw std::string("Invalid URL format: No server name");
+	  throw sid::exception("Invalid URL format: No server name");
       }
       if ( _csUrl[p2] == '/' || _csUrl[p2] == '?' )
       {
@@ -135,9 +135,9 @@ bool url::set(const std::string& _csUrl)
           this->resource += _csUrl.substr(p2);
         }
         if ( value.empty() )
-          throw std::string("Invalid URL format: Port number is empty");
+          throw sid::exception("Invalid URL format: Port number is empty");
         if ( ! sid::to_num(value, /*out*/ this->port, &csError) )
-          throw std::string("Invalid URL format: Port number - ") + csError;
+          throw sid::exception("Invalid URL format: Port number - " + csError);
       }
     }
     if ( this->resource.empty() )
@@ -145,10 +145,7 @@ bool url::set(const std::string& _csUrl)
 
     isSuccess = true;
   }
-  catch (const std::string& csErr)
-  {
-    this->error = csErr;
-  }
+  catch ( const sid::exception& ) { /* Rethrow string exception */ throw; }
   catch (...)
   {
     this->error = "Unable to parse URL due to unhandled exception";

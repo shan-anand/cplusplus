@@ -116,7 +116,7 @@ std::string method::to_str() const
   size_t cnt = sizeof(gMapMethod)/sizeof(gMapMethod[0]);
   for ( size_t i = 0; i < cnt; i++ )
     if ( m_type == gMapMethod[i].type ) return gMapMethod[i].name;
-  throw std::string("Invalid Method Type");
+  throw sid::exception("Invalid Method Type");
 }
 
 //! Get the method object using the given method name.

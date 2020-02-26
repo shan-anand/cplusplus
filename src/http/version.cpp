@@ -77,7 +77,7 @@ std::string version::to_str() const
   size_t cnt = sizeof(gMapVersion)/sizeof(gMapVersion[0]);
   for ( size_t i = 0; i < cnt; i++ )
     if ( m_id == gMapVersion[i].id ) return gMapVersion[i].name;
-  throw std::string("Invalid Version ID");
+  throw sid::exception("Invalid Version ID");
 }
 
 /*static*/
@@ -86,5 +86,5 @@ http::version version::get(const std::string& _name)
   size_t cnt = sizeof(gMapVersion)/sizeof(gMapVersion[0]);
   for ( size_t i = 0; i < cnt; i++ )
     if ( _name == gMapVersion[i].name || _name == gMapVersion[i].sname ) return gMapVersion[i].id;
-  throw std::string("Invalid Version: " + _name);
+  throw sid::exception("Invalid Version: " + _name);
 }

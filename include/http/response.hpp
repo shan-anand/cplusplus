@@ -42,6 +42,7 @@ LICENSE: END
 #include "status.hpp"
 #include "method.hpp"
 #include "headers.hpp"
+#include "content.hpp"
 #include "connection.hpp"
 #include <string>
 
@@ -67,7 +68,7 @@ public:
   /**
    * @fn void set(const std::string& _input);
    * @brief Set the contents of the object using the complete HTTP response string.
-   *        If there is an error an exception of std::string() is thrown.
+   *        If there is an error a sid::exception is thrown.
    */
   void set(const std::string& _input);
 
@@ -85,8 +86,7 @@ public:
   http::version version;    //! HTTP version in Line-1 of response
   http::status  status;     //! Status code and message in Line-1 of response
   http::headers headers;    //! List of response headers
-  std::string   content;    //! HTTP response payload
-  bool          content_is_file_path;
+  http::content content;    //! HTTP response payload
   std::string   error;
 };
 

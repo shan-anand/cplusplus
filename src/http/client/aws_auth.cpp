@@ -74,7 +74,7 @@ void SignatureInput::getSignature(SignatureOutput& out, const int awsApiVersion)
   case 4:     getSignature_v4(out);   break;
   case 2:     getSignature_v2a(out);  break;
   default:
-    throw std::string("Unsupported awsApiVersion ") + sid::to_str(awsApiVersion);
+    throw sid::exception("Unsupported awsApiVersion " + sid::to_str(awsApiVersion));
     break;
   }
   cout << out.toString() << endl;
@@ -370,7 +370,7 @@ void SignatureInput::getSignature_v2a(SignatureOutput& out)
     // variables: signature
     sid::hash::sha1 sha1;
     sid::hash::digest digest = sha1.get_hmac(this->secret, stringToSign);
-    if ( digest.empty() ) throw std::string("Failed to create the signature");
+    if ( digest.empty() ) throw sid::exception("Failed to create the signature");
     signature = digest.to_base64();
 
     ///////////////////////////////////////////////////
@@ -379,7 +379,7 @@ void SignatureInput::getSignature_v2a(SignatureOutput& out)
     authStr = "AWS " + accessKeyId + ":" + signature;
     bStatus = true;
   }
-  catch (const std::string& csErr)
+  catch (const sid::exception& e)
   {
     ; // LOG_PRINTF(ERROR, "AmazonS3Adapter::%s OID %s: %s\n", __func__, OID.c_str(), csErr.c_str());
     authStr = "UNABLE TO CALCULATE";
@@ -537,20 +537,20 @@ void SignatureInput::getSignature_v4(SignatureOutput& out)
     // variables: signingKey
     ; // LOG_PRINTF(INFO, "Anand-3: Canonical_Request=\n%s\n\nString_To_Sign=\n%s\n", canonicalRequest.c_str(), stringToSign.c_str());
     digest = sha256.get_hmac("AWS4"+this->secret, dateStr);
-    if ( digest.empty() ) throw std::string("Failed to create the date key");
+    if ( digest.empty() ) throw sid::exception("Failed to create the date key");
     digest = sha256.get_hmac(digest.data(), aws_region);
-    if ( digest.empty() ) throw std::string("Failed to create the date region key");
+    if ( digest.empty() ) throw sid::exception("Failed to create the date region key");
     digest = sha256.get_hmac(digest.data(), aws_service);
-    if ( digest.empty() ) throw std::string("Failed to create the date region service key");
+    if ( digest.empty() ) throw sid::exception("Failed to create the date region service key");
     digest = sha256.get_hmac(digest.data(), aws_request);
-    if ( digest.empty() ) throw std::string("Failed to create the signing key");
+    if ( digest.empty() ) throw sid::exception("Failed to create the signing key");
     signingKey = digest.data();
 
     ///////////////////////////////////////////////////
     // Generate the signature
     // variables: signature
     digest = sha256.get_hmac(signingKey, stringToSign);
-    if ( digest.empty() ) throw std::string("Failed to create the signature");
+    if ( digest.empty() ) throw sid::exception("Failed to create the signature");
     signature = sid::to_lower(digest.to_hex_str());
 
     ///////////////////////////////////////////////////
@@ -563,7 +563,7 @@ void SignatureInput::getSignature_v4(SignatureOutput& out)
 
     bStatus = true;
   }
-  catch (const std::string& csErr)
+  catch (const sid::exception& e)
   {
     ; // LOG_PRINTF(ERROR, "AmazonS3Adapter::%s OID %s: %s\n", __func__, OID.c_str(), csErr.c_str());
     authStr = "UNABLE TO CALCULATE";

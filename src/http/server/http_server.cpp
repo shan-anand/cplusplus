@@ -241,7 +241,7 @@ std::string getResponse(const http::status& status, const std::string& csRes)
   response.version = http::version_id::v11;
   response.headers("Date", getCurrentTime());
   response.headers("Content-Type", "text/xml");
-  response.content = csRes;
+  response.content.set_data(csRes);
   // determine the content length and add to the request
   sprintf(szContentLength, "%zu", response.content.length());
   response.headers("Content-Length", szContentLength);

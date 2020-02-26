@@ -43,6 +43,7 @@ LICENSE: END
 #include "method.hpp"
 #include "version.hpp"
 #include "headers.hpp"
+#include "content.hpp"
 #include "request.hpp"
 #include "connection.hpp"
 #include "response.hpp"

@@ -7,6 +7,7 @@ SOURCE_FILES = \
 	method.cpp \
 	version.cpp \
 	headers.cpp \
+	content.cpp \
 	request.cpp \
 	response.cpp \
 	status.cpp \

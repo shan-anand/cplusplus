@@ -39,11 +39,11 @@ struct CommonParams
     {
       size_t pos = value.find(':');
       if ( pos == std::string::npos )
-        throw std::string("Invalid syntax for user");
+        throw sid::exception("Invalid syntax for user");
       this->userName = trim(value.substr(0, pos));
       this->password = trim(value.substr(pos+1));
       if ( this->userName.empty() || this->password.empty() )
-        throw std::string("Username or password cannot be empty");
+        throw sid::exception("Username or password cannot be empty");
     }
 };
 
@@ -208,7 +208,7 @@ void showUsage(const std::string& csErr = "")
   cout << "    -i --infile=data-input-file" << endl;
   cout << "    -o --outfile=data-output-file" << endl;
   cout << "       --blocking=true|false (Optional: Defaults to true)" << endl;
-  cout << "       --timeout=SECONDS (Optional: Defaults to " << DEFAULT_NONBLOCKING_TIMEOUT << ")" << endl;
+  cout << "       --timeout=SECONDS (Optional: Defaults to " << DEFAULT_IO_TIMEOUT_SECS << ")" << endl;
   cout << "           Note: --timeout is applicable only for non-blocking mode, when --blocking=false" << endl;
   cout << "  [AWS options]" << endl;
   cout << "       --aws-bucket=<AmazonS3 Bucket Name>" << endl;
@@ -230,7 +230,7 @@ Class getClassType(const std::string& className)
     if ( className == global_class_map[i].name )
       return global_class_map[i].type;
   }
-  throw std::string("Invalid class \"") + className + "\"";
+  throw sid::exception("Invalid class \"" + className + "\"");
 }
 
 std::string getClassName(const Class& ctype)
@@ -240,7 +240,7 @@ std::string getClassName(const Class& ctype)
     if ( ctype == global_class_map[i].type )
       return std::string(global_class_map[i].name);
   }
-  throw std::string("Invalid class type encountered");
+  throw sid::exception("Invalid class type encountered");
 }
 
 int getParamType(const Param& param, const ValidParams* p_vp, ParamCount& params_count)
@@ -257,11 +257,11 @@ int getParamType(const Param& param, const ValidParams* p_vp, ParamCount& params
 
       Flags flags; flags.value = p_vp->flags;
       if ( flags.single && params_count.getCount(paramType) > 1 )
-        throw param.key + " cannot be repeated";
+        throw sid::exception(param.key + " cannot be repeated");
       else if ( flags.nonEmpty && (param.hasData && param.value.empty()) )
-        throw param.key + " cannot be empty";
+        throw sid::exception(param.key + " cannot be empty");
       else if ( flags.noData && param.hasData )
-        throw param.key + " cannot have data. Specify without '=' sign";
+        throw sid::exception(param.key + " cannot have data. Specify without '=' sign");
 
       params_count.incCount(paramType);
       break;
@@ -274,7 +274,7 @@ int getParamType(const Param& param, const ValidParams* p_vp, ParamCount& params
 Class getArgClass(const std::string& arg)
 {
   if ( strncmp(arg.c_str(), "--", 2) != 0 && strncmp(arg.c_str(), "--", 1) != 0 )
-    throw std::string("Expecting a parameter. Encountered: ") + arg;
+    throw sid::exception("Expecting a parameter. Encountered: " + arg);
   else if ( strncmp(arg.c_str(), P_PREFIX_AWS, strlen(P_PREFIX_AWS)) == 0 )
     return Class::aws;
   else if ( strncmp(arg.c_str(), P_PREFIX_ATMOS, strlen(P_PREFIX_ATMOS)) == 0 )
@@ -310,12 +310,12 @@ void validateAwsParams()
       param.hasData = v.hasData;
       switch ( getParamType(param, (const ValidParams*) &global_aws_params, params_count) )
       {
-      case PT_none: throw std::string("Invalid parameter ") + param.key;
+      case PT_none: throw sid::exception("Invalid parameter " + param.key);
       case PT_aws_version:
         if ( ! sid::to_num(param.value, global.aws.version, &csError) )
-          throw param.key + ": " + csError;
+          throw sid::exception(param.key + ": " + csError);
         if ( global.aws.version != 2 && global.aws.version != 4 )
-          throw param.key + ": Invalid version specified";
+          throw sid::exception(param.key + ": Invalid version specified");
         break;
       case PT_aws_bucket: global.aws.bucket = param.value; break;
       case PT_aws_id:     global.aws.id = param.value; break;
@@ -325,16 +325,16 @@ void validateAwsParams()
   }
 
   if ( ! params_count.exists(PT_aws_bucket) )
-    throw std::string("Missing --aws-bucket");
+    throw sid::exception("Missing --aws-bucket");
   if ( ! params_count.exists(PT_aws_id) )
-    throw std::string("Missing --aws-id");
+    throw sid::exception("Missing --aws-id");
   if ( ! params_count.exists(PT_aws_key) )
-    throw std::string("Missing --aws-key");
+    throw sid::exception("Missing --aws-key");
 }
 
 void validateAtmosParams()
 {
-  throw std::string("Not implemented");
+  throw sid::exception("Not implemented");
 }
 
 void validateAzureParams()
@@ -352,7 +352,7 @@ void validateAzureParams()
       param.hasData = v.hasData;
       switch ( getParamType(param, (const ValidParams*) &global_azure_params, params_count) )
       {
-      case PT_none: throw std::string("Invalid parameter ") + param.key;
+      case PT_none: throw sid::exception("Invalid parameter " + param.key);
       case PT_azure_container: global.azure.container = param.value; break;
       case PT_azure_account:   global.azure.account = param.value; break;
       case PT_azure_key:       global.azure.key = param.value; break;
@@ -361,11 +361,11 @@ void validateAzureParams()
   }
 
   if ( ! params_count.exists(PT_azure_container) )
-    throw std::string("Missing --azure-container");
+    throw sid::exception("Missing --azure-container");
   if ( ! params_count.exists(PT_azure_account) )
-    throw std::string("Missing --azure-account");
+    throw sid::exception("Missing --azure-account");
   if ( ! params_count.exists(PT_azure_key) )
-    throw std::string("Missing --azure-key");
+    throw sid::exception("Missing --azure-key");
 }
 
 void validateClassKeyValues(const Class& ctype)
@@ -382,7 +382,7 @@ void validateClassKeyValues(const Class& ctype)
     for ( const auto& s : cset )
       out << " \"" << getClassName(s) << "\"";
     out << " when the class type is \"" << getClassName(ctype) << "\"";
-    throw out.str();
+    throw sid::exception(out.str());
   }
 
   switch (ctype)
@@ -406,7 +406,6 @@ void parseCommandLine(std::vector<std::string>& args, std::string& location, htt
   request.version = http::version_id::v11;
 
   ParamCount params_count;
-  std::string inFile, outFile;
   
   bool timeoutSet = false;
   std::string timeoutValue;
@@ -435,7 +434,7 @@ void parseCommandLine(std::vector<std::string>& args, std::string& location, htt
     {
       switch ( getParamType(param, (const ValidParams*) &global_valid_params, params_count) )
       {
-      case PT_none:     throw std::string("Invalid parameter ") + param.key;
+      case PT_none:     throw sid::exception("Invalid parameter " + param.key);
       case PT_url:      global.http.url = param.value;   break;
       case PT_method:   global.http.method = http::method::get(param.value); break;
       case PT_version:  global.http.version = http::version::get(param.value); break;
@@ -444,8 +443,8 @@ void parseCommandLine(std::vector<std::string>& args, std::string& location, htt
       case PT_header:   global.http.headers.add(param.value); break;
       case PT_data:     global.http.data = param.value; break;
       case PT_user:     global.http.setUser(param.value); break;
-      case PT_infile:   inFile = param.value;  break;
-      case PT_outfile:  outFile = param.value; break;
+      case PT_infile:   global.http.infile = param.value;  break;
+      case PT_outfile:  global.http.outfile = param.value; break;
       case PT_class:    global.ctype = getClassType(param.value); break;
       case PT_blocking: global.blocking = sid::to_bool(param.value); break;
       case PT_timeout:  timeoutSet = true; timeoutValue = param.value; break;
@@ -464,26 +463,26 @@ void parseCommandLine(std::vector<std::string>& args, std::string& location, htt
     {
       std::string csError;
       if ( !sid::to_num(timeoutValue, global.timeout, &csError) )
-        throw std::string("--timeout: ") + csError;
+        throw sid::exception("--timeout: " + csError);
       if ( global.timeout == 0 )
-        throw std::string("Timeout value must be greater than 0");
+        throw sid::exception("Timeout value must be greater than 0");
     }
   }
 
   // validate required and mutually exclusive parameters
   if ( ! params_count.exists(PT_url) )
-    throw std::string("Missing --url");
+    throw sid::exception("Missing --url");
   if ( params_count.exists(PT_data) && params_count.exists(PT_infile) )
-    throw std::string("--data(-d) and --infile(-i) cannot be specified together");
+    throw sid::exception("--data(-d) and --infile(-i) cannot be specified together");
 
   // validate class-specific parameters
   validateClassKeyValues(global.ctype);
 
-  if ( ! inFile.empty() )
+  if ( ! global.http.infile.empty() )
   {
-    std::ifstream ifs(inFile.c_str(), std::ifstream::in | std::ifstream::binary);
+    std::ifstream ifs(global.http.infile.c_str(), std::ifstream::in | std::ifstream::binary);
     if ( ! ifs.is_open() )
-      throw std::string("Unable to open input file");
+      throw sid::exception("Unable to open input file");
     std::ostringstream out;
     out << ifs.rdbuf();
     // read the file contents and put it in content
@@ -556,11 +555,15 @@ int makeHttpCall(const std::vector<std::string>& args)
          ! global.http.data.empty() )
       cmd.request.set_content(global.http.data);
 
+    if ( !global.http.outfile.empty() )
+    {
+      cmd.response.content.set_file(global.http.outfile, true);
+    }
     http::cookies cookies;
 
     http::url url;
     if ( ! url.set(location) )
-      throw url.error;
+      throw sid::exception(url.error);
 
     /*
     out << (url.type == http::connection_type::http? "http":"https");
@@ -582,11 +585,9 @@ int makeHttpCall(const std::vector<std::string>& args)
       family = http::connection_family::ip_v4;
     cmd.conn = http::connection::create(url.type, family);
     if ( ! cmd.conn->open(url.server, url.port) )
-      throw cmd.conn->error();
+      throw sid::exception(cmd.conn->error());
 
-    cmd.conn->set_non_blocking(!global.blocking);
-    if ( !global.blocking && global.timeout > 0 )
-      cmd.conn->set_non_blocking_timeout(global.timeout);
+    cmd.conn->set_blocking(global.blocking, global.timeout);
 
     out << "******* " << cmd.conn->description().to_str() << endl;
 
@@ -633,7 +634,7 @@ int makeHttpCall(const std::vector<std::string>& args)
     //cmd.response.content = "/home/gunash/projects/RESTClient/out.html";
     cmd.response.clear();
     if ( ! cmd.run(signature_calc, true) )
-      throw cmd.exception().message();
+      throw cmd.exception();
 
     if ( global.verbose )
     {
@@ -654,7 +655,7 @@ int makeHttpCall(const std::vector<std::string>& args)
       else
       {
         if ( bShowContent )
-          cout << cmd.response.content << endl;
+          cout << cmd.response.content.to_str() << endl;
         else
           cout << "<COMPRESSED CONTENT NOT DISPLAYED>" << endl;
       }
@@ -662,15 +663,15 @@ int makeHttpCall(const std::vector<std::string>& args)
     else
     {
       if ( bShowContent )
-        cout << cmd.response.content << endl;
+        cout << cmd.response.content.to_str() << endl;
       else
         cout << "<COMPRESSED CONTENT NOT DISPLAYED>" << endl;
     }
     status = 0;
   }
-  catch (const std::string& csErr)
+  catch (const sid::exception& e)
   {
-    cerr << csErr << endl;
+    cerr << e.what() << endl;
     //cout << cmd.response.to_str() << endl;
   }
   //http_library_cleanup();
@@ -695,9 +696,9 @@ int main(int argc, char* argv[])
     // status = makeHttpCall(args);
     // status = makeHttpCall(args);
   }
-  catch (const std::string& csErr)
+  catch (const sid::exception& e)
   {
-    cerr << "Error captured in main: " << csErr << endl;
+    cerr << "Error captured in main: " << e.what() << endl;
   }
   catch (...)
   {
