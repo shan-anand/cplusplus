@@ -289,6 +289,10 @@ io_exec_output http_connection::io_exec(IOLoopCallback& fnIOCallback, int ioType
 
     out.retVal = fnIOCallback(/*out*/bContinue);
   } // for loop
+
+  if ( out.timedOut )
+    throw sid::exception("The operation timedout after " + sid::to_str(this->get_timeout()) + " seconds");
+
   return out;
 }
 
@@ -297,7 +301,7 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
   if ( _pOperationTimedOut ) *_pOperationTimedOut = false;
 
   bool isReady = false;
-  bool isError = true;
+  bool isError = false;
 
   auto check_using_poll = [&]()->void
     {

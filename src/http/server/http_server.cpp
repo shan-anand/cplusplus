@@ -122,6 +122,7 @@ void http_server::run(unsigned short port)
     {
       int pollRes = poll(&fds, 1, 10);
       if ( pollRes == 0 ) continue;
+
       if ( pollRes == -1 )
         throw std::string("Polling failed: ")+errStr(errno);
 
@@ -152,6 +153,7 @@ void http_server::run(unsigned short port)
         clientSocket = -1;
         if ( client ) { delete client; client = NULL; }
       }
+      cout << "About to loop: " << sid::to_str(gbExitLoop) << endl;
     } // loop
     useconds_t remaining = 5 * 1000 * 1000; // total waiting time of 5 seconds
     useconds_t waitTime = 5000; // 5 milli-second sleep everytime
@@ -235,7 +237,6 @@ std::string getCurrentTime()
 std::string getResponse(const http::status& status, const std::string& csRes)
 {
   http::response response;
-  char szContentLength[32] = {0};
 
   response.status = status;
   response.version = http::version_id::v11;
@@ -243,8 +244,7 @@ std::string getResponse(const http::status& status, const std::string& csRes)
   response.headers("Content-Type", "text/xml");
   response.content.set_data(csRes);
   // determine the content length and add to the request
-  sprintf(szContentLength, "%zu", response.content.length());
-  response.headers("Content-Length", szContentLength);
+  response.headers("Content-Length", sid::to_str(response.content.length()));
 
   return response.to_str();
 }
@@ -258,31 +258,46 @@ void http_server::processRequest(int clientSocket)
 
   try
   {
+    bool bReceivedAll = false;
     do
     {
       bzero(buffer, sizeof(buffer));
       dataLen = read(clientSocket, buffer, sizeof(buffer)-1);
-      if ( dataLen >= 0 )
+      if ( dataLen < 0 )
+        throw std::string("Unable to read data: ")+http_server::errStr(errno);
+      else if ( dataLen > 0 )
       {
-        buffer[dataLen] = '\0';
-        csRequest += buffer;
-        if ( (size_t) dataLen < sizeof(buffer)-1 )
-        {
-          cout << "Request: " << csRequest << endl;
-          csRequest.clear();
-          std::string csResponse = getResponse(http::status_code::OK, "<Response />");
-          ::write(clientSocket, csResponse.c_str(), csResponse.length());
-          //break;
-        }
+	buffer[dataLen] = '\0';
+	csRequest += buffer;
+	bReceivedAll = ( (size_t) dataLen < sizeof(buffer)-1 );
       }
       else
-        throw std::string("Unable to read data: ")+http_server::errStr(errno);
+	bReceivedAll = true;
+
+      if ( bReceivedAll )
+      {
+	http::request request;
+	request.set(csRequest);
+	if ( request.method == http::method_type::post )
+	{
+	  if ( request.content().to_str() == "exit" )
+	  {
+	    gbExitLoop = true;
+	    throw std::string("Exit command received from the client");
+	  }
+	}
+	cout << "Request: " << request.to_str() << endl;
+	csRequest.clear();
+	sleep(5);
+	std::string csResponse = getResponse(http::status_code::OK, "<Response />");
+	::write(clientSocket, csResponse.c_str(), csResponse.length());
+	break;
+      }
     }
-    while ( !gbExitLoop );
+    while ( !gbExitLoop && !bReceivedAll );
 
     if ( gbExitLoop )
       throw std::string("Server closing connection. Please try again later");
-
   }
   catch (const http::status& status)
   {
