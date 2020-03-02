@@ -112,7 +112,7 @@ server_ptr server::p_create(const connection_type& _type, const ssl::client_cert
   }
 
   // If the server object is empty, the object was not created successfully. So, throw an exception.
-  if ( server.empty() )
+  if ( !server )
     throw sid::exception("Unable to create server object");
 
   // Return the server object. Guarantees that the object is NOT a null pointer

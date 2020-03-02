@@ -432,7 +432,7 @@ struct DeviceDesignator_t
   // identifier_length               //! (n-3) [Byte 3:(0-7)]
   std::string    identifier;         //! [Bytes 4-n]
 };
-typedef std::vector<DeviceDesignator_t> DeviceDesignators_t;
+using DeviceDesignators_t = std::vector<DeviceDesignator_t>;
 
 struct DeviceIdentification_t : public BasicVPD_t
 {

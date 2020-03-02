@@ -48,7 +48,7 @@ namespace sid {
 namespace http {
 
 // A lambda function for redirect callback
-typedef std::function<void(request&)> FNRedirectCallback;
+using FNRedirectCallback = std::function<void(request&)>;
 
 /**
  * @class client

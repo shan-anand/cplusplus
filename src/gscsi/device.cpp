@@ -166,7 +166,7 @@ Device_s Device_t::create(const DeviceInfo_t& info, int verboseLevel/*= 0*/)
   }
 
   // Guarantee object creation
-  if ( sg_device.empty() )
+  if ( !sg_device )
     throw std::string("Device object cannot be created for unknown reason");
 
   // Return the smart pointer object. Guarantees that the object is not a null pointer

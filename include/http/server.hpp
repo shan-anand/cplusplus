@@ -51,10 +51,10 @@ namespace http {
 class server;
 
 // A lambda function to process every client accepted
-typedef std::function<void(connection_ptr _conn)> FNProcessCallback;
+using FNProcessCallback = std::function<void(connection_ptr _conn)>;
 
 // A lambda function for redirect callback
-typedef std::function<bool()> FNExitCallback;
+using FNExitCallback = std::function<bool()>;
 
 //! A smart pointer to the server object.
 using server_ptr = sid::smart_ptr<server>;

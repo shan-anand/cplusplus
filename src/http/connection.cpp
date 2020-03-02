@@ -82,7 +82,7 @@ struct io_exec_output
   bool ioNotReady;
   io_exec_output(int _r = 0) : retVal(_r), timedOut(false), ioNotReady(false) {}
 };
-typedef std::function<int(bool&)> IOLoopCallback;
+using IOLoopCallback = std::function<int(bool&)> ;
 
 /**
  * @class http_connection
@@ -242,7 +242,7 @@ connection_ptr connection::p_create(const connection_type& _type, const ssl::cer
   }
 
   // If the connection object is empty, the object was not created successfully. So, throw an exception.
-  if ( conn.empty() )
+  if ( !conn )
     throw sid::exception(std::string("Unable to create ") + ( (_type == connection_type::http)? "HTTP":"HTTPS") + std::string(" connection object"));
 
   // Return the connection object. Guarantees that the object is NOT a null pointer

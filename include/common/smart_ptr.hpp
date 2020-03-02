@@ -62,12 +62,13 @@ LICENSE: END
  *           // In the above example when x1 goes out of scope, it will be
  *           // destroyed automatically using smart_ptr_free()
  *
- *       (2) typedef sid::smart_ptr< sid::smart_ref_container<struct tm> > struct_tmPtr;
+ *       (2) using struct_tm_container = sid::smart_ref_container<struct tm>;
+ *           using struct_tm_ptr = sid::smart_ptr< struct_tm_container >;
  *           time_t now = time(NULL);
- *           struct_tmPtr tm1 = sid::smart_ref_container<struct tm>::create_smart_ptr(new struct tm);
+ *           struct_tm_ptr tm1 = struct_tm_container::create_smart_ptr(new struct tm);
  *           localtime_r(&now, tm1.ptr()->ptr()); // NOTE .ptr()->ptr()
  *           {
- *             struct_tmPtr tm2 = tm1; // reference count incremented
+ *             struct_tm_ptr tm2 = tm1; // reference count incremented
  *           } // reference count decremented
  *           cout << tm1.ptr()->ptr()->tm_sec << endl;
  *
@@ -160,7 +161,7 @@ public:
   bool operator ==(const smart_ptr& _obj) const { return (m_data == _obj.m_data); }
   bool operator !=(T* _ptr) const { return (this->ptr() != _ptr); }
   bool operator !=(const smart_ptr& _obj) const { return (m_data != _obj.m_data); }
-  bool operator !() const { return (!m_data || !p_get(m_data)); }
+  operator bool() const { return (m_data && (p_get(m_data) != nullptr)); }
   operator void*() const { return this->ptr(); }
   int ref_count() const { return get_ref_count(); }
 
@@ -254,7 +255,7 @@ private:
   };
 
 #define IS_ALREADY_SMARTREF (std::is_base_of<smart_ref, T>::value != 0)
-  typedef typename std::conditional<IS_ALREADY_SMARTREF, smart_ref_helper, smart_ref_ex>::type smart_data;
+  using smart_data = typename std::conditional<IS_ALREADY_SMARTREF, smart_ref_helper, smart_ref_ex>::type;
   smart_ref* m_data; // internal smart pointer object
 
 private:
@@ -339,7 +340,7 @@ private:
   smart_ref_container& operator=(const smart_ref_container&); // Copy operation is not allowed
 };
 
-typedef smart_ptr<smart_ref> smart_refPtr;
+using smart_ref_ptr = smart_ptr<smart_ref>;
 
 } // namespace sid
 

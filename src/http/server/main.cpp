@@ -16,7 +16,7 @@ const uint16_t gServerPort = 5443;
 
 extern bool gbExitLoop;
 const char gszPrompt[] = "http_server> ";
-typedef std::vector<std::string> Args;
+using Args = std::vector<std::string>;
 bool makeArgs(const std::string& csArgs, Args& args);
 
 void exit_handler(int signal)

@@ -157,7 +157,7 @@ std::string to_str(const double& _number);
 template <typename T>
 T to_num(const char* _nptr, const num_base& _baseType)
 {
-  typedef typename std::conditional<std::is_unsigned<T>::value, unsigned long long int, long long int>::type _num_type;
+  using _num_type = typename std::conditional<std::is_unsigned<T>::value, unsigned long long int, long long int>::type;
   _num_type res = 0;
   num_base base = _baseType;
   std::string csVal;

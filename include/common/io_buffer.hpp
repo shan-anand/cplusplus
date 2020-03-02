@@ -42,8 +42,8 @@ LICENSE: END
 #include <string>
 
 //! New type definition unsigned char
-typedef unsigned char uchar8_t;
-#define uchar8_p uchar8_t*
+using uchar8_t = unsigned char;
+using uchar8_p = uchar8_t*;
 
 namespace sid {
 
@@ -73,7 +73,7 @@ struct io_buffer_t : public std::basic_string<uchar8_t>
   size_t rd_length() const { return m_zero_pos > this->length()? 0 : (this->length() - m_zero_pos); }
 
   //! Get the read buffer pointer at starting point
-  const uchar8_p rd_data() const { return this->data() + m_zero_pos; }
+  const uchar8_p rd_data() const { return (const_cast<uchar8_p>(this->data()) + m_zero_pos); }
   /**
    * @brief Get the read buffer pointer at the given byte position.
    *        It does not check for bounds. The caller is reponsible for checking it.
