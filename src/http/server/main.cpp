@@ -3,16 +3,18 @@
 #include <vector>
 #include <stdlib.h>
 #include <signal.h>
-#include <pthread.h>
+#include <thread>
 #include "http_server.hpp"
 
 #include <readline/readline.h>
 #include <readline/history.h>
 
 using namespace std;
+using namespace sid;
 
-const uint16_t gServerPort = 5080;
+const uint16_t gServerPort = 5443;
 
+extern bool gbExitLoop;
 const char gszPrompt[] = "http_server> ";
 typedef std::vector<std::string> Args;
 bool makeArgs(const std::string& csArgs, Args& args);
@@ -20,15 +22,13 @@ bool makeArgs(const std::string& csArgs, Args& args);
 void exit_handler(int signal)
 {
   cout << "Graceful shutdown" << endl;
-  http_server::get().stop();
+  gbExitLoop = true;
   //exit(0);
   return;
 }
 
-static pthread_t serverThreadId = 0;
-static pthread_t inputThreadId = 0;
-void* input_thread(void* arg);
-void* server_thread(void* arg);
+void input_thread();
+void server_thread();
 bool run_command(const std::string& cmdLine);
 
 int main(int argc, char* argv[])
@@ -37,22 +37,23 @@ int main(int argc, char* argv[])
   signal(SIGQUIT, exit_handler);
   signal(SIGABRT, exit_handler);
 
-  int status;
-
   try
   {
-    status = pthread_create(&inputThreadId, NULL, input_thread, NULL);
-    if (status) throw std::string("Failed to create input thread");
-    pthread_detach(inputThreadId);
+    std::thread in_thread([=](){input_thread();});
+    in_thread.detach();
 
-    status = pthread_create(&serverThreadId, NULL, server_thread, NULL);
-    if (status) throw std::string("Failed to create server thread");
+    std::thread svr_thread([=](){server_thread();});
     cout << "Server: Waiting for connections at port " << gServerPort << endl;
-    pthread_join(serverThreadId, NULL);
+    svr_thread.join();
+    //in_thread.join();
   }
   catch (const std::string& err)
   {
     cerr << err << endl;
+  }
+  catch (const std::exception& e)
+  {
+    cerr << e.what() << endl;
   }
   catch (...)
   {
@@ -61,7 +62,7 @@ int main(int argc, char* argv[])
   return 0;
 }
 
-void* input_thread(void* arg)
+void input_thread()
 {
   std::string cmdLine;
   bool bContinue = true;
@@ -78,15 +79,98 @@ void* input_thread(void* arg)
     append_history(1, HISTORY_FILE);
     bContinue = run_command(cmdLine);
   }
-  http_server::get().stop();
-
-  return NULL;
+  //http_server::get().stop();
+  gbExitLoop = true;
 }
 
-void* server_thread(void* arg)
+std::string s_getCurrentTime()
 {
-  http_server::get().run(gServerPort);
-  return NULL;
+  char szNow[256] = {0};
+  time_t now = time(NULL);
+  struct tm *tmp = localtime(&now);
+  if ( tmp )
+    strftime(szNow, sizeof(szNow)-1, "%a, %d %b %Y %X %Z", tmp);
+
+  return std::string(szNow);
+}
+
+void server_thread()
+{
+  try
+  {
+    http::FNExitCallback exit_callback = []() { return gbExitLoop; };
+
+    http::FNProcessCallback process_callback = [](http::connection_ptr conn)
+      {
+	// start a new thread???
+	try
+	{
+	  http::request request;
+	  if ( ! request.recv(conn) )
+	    throw sid::exception("Failed to receive request: " + request.error);
+
+	  cout << "============================================" << endl;
+	  cout << request.to_str() << endl << endl;
+	  if ( request.method == http::method_type::post )
+	  {
+	    if ( request.content().to_str() == "exit" )
+	      {
+		gbExitLoop = true;
+		cout << "Exit command received from the client" << endl;
+		return;
+	      }
+	  }
+
+	  int sleepTime = 0;
+	  std::string sleepStr;
+	  if ( request.headers.exists("x-sid-server-sleep", &sleepStr) )
+	  {
+	    sleepTime = sid::to_num<int>(sleepStr);
+	  }
+	  if ( sleepTime > 0 )
+	  {
+	    // Sleep for a few seconds
+	    cout << "Sleeping for " << sleepTime << " second(s)" << endl;
+	    sleep(sleepTime);
+	  }
+
+	  // Construct the response object
+	  http::response response;
+	  response.status = http::status_code::OK;
+	  response.version = http::version_id::v11;
+	  response.headers("Date", s_getCurrentTime());
+	  response.headers("Content-Type", "text/xml");
+	  response.headers.add("X-Server", "Anand's Server");
+	  response.content.set_data("<Response></Response>");
+	  response.headers("Content-Length", sid::to_str(response.content.length()));
+	  // Send the response
+	  response.send(conn);
+	}
+	catch (const sid::exception& e)
+	{
+	  cerr << "process_callback: " << e.what() << endl;
+	}
+	catch (...)
+        {
+	  cout << "process_callback: An unhandled exception occurred" << endl;
+	}
+      };
+
+    //http::server_ptr server = http::server::create(http::connection_type::http);
+    //if ( !server->run(5080, process_callback, exit_callback) )
+    //  throw server->exception();
+    http::server_ptr server = http::server::create(http::connection_type::https);
+    if ( !server->run(5443, process_callback, exit_callback) )
+      throw server->exception();
+  }
+  catch (const sid::exception& e)
+  {
+    cerr << e.what() << endl;
+  }
+  catch (...)
+  {
+    cerr << __func__ << ": An unhandled exception occurred" << endl;
+  }
 }
 
 bool run_command(const std::string& cmdLine)

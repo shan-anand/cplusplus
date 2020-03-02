@@ -43,12 +43,68 @@ LICENSE: END
 #include <sstream>
 #include <iomanip>
 
+//OpenSSL includes
+#include <openssl/rsa.h>
+#include <openssl/crypto.h>
+#include <openssl/x509.h>
+#include <openssl/pem.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
 using namespace sid;
 
 #define HTTP_DATE_FORMAT "%a, %d %b %y %T %z"
 static const std::string urlReservedChars = " !\'();:@&+$,?%#[]/\"";
 
 static bool gbVerbose = false;
+static bool g_bInitSuccessful = false;
+const SSL_METHOD* g_clientMethod; 
+const SSL_METHOD* g_serverMethod; 
+
+bool http::library_init()
+{
+  static bool firstTime = true;
+  if ( !firstTime ) return g_bInitSuccessful;
+
+  SSL_library_init();
+
+  SSL_load_error_strings();
+  ERR_load_BIO_strings();
+  SSLeay_add_ssl_algorithms();
+    
+  // Set up OpenSSL to enable all algorithms, ciphers and digests
+  OpenSSL_add_all_algorithms();
+  OpenSSL_add_all_ciphers();
+  OpenSSL_add_all_digests();
+
+  g_serverMethod = SSLv23_server_method();
+  if ( ! g_serverMethod ) 
+  {
+    cerr << "No serverMethod" << endl; // XXX
+    return g_bInitSuccessful;
+  }
+
+  g_clientMethod = SSLv23_client_method();
+  if ( ! g_clientMethod  ) 
+  {
+    cerr << "No clientMethod" << endl; // XXX
+    return g_bInitSuccessful;
+  }
+
+  //SetupSSLCallbacks(); // for multithreading 
+
+  g_bInitSuccessful = true;
+  return g_bInitSuccessful;
+}
+
+void http::library_cleanup()
+{
+  if ( !g_bInitSuccessful ) return;
+
+#ifdef RSA_SSL_C
+  SSL_library_cleanup();
+#endif
+}
 
 void http::set_verbose(bool _turnOn) { gbVerbose = _turnOn; }
 

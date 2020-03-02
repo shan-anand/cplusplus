@@ -59,25 +59,29 @@ namespace ssl
 //! SSL Certificate type
 enum class certificate_type : uint8_t { none = 0, client, server };
 
+//! SSL Client certificate
+struct client_certificate
+{
+  std::string chainFile;
+  std::string privateKeyFile;
+  int         privateKeyType;
+  client_certificate() : chainFile(), privateKeyFile(), privateKeyType(0) {}
+  void clear() { chainFile.clear(); privateKeyFile.clear(); privateKeyType = 0; }
+  bool empty() const { return chainFile.empty() && privateKeyFile.empty(); }
+};
+
+  //! SSL Server certificate
+struct server_certificate
+{
+  std::string caFile;
+  std::string caPath;
+  void clear() { caFile.clear(); caPath.clear(); }
+  bool empty() const { return caFile.empty() && caPath.empty(); }
+};
+
 //! SSL Certificate
 struct certificate
 {
-  //! Client certificate
-  struct client_certificate
-  {
-    std::string chainFile;
-    std::string privateKeyFile;
-    int         privateKeyType;
-    client_certificate() : chainFile(), privateKeyFile(), privateKeyType(0) {}
-    void clear() { chainFile.clear(); privateKeyFile.clear(); privateKeyType = 0; }
-  };
-  //! Server certificate
-  struct server_certificate
-  {
-    std::string caFile;
-    std::string caPath;
-    void clear() { caFile.clear(); caPath.clear(); }
-  };
   //! Default constructor
   certificate() : type(certificate_type::none), client(), server() {}
   void clear() { type = certificate_type::none; client.clear(); server.clear(); }
@@ -250,6 +254,9 @@ public:
 
   //! A string representation of the connect used
   virtual connection_description description() const = 0;
+
+  //! Accept - SSL-specific
+  virtual void accept() {}
   //
   ////////////////////////////////////////////////////////////////////////////
 

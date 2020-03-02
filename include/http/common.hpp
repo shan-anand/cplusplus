@@ -49,6 +49,9 @@ using namespace std;
 namespace sid {
 namespace http {
 
+bool library_init();
+void library_cleanup();
+
 void set_verbose(bool _turnOn);
 bool is_verbose();
 

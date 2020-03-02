@@ -199,7 +199,10 @@ bool request::recv(connection_ptr _conn)
     ////////////////////////////////////////////////////
     std::string csRequest;
     while ( (nread = _conn->read(buffer, sizeof(buffer)-1)) > 0 )
+    {
       csRequest.append(buffer, nread);
+      if ( nread >= 0 && static_cast<size_t>(nread) < sizeof(buffer)-1 ) break;
+    }
 
     this->set(csRequest);
     ////////////////////////////////////////////////////

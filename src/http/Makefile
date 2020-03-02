@@ -14,6 +14,7 @@ SOURCE_FILES = \
 	www_authenticate.cpp \
 	url.cpp \
 	connection.cpp \
-	client.cpp
+	client.cpp \
+	server.cpp
 
 include $(SID_ROOT)/build.mk

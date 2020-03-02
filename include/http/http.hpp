@@ -52,6 +52,7 @@ LICENSE: END
 #include "url.hpp"
 #include "www_authenticate.hpp"
 #include "client.hpp"
+#include "server.hpp"
 #include "common.hpp"
 
 namespace sid {

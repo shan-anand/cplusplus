@@ -65,6 +65,9 @@ using namespace std;
 using namespace sid;
 using namespace sid::http;
 
+extern const SSL_METHOD* g_clientMethod; 
+extern const SSL_METHOD* g_serverMethod; 
+
 #define IO_READ  1
 #define IO_WRITE 2
 #define IO_BOTH  3
@@ -136,6 +139,8 @@ public:
   ssize_t write(const void* _buffer, size_t _count) override;
   ssize_t read(void* _buffer, size_t _count) override;
   connection_description description() const override;
+  //! Accept - SSL-specific
+  void accept() override;
   ////////////////////////////////////////////////////////////////////////////
 
 private:
@@ -189,7 +194,7 @@ connection_ptr connection::create(const connection_type& _type, const connection
  *
  * @return Smart pointer to the connection object. It is guaranteed not to return a null pointer.
  */
-connection_ptr connection::create(const ssl::certificate& _sslCert, const connection_family& _family)
+connection_ptr connection::create(const ssl::certificate& _sslCert, const connection_family& _family/* = connection_family::none*/)
 {
   return connection::p_create(connection_type::https, _sslCert, _family);
 }
@@ -323,11 +328,11 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
 	else if ( (_ioType & IO_WRITE) && (revents & POLLOUT) )
 	  isReady = true;
 	if ( (revents & POLLERR) )
-	  throw sid::exception("Error polling for read data");
+	  throw sid::exception("Error polling for data");
 	if ( (revents & POLLHUP) )
-	  throw sid::exception("Error polling for read data as the peer closed the connection");
+	  throw sid::exception("Error polling for data as the peer closed the connection");
 	if ( (revents & POLLNVAL) )
-	  throw sid::exception("Error polling for read data due to invalid request");
+	  throw sid::exception("Error polling for data due to invalid request");
       }
     };
 
@@ -646,58 +651,9 @@ connection_description http_connection::description() const
 // Implementation of https_connection class
 //
 //////////////////////////////////////////////////////////////////////////////////////
-static const SSL_METHOD* g_clientMethod; 
-static const SSL_METHOD* g_serverMethod; 
-static bool g_bInitSuccessful = false;
-
-bool http_library_init()
-{
-  static bool firstTime = true;
-  if ( !firstTime ) return g_bInitSuccessful;
-
-  SSL_library_init();
-
-  SSL_load_error_strings();
-  ERR_load_BIO_strings();
-  SSLeay_add_ssl_algorithms();
-    
-  // Set up OpenSSL to enable all algorithms, ciphers and digests
-  OpenSSL_add_all_algorithms();
-  OpenSSL_add_all_ciphers();
-  OpenSSL_add_all_digests();
-
-  g_serverMethod = SSLv23_server_method();
-  if ( ! g_serverMethod ) 
-  {
-    cerr << "No serverMethod" << endl; // XXX
-    return g_bInitSuccessful;
-  }
-
-  g_clientMethod = SSLv23_client_method();
-  if ( ! g_clientMethod  ) 
-  {
-    cerr << "No clientMethod" << endl; // XXX
-    return g_bInitSuccessful;
-  }
-
-  //SetupSSLCallbacks(); // for multithreading 
-
-  g_bInitSuccessful = true;
-  return g_bInitSuccessful;
-}
-
-void http_library_cleanup()
-{
-  if ( !g_bInitSuccessful ) return;
-
-#ifdef RSA_SSL_C
-  SSL_library_cleanup();
-#endif
-}
-
 https_connection::https_connection() : super()
 {
-  http_library_init();
+  http::library_init();
   m_sslctx = nullptr;
   m_ssl = nullptr;
 }
@@ -930,6 +886,40 @@ connection_description https_connection::description() const
   }
 
   return desc;
+}
+
+void https_connection::accept()
+{
+  try
+  {
+    IOLoopCallback ssl_accept_callback = [&](bool& bContinue)->int
+      {
+	int retVal = SSL_accept(m_ssl);
+	if ( retVal == 1 )
+	  ;
+	else if ( retVal < 0 )
+	{
+	  int sslErr = SSL_get_error(m_ssl, retVal);
+	  if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
+	  {
+	    cout << __func__ << ": retVal=" << retVal << ", sslErr=" << sslErr << endl;
+	    bContinue = true;
+	  }
+	  else
+	    throw sid::exception("SSL accept was unsuccessful. retVal=" + sid::to_str(retVal) + ", sslErr=" + sid::to_str(sslErr));
+	}
+	else
+	  throw sid::exception("SSL accept was unsuccessful");
+	return retVal;
+      };
+
+    io_exec(ssl_accept_callback, IO_READ|IO_WRITE);
+  }
+  catch ( const sid::exception& e ) { cout << e.what() << endl; /* Rethrow sid exception */ throw; }
+  catch (...)
+  {
+    throw sid::exception(std::string("An unhandled exception occurred while trying to accept the SSL connection "));
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////

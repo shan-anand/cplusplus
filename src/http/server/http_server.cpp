@@ -113,7 +113,7 @@ void http_server::run(unsigned short port)
     if ( -1 == fcntl(m_socket, F_SETFD, flags) )
       throw std::string("Unable to set socket to non-blocking");
 
-    if ( listen(m_socket, 5) < 0 )
+    if ( listen(m_socket, SOMAXCONN) < 0 )
       throw std::string("Error listening for connections: ")+errStr(errno);
 
     pollfd fds = { m_socket, POLLIN, 0 };
@@ -183,10 +183,19 @@ bool isEqualNoCase(const std::string& csVal1, const char* pszVal2)
 void* client_thread(void* arg)
 {
   ClientData* client = (ClientData*) arg;
+  http::connection_ptr conn;
 
   try
   {
-    http_server::processRequest(client->socket);
+    conn = http::connection::create(http::connection_type::http, http::connection_family::none);
+    conn->open(client->socket);
+    client->socket  = -1;
+    http_server::processRequest(conn);
+    //http_server::processRequest(client->socket);
+  }
+  catch (const sid::exception& e)
+  {
+    cerr << __func__ << ": " << e.what() << endl;
   }
   catch (const std::string& csErr)
   {
@@ -199,7 +208,8 @@ void* client_thread(void* arg)
 
   if ( client )
   {
-    ::close(client->socket);
+    if ( client->socket < 0 )
+      ::close(client->socket);
     delete client;
   }
   http_server::get().clientSet.remove(pthread_self());
@@ -247,6 +257,66 @@ std::string getResponse(const http::status& status, const std::string& csRes)
   response.headers("Content-Length", sid::to_str(response.content.length()));
 
   return response.to_str();
+}
+
+void http_server::processRequest(http::connection_ptr conn)
+{
+  cout << "Using connection pointer" << endl;
+  http::request request;
+
+  try
+  {
+    if ( ! request.recv(conn) )
+      throw sid::exception("Failed to receivce request: " + request.error);
+
+    cout << "============================================" << endl;
+    cout << request.to_str() << endl << endl;
+    if ( request.method == http::method_type::post )
+    {
+      if ( request.content().to_str() == "exit" )
+      {
+	gbExitLoop = true;
+	cout << "Exit command received from the client" << endl;
+	return;
+      }
+    }
+
+    int sleepTime = 0;
+    std::string sleepStr;
+    if ( request.headers.exists("x-sid-server-sleep", &sleepStr) )
+    {
+      sleepTime = sid::to_num<int>(sleepStr);
+    }
+    if ( sleepTime > 0 )
+    {
+      // Sleep for a few seconds
+      cout << "Sleeping for " << sleepTime << " second(s)" << endl;
+      sleep(sleepTime);
+    }
+
+    // Construct the response object
+    http::response response;
+    response.status = http::status_code::OK;
+    response.version = http::version_id::v11;
+    response.headers("Date", getCurrentTime());
+    response.headers("Content-Type", "text/xml");
+    response.headers.add("X-Server", "Anand's Server");
+    response.content.set_data("<Response></Response>");
+    response.headers("Content-Length", sid::to_str(response.content.length()));
+    // Send the response
+    response.send(conn);
+
+    if ( gbExitLoop )
+      throw sid::exception("Server closing connection. Please try again later");
+  }
+  catch (const sid::exception& e)
+  {
+    cerr << __func__ << ": " << e.what() << endl;
+  }
+  catch (...)
+  {
+    cout << __func__ << ": An unhandled exception occurred" << endl;
+  }
 }
 
 void http_server::processRequest(int clientSocket)

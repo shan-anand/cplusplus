@@ -5,6 +5,7 @@
 #ifndef _HTTP_SERVER_H_
 #define _HTTP_SERVER_H_
 
+#include "http/http.hpp"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -13,6 +14,8 @@
 #include <time.h>
 #include <map>
 #include <set>
+
+namespace sid {
 
 class handle_map
 {
@@ -46,6 +49,7 @@ public:
 
 public:
   static std::string errStr(const int iError);
+  static void processRequest(http::connection_ptr conn);
   static void processRequest(int clientSocket);
 
 private:
@@ -53,5 +57,7 @@ private:
   int m_socket;
   unsigned int m_port;
 };
+
+} // namespace sid
 
 #endif // _HTTP_SERVER_H_
