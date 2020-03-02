@@ -101,12 +101,14 @@ response_handler(connection_ptr _conn) : m_conn(_conn)
     pCallback = IResponseCallback::get_singleton();
   }
 
-  
 public:
   void parse(const char* _buffer, int _nread, const method& _requestMethod, /*in/out*/ response& _response);
+  bool is_end_of_status() const { return m_endOfStatus; }
+  bool is_end_of_headers() const { return m_endOfHeaders; }
   bool is_end_of_data() const { return m_endOfData; }
   bool is_force_stop() const { return m_forceStop; }
   bool continue_parsing() const { return ( ! (m_endOfData || m_forceStop) ); } 
+
 
 private:
   bool parse_status(/*in/out*/ response& _response);
@@ -144,7 +146,7 @@ void response::clear()
 {
   // clear all the response objects
   version.clear();
-  status = http::status_code::NotFound;
+  status = http::status_code::InternalServerError;
   headers.clear();
   content.clear();
   error.clear();
@@ -221,6 +223,15 @@ bool response::recv(connection_ptr _conn, const method& _requestMethod)
     response_handler rd(_conn);
     while ( rd.continue_parsing() && (nread = _conn->read(buffer, sizeof(buffer)-1)) > 0 )
       rd.parse(buffer, nread, _requestMethod, /*in/out*/ *this);
+
+    if ( rd.is_force_stop() )
+      throw sid::exception("Application was force stopped");
+    else if ( !rd.is_end_of_status() )
+      throw sid::exception("Did not receive response. The connection was possibly terminated.");
+    else if ( !rd.is_end_of_headers() )
+      throw sid::exception("Did not receive headers. The connection was possibly terminated.");
+    else if ( !rd.is_end_of_data() )
+      throw sid::exception("Did not receive data fully. The connection was possibly terminated.");
 
     // set the return status to true
     isSuccess = true;

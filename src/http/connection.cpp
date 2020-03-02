@@ -599,6 +599,8 @@ ssize_t http_connection::write(const void* _buffer, size_t _count)
 	  bContinue = true;
 	  //cout << "write: EWOULDBLOCK returned. Continuing the loop" << endl;
 	}
+	else if ( errno != 0 )
+	  throw sid::exception("Read failed with error: " + http::errno_str(errno));
       }
       return retVal;
     };
@@ -611,6 +613,7 @@ ssize_t http_connection::read(void* _buffer, size_t _count)
 {
   IOLoopCallback read_callback = [&](bool& bContinue)->int
     {
+      errno = 0;
       int retVal = ::read(m_socket, _buffer, _count);
       if ( retVal < 0 )
       {
@@ -619,6 +622,8 @@ ssize_t http_connection::read(void* _buffer, size_t _count)
 	  bContinue = true;
 	  //cout << "read: EWOULDBLOCK returned. Continuing the loop" << endl;
 	}
+	else if ( errno != 0 )
+	  throw sid::exception("Read failed with error: " + http::errno_str(errno));
       }
       return retVal;
     };
@@ -754,7 +759,7 @@ void https_connection::attach_ssl()
 	  int sslErr = SSL_get_error(m_ssl, retVal);
 	  if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
 	    bContinue = true;
-	  else
+	  else if ( sslErr != 0 )
 	    throw sid::exception("SSL handshake was unsuccessful. retVal=" + sid::to_str(retVal) + ", sslErr=" + sid::to_str(sslErr));
 	}
 	else
@@ -835,7 +840,7 @@ ssize_t https_connection::write(const void* _buffer, size_t _count)
   IOLoopCallback ssl_write_callback = [&](bool& bContinue)->int
     {
       int retVal = SSL_write(m_ssl, _buffer, _count);
-      if ( retVal < 0 )
+      if ( retVal <= 0 )
       {
 	int sslErr = SSL_get_error(m_ssl, retVal);
 	if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
@@ -843,6 +848,8 @@ ssize_t https_connection::write(const void* _buffer, size_t _count)
 	  bContinue = true;
 	  //cout << "SSL_write: SSL_ERROR_WANT_WRITE returned. Continuing the loop" << endl;
 	}
+	else if ( sslErr != 0 )
+	  throw sid::exception("Write failed. retVal=" + sid::to_str(retVal) + ", sslErr=" + sid::to_str(sslErr));
       }
       return retVal;
     };
@@ -856,7 +863,7 @@ ssize_t https_connection::read(void* _buffer, size_t _count)
   IOLoopCallback ssl_read_callback = [&](bool& bContinue)->int
     {
       int retVal = SSL_read(m_ssl, _buffer, _count);
-      if ( retVal < 0 )
+      if ( retVal <= 0 )
       {
 	int sslErr = SSL_get_error(m_ssl, retVal);
 	if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
@@ -864,6 +871,8 @@ ssize_t https_connection::read(void* _buffer, size_t _count)
 	  bContinue = true;
 	  //cout << "SSL_read: SSL_ERROR_WANT_READ returned. Continuing the loop" << endl;
 	}
+	else if ( sslErr != 0 )
+	  throw sid::exception("Read failed. retVal=" + sid::to_str(retVal) + ", sslErr=" + sid::to_str(sslErr));
       }
       return retVal;
     };
@@ -902,7 +911,7 @@ void https_connection::accept()
 	  int sslErr = SSL_get_error(m_ssl, retVal);
 	  if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
 	  {
-	    cout << __func__ << ": retVal=" << retVal << ", sslErr=" << sslErr << endl;
+	    //cout << __func__ << ": retVal=" << retVal << ", sslErr=" << sslErr << endl;
 	    bContinue = true;
 	  }
 	  else

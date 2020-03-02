@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <thread>
+#include "common/optional.hpp"
 #include "http_server.hpp"
 
 #include <readline/readline.h>
@@ -11,8 +12,6 @@
 
 using namespace std;
 using namespace sid;
-
-const uint16_t gServerPort = 5443;
 
 extern bool gbExitLoop;
 const char gszPrompt[] = "http_server> ";
@@ -31,6 +30,24 @@ void input_thread();
 void server_thread();
 bool run_command(const std::string& cmdLine);
 
+struct Global
+{
+  std::string scriptName;
+  http::connection_type type() const { return m_type; }
+  void set_type(http::connection_type _type) { m_type = _type; }
+  uint16_t port() const { return m_port > 0? m_port : m_type == http::connection_type::http? 5080 : 5443; }
+  void set_port(uint16_t _port) { m_port = _port; }
+
+  Global() : scriptName(), m_type(http::connection_type::http), m_port(0) {}
+
+private:
+  http::connection_type m_type;
+  uint16_t m_port;
+};
+
+static Global global;
+static void parseCommandLine(const std::vector<std::string>& args);
+
 int main(int argc, char* argv[])
 {
   signal(SIGINT, exit_handler);
@@ -39,11 +56,20 @@ int main(int argc, char* argv[])
 
   try
   {
+    //sid::hash::init();
+    global.scriptName = argv[0];
+
+    std::vector<std::string> args;
+    for ( int i = 1; i < argc; i++ )
+      args.push_back(argv[i]);
+
+    parseCommandLine(args);
+
     std::thread in_thread([=](){input_thread();});
     in_thread.detach();
 
     std::thread svr_thread([=](){server_thread();});
-    cout << "Server: Waiting for connections at port " << gServerPort << endl;
+    cout << "Waiting for " << (global.type() == http::connection_type::http? "HTTP" : "HTTPS") << " connections at port " << global.port() << endl;
     svr_thread.join();
     //in_thread.join();
   }
@@ -134,6 +160,9 @@ void server_thread()
 	    sleep(sleepTime);
 	  }
 
+	  if ( request.headers.exists("x-sid-server-kill") )
+	    kill(getpid(), SIGKILL);
+
 	  // Construct the response object
 	  http::response response;
 	  response.status = http::status_code::OK;
@@ -156,11 +185,8 @@ void server_thread()
 	}
       };
 
-    //http::server_ptr server = http::server::create(http::connection_type::http);
-    //if ( !server->run(5080, process_callback, exit_callback) )
-    //  throw server->exception();
-    http::server_ptr server = http::server::create(http::connection_type::https);
-    if ( !server->run(5443, process_callback, exit_callback) )
+    http::server_ptr server = http::server::create(global.type());
+    if ( !server->run(global.port(), process_callback, exit_callback) )
       throw server->exception();
   }
   catch (const sid::exception& e)
@@ -212,7 +238,7 @@ bool run_command(const std::string& cmdLine)
       cerr << cmd << " does not take arguments" << endl;
       return true;
     }
-    cout << "Server: Waiting for connections at port " << gServerPort << endl;
+    cout << "Waiting for " << (global.type() == http::connection_type::http? "HTTP" : "HTTPS") << " connections at port " << global.port() << endl;
     cout << "Total processed: " << http_server::get().totalProcessed << endl;
     cout << "Processing " << http_server::get().clientSet.size() << " client requests" << endl;
   }
@@ -233,4 +259,81 @@ bool makeArgs(const std::string& csArgs, Args& args)
     args.push_back(csArg);
 
   return true;
+}
+
+void parseCommandLine(const std::vector<std::string>& args)
+{
+  struct Param
+  {
+    Param() { hasData = false; id = -1; }
+    std::string key, value;
+    bool hasData;
+    int  id;
+  };
+
+  struct Cmd
+  {
+    sid::optional<http::connection_type> type;
+    sid::optional<uint16_t> port;
+    Cmd() { clear(); }
+    void clear() { type.clear(global.type()); port.clear(global.port()); }
+  } cmd;
+
+  for ( size_t i = 0; i < args.size(); i++ )
+  {
+    Param param;
+    std::string arg = args[i];
+
+    param.id = i;
+    size_t pos = arg.find('=');
+    if ( pos == std::string::npos )
+      param.key = arg;
+    else
+    {
+      param.hasData = true;
+      param.key = arg.substr(0, pos);
+      param.value = arg.substr(pos+1);
+    }
+    if ( param.key == "--help" )
+    {
+      cout << "Usage: " << endl;
+      cout << global.scriptName << " [--type=http|https] [--port=<port_number>]" << endl;
+      exit(0);
+    }
+    else if ( param.key == "--type" )
+    {
+      if ( cmd.type.exists() )
+	sid::exception(param.key + " cannot be repeated");
+      if ( !param.hasData )
+	sid::exception(param.key + " must have data");
+      if ( param.value == "http" )
+	cmd.type = http::connection_type::http;
+      else if ( param.value == "https" )
+	cmd.type = http::connection_type::https;
+      else
+	sid::exception(param.key + " must be http|https");
+    }
+    else if ( param.key == "--port" )
+    {
+      if ( cmd.port.exists() )
+	sid::exception(param.key + " cannot be repeated");
+      if ( !param.hasData )
+	sid::exception(param.key + " must have data");
+      uint16_t port = 0;
+      std::string errStr;
+      if ( !sid::to_num(param.value, /*out*/ port, &errStr) )
+	throw sid::exception(param.key + " error: " + errStr);
+      if ( port == 0 )
+	throw sid::exception(param.key + " cannot be 0");
+      cmd.port = port;
+    }
+    else
+      throw sid::exception("Invalid command line parameter: " + param.key);
+  } // end of for loop
+
+  // set the global variables
+  if ( cmd.type.exists() )
+    global.set_type(cmd.type());
+  if ( cmd.port.exists() )
+    global.set_port(cmd.port());
 }

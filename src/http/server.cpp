@@ -136,6 +136,9 @@ bool server::run(uint16_t _port, FNProcessCallback& _fnProcessCallback, FNExitCa
     if ( m_socket < 0 )
       throw sid::exception("Error creating server socket: " + http::errno_str(errno));
 
+    int reuse_port = 1;
+    setsockopt(m_socket, SOL_SOCKET, SO_REUSEPORT, &reuse_port, sizeof(reuse_port));
+
     // Initialize server socket address
     bzero((char *) &serv_addr6, sizeof(serv_addr6));
     serv_addr6.sin6_family = AF_INET6;
