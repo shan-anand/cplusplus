@@ -150,8 +150,9 @@ void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
       }
     }
 
+    bool sleepBlock = false;
     std::string sleepStr;
-    if ( request.headers.exists("x-sid-server-sleep", &sleepStr) )
+    if ( request.headers.exists("x-sid-server-sleep", &sleepStr) || (sleepBlock = request.headers.exists("x-sid-server-sleep-block", &sleepStr)) )
     {
       uint64_t sleepTime = 0;
       if ( sid::to_num(sleepStr, /*out*/ sleepTime) && sleepTime > 0 )
@@ -159,23 +160,23 @@ void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
 	// Restrict sleep time to a maximum of 1 minute
 	if ( sleepTime > 60 )
 	  sleepTime = 60;
-	auto sleep_for_microsecs = [&](uint64_t microSeconds)->bool
+	auto sleep_for_microsecs = [&](uint64_t microSeconds, auto break_callback)->bool
 	  {
 	    const uint64_t defInterval = 100'000; // Default is 100 milli-seconds
 	    while ( microSeconds > 0 )
 	    {
-	      if ( global.exit ) return false;
+	      if ( break_callback() ) return false;
 	      uint64_t interval = (microSeconds > defInterval)? defInterval : microSeconds;
 	      usleep(interval);
 	      microSeconds -= interval;
 	    }
 	    return true;
 	  };
-	auto sleep_for_millisecs = [&](uint64_t milliSeconds)->bool { return sleep_for_microsecs(milliSeconds * 1000); };
-	auto sleep_for_secs = [&](uint64_t seconds)->bool { return sleep_for_microsecs(seconds * 1'000'000); };
+	auto sleep_for_millisecs = [&](uint64_t milliSeconds, auto break_callback)->bool { return sleep_for_microsecs(milliSeconds * 1000, break_callback); };
+	auto sleep_for_secs = [&](uint64_t seconds, auto break_callback)->bool { return sleep_for_microsecs(seconds * 1'000'000, break_callback); };
 	// Sleep for a few seconds
 	cout << "Sleeping for " << sleepTime << " second(s)" << endl;
-	sleep_for_secs(sleepTime);
+	sleep_for_secs(sleepTime, [&](){ return sleepBlock? false : global.exit; });
       }
     }
     if ( global.exit )
@@ -195,6 +196,7 @@ void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
     response.headers("Content-Length", sid::to_str(response.content.length()));
     // Send the response
     response.send(conn);
+    cout << response.content.to_str() << endl;
   }
   catch (const sid::exception& e)
   {
