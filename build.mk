@@ -39,7 +39,7 @@ CPPFLAGS += -D_RELEASE
 endif
 
 # well, we haven't done anything separate...
-CXXFLAGS = $(CFLAGS) -std=gnu++11
+CXXFLAGS = $(CFLAGS) -std=gnu++14
 ######################################################
 
 MODULE_PATH:=$(PROJECT_ROOT)/$(shell echo "$(PWD:$(PROJECT_ROOT)/%=%)" | cut -d/ -f1)
