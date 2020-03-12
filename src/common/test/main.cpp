@@ -8,10 +8,19 @@
 using namespace std;
 using namespace sid;
 
+void parser_test()
+{
+  const std::string jsonStr = "{\"key\": \"value1\"}";
+  cout << jsonStr << endl;
+  json::value jroot = json::value::get(jsonStr);
+  cout << jroot["key"].as_str() << endl;
+}
+
 int main(int argc, char* argv[])
 {
   try
   {
+    parser_test();
     cout << "sizeof(json::value) = " << sizeof(json::value) << endl;
     json::value jroot1, jroot2, jroot3, jroot4, jroot5, jroot6;
     jroot1 = "Shan";

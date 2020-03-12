@@ -38,6 +38,7 @@ LICENSE: END
  */
 #include <common/json.hpp>
 #include <common/convert.hpp>
+#include <common/optional.hpp>
 #include <stack>
 
 using namespace sid;
@@ -60,11 +61,11 @@ struct parser
   //! parse object
   json::value parse(const std::string& _value);
 
-  void parse_object();
-  void parse_array();
-  void parse_string();
-  void parse_number();
-  void parse_value();
+  json::value parse_object();
+  json::value parse_array();
+  json::value parse_string();
+  json::value parse_number();
+  json::value parse_value();
 };
 
 } // namespace json
@@ -392,28 +393,30 @@ json::value json::parser::parse(const std::string& _value)
   REMOVE_LEADING_SPACES(m_value, m_i);
   char ch = m_value[m_i];
   if ( ch == '{' )
-    parse_object();
+    m_jroot = parse_object();
   else if ( ch == '[' )
-    parse_array();
+    m_jroot = parse_array();
   else
     throw std::string("Invalid character [") + ch + "] at position. Expecting { or [";
   return m_jroot;
 }
 
-void json::parser::parse_object()
+json::value json::parser::parse_object()
 {
   char ch = 0;
+  json::value jobj;
   while ( true )
   {
     m_i++;
     // "string" : value
     REMOVE_LEADING_SPACES(m_value, m_i);
-    parse_string();
+    json::value jkey = parse_string();
     REMOVE_LEADING_SPACES(m_value, m_i);
     if ( m_value[m_i] != ':' )
-      throw sid::exception("Expected : at position i");
+      throw sid::exception("Expected : at position " + sid::to_str(m_i));
+    m_i++;
     REMOVE_LEADING_SPACES(m_value, m_i);
-    parse_value();
+    jobj[jkey.as_str()] = parse_value();
     ch = m_value[m_i];
     // Can have a ,
     // Must end with }
@@ -421,17 +424,19 @@ void json::parser::parse_object()
     if ( ch != ',' )
       throw sid::exception("Expected , or } at position i");
   }
+  return jobj;
 }
 
-void json::parser::parse_array()
+json::value json::parser::parse_array()
 {
   char ch = 0;
+  json::value jarr;
   while ( true )
   {
     m_i++;
     // value
     REMOVE_LEADING_SPACES(m_value, m_i);
-    parse_value();
+    jarr.append(parse_value());
     ch = m_value[m_i];
     // Can have a ,
     // Must end with ]
@@ -439,34 +444,36 @@ void json::parser::parse_array()
     if ( ch != ',' )
       throw sid::exception("Expected , or ] at position i");
   }
+  return jarr;
 }
 
-void json::parser::parse_string()
+json::value json::parser::parse_string()
 {
   if ( m_value[m_i] != '\"' )
     throw sid::exception("Expected \" at position i");
 
   char ch = 0;
-  size_t i = m_i;
+  size_t i = ++m_i;
   while ( (ch = m_value[++m_i]) != '\"' )
   {
     if ( ch == '\0' ) throw sid::exception("Missing \" for string starting at i");
   }
-  std::string s = m_value.substr(m_i, i-m_i-1);
-  cout << s << endl;
+  ++m_i;
+  return m_value.substr(i, m_i-i-1);
 }
 
-void json::parser::parse_value()
+json::value json::parser::parse_value()
 {
+  json::value jval;
   char ch = m_value[m_i];
   if ( ch == '{' )
-    parse_object();
+    jval = parse_object();
   else if ( ch == '[' )
-    parse_array();
+    jval = parse_array();
   else if ( ch == '\"' )
-    parse_string();
+    jval = parse_string();
   else if ( ch == '-' || ::isdigit(ch) )
-    parse_number();
+    jval = parse_number();
   else if ( ch == '\0' )
     throw sid::exception("Unexpected end of data while expecting a value");
   else
@@ -485,8 +492,47 @@ void json::parser::parse_value()
       throw std::string("Invalid value type. Did you miss enclosing in \"\"");
   }
   REMOVE_LEADING_SPACES(m_value, m_i);
+  return jval;
 }
 
-void json::parser::parse_number()
+json::value json::parser::parse_number()
 {
+  struct number
+  {
+    struct s_integer
+    {
+      bool     negative = false;
+      uint64_t digits = 0;
+    };
+    struct s_fraction
+    {
+      uint32_t leadingZeros = 0;
+      uint64_t digits = 0;
+    };
+    struct s_exponent
+    {
+      bool     negative = false;
+      uint32_t leadingZeros = 0;
+      uint64_t digits = 0;
+    };
+    s_integer integer;
+    sid::optional<s_fraction> fraction;
+    sid::optional<s_exponent> exponent;
+  };
+  number num;
+
+  REMOVE_LEADING_SPACES(m_value, m_i);
+  if ( (num.integer.negative = (m_value[m_i] == '-')) )
+    ++m_i;
+  char ch = m_value[m_i];
+  if ( ch < '0' || ch > '9' )
+    throw sid::exception("Missing integer digit at position" + sid::to_str(m_i));
+  ++m_i;
+  if ( ch == '0' )
+  {
+    ch = m_value[m_i];
+    if ( ch >= '0' && ch <= '9' )
+      throw sid::exception("Invalid digit after 0 at position" + sid::to_str(m_i));
+  }
+  return json::value();
 }
