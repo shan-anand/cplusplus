@@ -11,6 +11,11 @@
 
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <poll.h>
+
+#include <openssl/ssl.h>
 
 using namespace std;
 using namespace sid;
@@ -22,6 +27,17 @@ bool makeArgs(const std::string& csArgs, Args& args);
 void input_thread();
 void server_thread();
 bool run_command(const std::string& cmdLine);
+
+bool s_set_non_blocking(bool _isEnable)
+{
+  int flags = ::fcntl(STDIN_FILENO, F_GETFL);
+  if ( flags == -1 ) return false;
+  if ( _isEnable )
+    flags |= O_NONBLOCK;
+  else
+    flags &= ~O_NONBLOCK;
+  return (::fcntl(STDIN_FILENO, F_SETFL, flags) == 0);
+}
 
 using ProcessThreadMap = std::map<uint64_t, std::thread>;
 
@@ -72,12 +88,14 @@ int main(int argc, char* argv[])
 
     parseCommandLine(args);
 
+    //s_set_non_blocking(true);
     std::thread in_thread([=](){input_thread();});
     in_thread.detach();
 
     std::thread svr_thread([=](){server_thread();});
     cout << "Waiting for " << (global.type() == http::connection_type::http? "HTTP" : "HTTPS") << " connections at port " << global.port() << endl;
     svr_thread.join();
+    //s_set_non_blocking(false);
     //in_thread.join();
   }
   catch (const std::string& err)
@@ -100,19 +118,46 @@ void input_thread()
   std::string cmdLine;
   bool bContinue = true;
 
-  #define HISTORY_FILE "~/.httpServer_history"
+  #define HISTORY_FILE "~/.http_server_history"
   using_history();
   read_history(HISTORY_FILE);
 
-  while ( bContinue )
+  auto is_ready_for_read = [&]()->bool
+    {
+      struct timespec ts = {1000, 0};
+      pollfd poll_fd = {STDIN_FILENO, POLLRDHUP, 0};
+      poll_fd.events |= (POLLIN | POLLPRI);
+      int ret = ppoll(&poll_fd, 1, &ts, nullptr);
+      if ( ret == -1 )
+	throw sid::exception(http::errno_str(errno));
+
+      if ( ret > 0 )
+      {
+	const int& revents = poll_fd.revents;
+	if ( (revents & POLLIN) )
+	  return true;
+	if ( (revents & POLLERR) )
+	  throw sid::exception("Error polling for data");
+	if ( (revents & POLLHUP) )
+	  throw sid::exception("Error polling for data as the peer closed the connection");
+	if ( (revents & POLLNVAL) )
+	  throw sid::exception("Error polling for data due to invalid request");
+      }
+      return false;
+    };
+
+  for ( bool bShowPrompt = true; bContinue && !global.exit; )
   {
-    char* pszCmdLine = readline(gszPrompt);
+    if ( bShowPrompt ) { cout << gszPrompt; cout.flush(); bShowPrompt = false; }
+    if ( !is_ready_for_read() ) continue;
+    char* pszCmdLine = readline(nullptr);
+    //char* pszCmdLine = readline(gszPrompt);
     cmdLine = pszCmdLine? pszCmdLine:"exit";
     if ( pszCmdLine ) free(pszCmdLine);
     append_history(1, HISTORY_FILE);
     bContinue = run_command(cmdLine);
+    bShowPrompt = true;
   }
-  //http_server::get().stop();
   global.exit = true;
 }
 
@@ -140,15 +185,6 @@ void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
 
     cout << "============================================" << endl;
     cout << request.to_str() << endl << endl;
-    if ( request.method == http::method_type::post )
-    {
-      if ( request.content().to_str() == "exit" )
-      {
-	global.exit = true;
-	cout << "Exit command received from the client" << endl;
-	return;
-      }
-    }
 
     bool sleepBlock = false;
     std::string sleepStr;
@@ -179,6 +215,16 @@ void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
 	sleep_for_secs(sleepTime, [&](){ return sleepBlock? false : global.exit; });
       }
     }
+
+    if ( request.method == http::method_type::post )
+    {
+      if ( request.content().to_str() == "exit" )
+      {
+	global.exit = true;
+	throw sid::exception("Exit command received from the client");
+      }
+    }
+
     if ( global.exit )
       throw sid::exception("Exiting process " + sid::to_str(currentProcessId) + " before sending response");
 
@@ -195,7 +241,8 @@ void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
     response.content.set_data("<ProcessCount>" + sid::to_str(currentProcessId) + "</ProcessCount>");
     response.headers("Content-Length", sid::to_str(response.content.length()));
     // Send the response
-    response.send(conn);
+    if ( ! response.send(conn) )
+      throw sid::exception(response.error);
     cout << response.content.to_str() << endl;
   }
   catch (const sid::exception& e)
@@ -224,7 +271,25 @@ void server_thread()
 	//process_client(conn, currentProcessId);
       };
 
+    /*
+    ssl::client_certificate sslClientCert;
+    if ( global.type() == http::connection_type::https )
+    {
+      sslClientCert.chainFile = "/etc/ssl/certs/sid_https_server_cert.pem";
+      sslClientCert.privateKeyFile = "/etc/ssl/private/sid_https_server_key.pem";
+      sslClientCert.privateKeyType = SSL_FILETYPE_PEM;
+    }
+    */
+
     http::server_ptr server = http::server::create(global.type());
+    /*
+    http::server_ptr server;
+    if ( global.type() == http::connection_type::http )
+      server = http::server::create(global.type());
+    else
+      server = http::server::create(sslClientCert);
+    */
+
     if ( !server->run(global.port(), process_callback, exit_callback) )
       throw server->exception();
   }

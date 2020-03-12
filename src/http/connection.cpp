@@ -306,7 +306,6 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
   if ( _pOperationTimedOut ) *_pOperationTimedOut = false;
 
   bool isReady = false;
-  bool isError = false;
 
   auto check_using_poll = [&]()->void
     {
@@ -323,16 +322,16 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
       if ( ret > 0 )
       {
 	const int& revents = poll_fd.revents;
+	if ( (revents & POLLERR) )
+	  throw sid::exception("Error polling for data");
+	if ( (revents & POLLHUP) || (revents & POLLRDHUP) )
+	  throw sid::exception("Error polling for data as the peer closed the connection");
+	if ( (revents & POLLNVAL) )
+	  throw sid::exception("Error polling for data due to invalid request");
 	if ( (_ioType & IO_READ) && (revents & POLLIN) )
 	  isReady = true;
 	else if ( (_ioType & IO_WRITE) && (revents & POLLOUT) )
 	  isReady = true;
-	if ( (revents & POLLERR) )
-	  throw sid::exception("Error polling for data");
-	if ( (revents & POLLHUP) )
-	  throw sid::exception("Error polling for data as the peer closed the connection");
-	if ( (revents & POLLNVAL) )
-	  throw sid::exception("Error polling for data due to invalid request");
       }
     };
 
@@ -347,15 +346,15 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
       fd_set* pw_fds = nullptr;
 
       if ( _ioType & IO_READ )
-	{
-	  pr_fds = &r_fds;
-	  FD_SET(m_socket, pr_fds);
-	}
+      {
+	pr_fds = &r_fds;
+	FD_SET(m_socket, pr_fds);
+      }
       if ( _ioType & IO_WRITE )
-	{
-	  pw_fds = &w_fds;
-	  FD_SET(m_socket, pw_fds);
-	}
+      {
+	pw_fds = &w_fds;
+	FD_SET(m_socket, pw_fds);
+      }
       FD_SET(m_socket, &e_fds);
 
       struct timeval tv = {0};
@@ -372,14 +371,14 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
 	  isReady = true;
 	// If an error occurred, return false
 	else if ( FD_ISSET(m_socket, &e_fds ) )
-	  isError = true;
+	  throw sid::exception("Error polling for data in select()");
       }
     };
 
   // Check for availability of I/O
   check_using_poll();
 
-  if ( !isReady && !isError )
+  if ( !isReady )
   {
     // possibly a timeout error
     if ( _pOperationTimedOut ) *_pOperationTimedOut = true;
@@ -600,7 +599,7 @@ ssize_t http_connection::write(const void* _buffer, size_t _count)
 	  //cout << "write: EWOULDBLOCK returned. Continuing the loop" << endl;
 	}
 	else if ( errno != 0 )
-	  throw sid::exception("Read failed with error: " + http::errno_str(errno));
+	  throw sid::exception("Write failed with error: " + http::errno_str(errno));
       }
       return retVal;
     };
@@ -717,6 +716,16 @@ void https_connection::attach_ssl()
       if ( ret != 1 )
 	throw sid::exception("SSL Ceritificate chain file error: " + s_ssl_error_string());
 
+      /*
+      ret = SSL_CTX_use_certificate_file(
+              m_sslctx,
+	      cert.client.certFile.empty()? nullptr : cert.client.certFile.c_str(),
+	      cert.client.privateKeyType
+            );
+      if ( ret != 1 )
+	throw sid::exception("SSL Ceritificate file error: " + s_ssl_error_string());
+      */
+
       ret = SSL_CTX_use_PrivateKey_file(
 	      m_sslctx,
 	      cert.client.privateKeyFile.empty()? nullptr : cert.client.privateKeyFile.c_str(),
@@ -760,7 +769,7 @@ void https_connection::attach_ssl()
 	  if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
 	    bContinue = true;
 	  else if ( sslErr != 0 )
-	    throw sid::exception("SSL handshake was unsuccessful. retVal=" + sid::to_str(retVal) + ", sslErr=" + sid::to_str(sslErr));
+	    throw sid::exception("SSL handshake was unsuccessful. retVal=" + sid::to_str(retVal) + ", sslErr=" + sid::to_str(sslErr) + ", errno=" + http::errno_str(errno));
 	}
 	else
 	  throw sid::exception("SSL handshake was unsuccessful");
@@ -924,7 +933,7 @@ void https_connection::accept()
 
     io_exec(ssl_accept_callback, IO_READ|IO_WRITE);
   }
-  catch ( const sid::exception& e ) { cout << e.what() << endl; /* Rethrow sid exception */ throw; }
+  catch ( const sid::exception& e ) { cout << "Accept Error: " << e.what() << endl; /* Rethrow sid exception */ throw; }
   catch (...)
   {
     throw sid::exception(std::string("An unhandled exception occurred while trying to accept the SSL connection "));

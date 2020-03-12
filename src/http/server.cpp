@@ -63,6 +63,13 @@ using namespace sid::http;
 extern const SSL_METHOD* g_clientMethod; 
 extern const SSL_METHOD* g_serverMethod; 
 
+/*
+To create a self-signed certificate with no password
+
+sudo openssl req -nodes -x509 -days 3650 -sha256 -newkey rsa:4096 -subj "/C=IN/ST=KA/L=Bengaluru/O=self/OU=DevOps/CN=self/emailAddress=self@none" -keyout sid_self.pem -out sid_self.cert
+
+*/
+
 //! Default constructor
 server::server() :
   m_type(),
@@ -161,6 +168,11 @@ bool server::run(uint16_t _port, FNProcessCallback& _fnProcessCallback, FNExitCa
     m_exitLoop = false;
     m_isRunning = true;
 
+    // Certificate to use for https
+    ssl::certificate sslCert;
+    sslCert.type = ssl::certificate_type::client;
+    sslCert.client = m_sslClientCert;
+
     pollfd fds = { m_socket, POLLIN, 0 };
     socklen_t clientLen = sizeof(cli_addr6);
     int client_fd = -1;
@@ -179,7 +191,13 @@ bool server::run(uint16_t _port, FNProcessCallback& _fnProcessCallback, FNExitCa
 
       try
       {
-	http::connection_ptr client = http::connection::create(m_type);
+	//sslCert.client.privateKeyType = 0;
+	http::connection_ptr client;
+	if ( m_type == http::connection_type::http )
+	  client = http::connection::create(m_type);
+	else
+	  client = http::connection::create(sslCert);
+
 	client->open(client_fd);
 	client_fd = -1;
 	// This is SSL-specific
