@@ -130,7 +130,7 @@ std::string to_str(const T& _number, const num_base& _baseType = num_base::any, 
 }
 
 //! Convert double to string
-std::string to_str(const double& _number);
+std::string to_str(const long double& _number);
 
 /**
  * @brief Template class to convert from string to decimal value. Throws an std::string exception on error.

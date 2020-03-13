@@ -42,7 +42,7 @@ LICENSE: END
 namespace sid {
 namespace json {
 
-enum class element { null, object, array, string, boolean, _signed, _unsigned };
+enum class element { null, object, array, string, boolean, _signed, _unsigned, _double };
 
 //! Forward declaration of parser (not exposed)
 struct parser;
@@ -61,6 +61,7 @@ public:
   value(const json::element _type = json::element::null);
   value(const int64_t _val);
   value(const uint64_t _val);
+  value(const long double _val);
   value(const bool _val);
   value(const std::string& _val);
   value(const char* _val);
@@ -78,7 +79,8 @@ public:
   bool is_string() const { return m_type == json::element::string; }
   bool is_signed() const { return m_type == json::element::_signed; }
   bool is_unsigned() const { return m_type == json::element::_unsigned; }
-  bool is_number() const { return is_signed() || is_unsigned(); }
+  bool is_double() const { return m_type == json::element::_double; }
+  bool is_number() const { return is_signed() || is_unsigned() || is_double(); }
   bool is_bool() const { return m_type == json::element::boolean; }
   bool is_array() const { return m_type == json::element::array; }
   bool is_object() const { return m_type == json::element::object; }
@@ -87,6 +89,7 @@ public:
   value& operator=(const value& _obj);
   value& operator=(const int64_t _val);
   value& operator=(const uint64_t _val);
+  value& operator=(const long double _val);
   value& operator=(const bool _val);
   value& operator=(const std::string& _val);
   value& operator=(const char* _val);
@@ -98,6 +101,7 @@ public:
 
   int64_t get_int64() const;
   uint64_t get_uint64() const;
+  long double get_double() const;
   std::string get_str() const;
   std::string as_str() const;
   bool get_bool() const;
@@ -114,6 +118,7 @@ private:
   {
     int64_t     _i64;
     uint64_t    _u64;
+    long double _dbl;
     bool        _bval;
     std::string _str;
     array       _arr;
@@ -129,6 +134,7 @@ private:
     json::element init(const union_data& _obj, const json::element _type = json::element::null);
     json::element init(const int64_t _val);
     json::element init(const uint64_t _val);
+    json::element init(const long double _val);
     json::element init(const bool _val);
     json::element init(const std::string& _val);
     json::element init(const array& _val);

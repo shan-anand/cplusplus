@@ -47,6 +47,7 @@ LICENSE: END
 #include <algorithm>
 #include <utility>
 #include <cmath>
+#include <limits>
 
 // curses and terminal IO includes
 #include <fcntl.h>
@@ -119,10 +120,10 @@ bool sid::to_num<double>(const std::string& _csVal, /*out*/ double& _outVal, /*o
   return to_num<double>(_csVal.c_str(), _outVal, _pcsError);
 }
 
-std::string sid::to_str(const double& _number)
+std::string sid::to_str(const long double& _number)
 {
   std::ostringstream out;
-  out << _number;
+  out << std::setprecision(std::numeric_limits<long double>::digits10) << _number;
   return out.str();
 }
 

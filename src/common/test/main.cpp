@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <limits>
 #include <stdlib.h>
 #include "common/uuid.hpp"
 #include "common/json.hpp"
@@ -10,10 +11,17 @@ using namespace sid;
 
 void parser_test()
 {
-  const std::string jsonStr = "{\"key\": \"value1\"}";
+  const std::string jsonStr = "{\"key\": \"value1\", \"num1\": -34234.23456, \"num2\": 7.012e1, \"numbers\": [100, -100, 12.34, -34.02, -9.223372037e18, 1.844674407e19]}";
   cout << jsonStr << endl;
   json::value jroot = json::value::get(jsonStr);
   cout << jroot["key"].as_str() << endl;
+  //cout.precision(std::numeric_limits< long double >::max_digits10);
+  cout << jroot["num1"].as_str() << endl;
+  cout << jroot["num2"].as_str() << endl;
+  const json::value& jnumbers = jroot["numbers"];
+  for ( size_t i = 0; i < jnumbers.size(); i++ )
+    cout << jnumbers[i].as_str() << " ";
+  cout << endl;
 }
 
 int main(int argc, char* argv[])

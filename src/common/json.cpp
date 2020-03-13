@@ -57,7 +57,7 @@ struct parser
   std::string m_value;  //! Json string value
   size_t      m_i;      //! Current location of the parser
   json::value m_jroot;  //! json::value object
-  std::stack<sid::json::element> m_stack;
+  std::stack<sid::json::element> m_containerStack;
   //! parse object
   json::value parse(const std::string& _value);
 
@@ -99,6 +99,11 @@ json::value::value(const int64_t _val)
 }
 
 json::value::value(const uint64_t _val)
+{
+  m_type = m_data.init(_val);
+}
+
+json::value::value(const long double _val)
 {
   m_type = m_data.init(_val);
 }
@@ -148,6 +153,13 @@ json::value& json::value::operator=(const int64_t _val)
 }
 
 json::value& json::value::operator=(const uint64_t _val)
+{
+  this->clear();
+  m_type = m_data.init(_val);
+  return *this;
+}
+
+json::value& json::value::operator=(const long double _val)
 {
   this->clear();
   m_type = m_data.init(_val);
@@ -222,6 +234,13 @@ uint64_t json::value::get_uint64() const
   throw sid::exception(__func__ + std::string("() can be used only for number type"));
 }
 
+long double json::value::get_double() const
+{
+  if ( is_number() )
+    return m_data._dbl;
+  throw sid::exception(__func__ + std::string("() can be used only for number type"));
+}
+
 std::string json::value::get_str() const
 {
   if ( is_string() )
@@ -246,6 +265,8 @@ std::string json::value::as_str() const
     return sid::to_str(m_data._i64);
   else if ( is_unsigned() )
     return sid::to_str(m_data._u64);
+  else if ( is_double() )
+    return sid::to_str(m_data._dbl);
   throw sid::exception(__func__ + std::string("() can be used only for string, number or boolean types"));
 }
 
@@ -322,6 +343,7 @@ json::element json::value::union_data::init(const json::element _type/* = json::
   case json::element::string:          new (&_str) string; break;
   case json::element::_signed:   _i64 = 0; break;
   case json::element::_unsigned: _u64 = 0; break;
+  case json::element::_double:   _dbl = 0; break;
   case json::element::boolean:         _bval = false; break;
   case json::element::array:           new (&_arr) array; break;
   case json::element::object:          new (&_map) object; break;
@@ -337,6 +359,7 @@ json::element json::value::union_data::init(const union_data& _obj, const json::
   case json::element::string:          init(_obj._str); break;
   case json::element::_signed:   init(_obj._i64);  break;
   case json::element::_unsigned: init(_obj._u64);  break;
+  case json::element::_double:   init(_obj._dbl);  break;
   case json::element::boolean:         init(_obj._bval); break;
   case json::element::array:           init(_obj._arr); break;
   case json::element::object:          init(_obj._map); break;
@@ -354,6 +377,12 @@ json::element json::value::union_data::init(const uint64_t _val)
 {
   _u64 = _val;
   return json::element::_unsigned;
+}
+
+json::element json::value::union_data::init(const long double _val)
+{
+  _dbl = _val;
+  return json::element::_double;
 }
 
 json::element json::value::union_data::init(const bool _val)
@@ -405,9 +434,11 @@ json::value json::parser::parse_object()
 {
   char ch = 0;
   json::value jobj;
+
+  m_containerStack.push(json::element::object);
   while ( true )
   {
-    m_i++;
+    ++m_i;
     // "string" : value
     REMOVE_LEADING_SPACES(m_value, m_i);
     json::value jkey = parse_string();
@@ -420,10 +451,11 @@ json::value json::parser::parse_object()
     ch = m_value[m_i];
     // Can have a ,
     // Must end with }
-    if ( ch == '}' ) break;
+    if ( ch == '}' ) { ++m_i; break; }
     if ( ch != ',' )
-      throw sid::exception("Expected , or } at position i");
+      throw sid::exception("Expected , or } at position " + sid::to_str(m_i));
   }
+  m_containerStack.pop();
   return jobj;
 }
 
@@ -431,32 +463,35 @@ json::value json::parser::parse_array()
 {
   char ch = 0;
   json::value jarr;
+
+  m_containerStack.push(json::element::array);
   while ( true )
   {
-    m_i++;
+    ++m_i;
     // value
     REMOVE_LEADING_SPACES(m_value, m_i);
     jarr.append(parse_value());
     ch = m_value[m_i];
     // Can have a ,
     // Must end with ]
-    if ( ch == ']' ) break;
+    if ( ch == ']' ) { ++m_i; break; }
     if ( ch != ',' )
-      throw sid::exception("Expected , or ] at position i");
+      throw sid::exception("Expected , or ] at position " + sid::to_str(m_i));
   }
+  m_containerStack.pop();
   return jarr;
 }
 
 json::value json::parser::parse_string()
 {
   if ( m_value[m_i] != '\"' )
-    throw sid::exception("Expected \" at position i");
+    throw sid::exception("Expected \" at position " + sid::to_str(m_i));
 
   char ch = 0;
   size_t i = ++m_i;
   while ( (ch = m_value[++m_i]) != '\"' )
   {
-    if ( ch == '\0' ) throw sid::exception("Missing \" for string starting at i");
+    if ( ch == '\0' ) throw sid::exception("Missing \" for string starting at " + sid::to_str(m_i));
   }
   ++m_i;
   return m_value.substr(i, m_i-i-1);
@@ -482,7 +517,7 @@ json::value json::parser::parse_value()
     if ( pos == std::string::npos )
       m_i = m_value.length();
     else if ( m_i == pos )
-      throw std::string("Expected value not found at position i");
+      throw std::string("Expected value not found at position " + sid::to_str(m_i));
     std::string val = m_value.substr(m_i, pos-m_i);
     if ( val == "null" )
       ;
@@ -504,35 +539,84 @@ json::value json::parser::parse_number()
       bool     negative = false;
       uint64_t digits = 0;
     };
-    struct s_fraction
-    {
-      uint32_t leadingZeros = 0;
-      uint64_t digits = 0;
-    };
-    struct s_exponent
-    {
-      bool     negative = false;
-      uint32_t leadingZeros = 0;
-      uint64_t digits = 0;
-    };
     s_integer integer;
-    sid::optional<s_fraction> fraction;
-    sid::optional<s_exponent> exponent;
+    bool hasFraction = false;
+    bool hasExponent = false;
   };
   number num;
 
+  size_t pos_start = m_i;
   REMOVE_LEADING_SPACES(m_value, m_i);
   if ( (num.integer.negative = (m_value[m_i] == '-')) )
     ++m_i;
+  size_t pos_int = m_i;
   char ch = m_value[m_i];
   if ( ch < '0' || ch > '9' )
     throw sid::exception("Missing integer digit at position" + sid::to_str(m_i));
-  ++m_i;
   if ( ch == '0' )
   {
-    ch = m_value[m_i];
+    ch = m_value[++m_i];
     if ( ch >= '0' && ch <= '9' )
-      throw sid::exception("Invalid digit after 0 at position" + sid::to_str(m_i));
+      throw sid::exception("Invalid digit (" + std::string(1, ch) + ") after first 0 at position " + sid::to_str(m_i));
+    num.integer.digits = 0;
   }
-  return json::value();
+  else
+  {
+    while ( (ch = m_value[++m_i]) >= '0' && ch <= '9'  )
+      ;
+    std::string errStr, intStr = m_value.substr(pos_int, m_i-pos_int);
+    if ( ! sid::to_num(intStr, /*out*/ num.integer.digits, &errStr) )
+      throw sid::exception("Unable to convert (" + intStr + ") to nummeric at position " + sid::to_str(pos_int) + ": " + errStr);
+  }
+  // Check whether it has fraction and populate accordingly
+  if ( ch == '.' )
+  {
+    bool hasDigits = false;
+    while ( (ch = m_value[++m_i]) >= '0' && ch <= '9'  )
+      hasDigits = true;
+    if ( !hasDigits )
+      throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for fraction at position " + sid::to_str(m_i));
+    num.hasFraction = true;
+  }
+  // Check whether it has an exponent and populate accordingly
+  if ( ch == 'e' || ch == 'E' )
+  {
+    ch = m_value[++m_i];
+    if ( ch != '-' && ch != '+' )
+      --m_i;
+    bool hasDigits = false;
+    while ( (ch = m_value[++m_i]) >= '0' && ch <= '9'  )
+      hasDigits = true;
+    if ( !hasDigits )
+      throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for exponent at position " + sid::to_str(m_i));
+    num.hasExponent = true;
+  }
+  //size_t pos_end = m_i;
+  REMOVE_LEADING_SPACES(m_value, m_i);
+  ch = m_value[m_i];
+  const char chContainer = (m_containerStack.top() == json::element::object)? '}' : ']' ;
+  if ( ch != ',' && ch != '\0' && ch != chContainer )
+    throw sid::exception("Invalid character " + std::string(1, ch) + " Expected , or " + std::string(1, chContainer) + " at position " + sid::to_str(m_i));
+
+  if ( num.hasFraction || num.hasExponent )
+  {
+    std::string numStr = m_value.substr(pos_start, m_i-pos_start);
+    char* p_end = nullptr;
+    errno = 0;
+    long double dbl = strtold(numStr.c_str(), &p_end);
+    if ( errno != 0 )
+      throw sid::exception("errno is set");
+    if ( dbl == 0.0 && p_end == numStr.c_str() )
+      throw sid::exception("Error in converting the double value");
+    return json::value(dbl);
+  }
+  else if ( num.integer.negative )
+  {
+    int64_t i_num = static_cast<int64_t>(num.integer.digits);
+    if ( i_num < 0 )
+      throw sid::exception("Too big a negative number");
+    i_num = -i_num;
+    return json::value(i_num);
+  }
+  return json::value(num.integer.digits);
 }
