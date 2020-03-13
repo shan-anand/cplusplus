@@ -110,6 +110,8 @@ public:
   value& operator[](const std::string& _key);
   void append(const value& _obj);
 
+  std::string to_str() const;
+
 private:
   using array = std::vector<value>;
   using object = std::map<std::string, value>;

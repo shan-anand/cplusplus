@@ -270,6 +270,84 @@ std::string json::value::as_str() const
   throw sid::exception(__func__ + std::string("() can be used only for string, number or boolean types"));
 }
 
+std::string json::value::to_str() const
+{
+  std::ostringstream out;
+  if ( is_object() )
+  {
+    out << "{";
+    bool isFirst = true;
+    for ( const auto& entry : m_data._map )
+    {
+      if ( ! isFirst ) out << ",";
+      isFirst = false;
+      out << "\"" << entry.first << "\":" << entry.second.to_str();
+    }
+    out << "}";
+  }
+  else if ( is_array() )
+  {
+    out << "[";
+    bool isFirst = true;
+    for ( size_t i = 0; i < this->size(); i++ )
+    {
+      if ( ! isFirst ) out << ",";
+      isFirst = false;
+      out << (*this)[i].to_str();
+    }
+    out << "]";
+  }
+  else if ( is_string() )
+    out << "\"" << m_data._str << "\"";
+  else if ( is_null() )
+    out << "null";
+  else
+    out << this->as_str();
+
+  return out.str();
+}
+
+/*
+std::string json::value::to_str() const
+{
+  std::ostringstream out;
+  private_to_str(out);
+  return out.str();
+}
+
+void json::value::private_to_str(std::ostringstream& out) const
+{
+  if ( is_object() )
+  {
+    out << "{";
+    bool isFirst = true;
+    for ( const auto& entry : m_data._map )
+    {
+      if ( ! isFirst ) out << ",";
+      isFirst = false;
+      out << "\"" << entry.first << "\":"; entry.second.private_to_str(out);
+    }
+    out << "}";
+  }
+  else if ( is_array() )
+  {
+    out << "[";
+    bool isFirst = true;
+    for ( size_t i = 0; i < this->size(); i++ )
+    {
+      if ( ! isFirst ) out << ",";
+      isFirst = false;
+      (*this)[i].private_to_str(out);
+    }
+    out << "]";
+  }
+  else if ( is_string() )
+    out << "\"" << m_data._str << "\"";
+  else if ( ! is_null() )
+    out << this->as_str();
+}
+*/
+
 const json::value& json::value::operator[](size_t _index) const
 {
   if ( ! is_array() )
@@ -414,6 +492,38 @@ json::element json::value::union_data::init(const object& _val)
 // Implementation of json::parser
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+From http://www.json.org/
+___________________________________________________________________________________________________
+|                              |                                   |                              |
+|  object                      |  string                           |  number                      |
+|      {}                      |      ""                           |      int                     |
+|      { members }             |      "chars"                      |      int frac                |
+|  members                     |  chars                            |      int exp                 |
+|      pair                    |      char                         |      int frac exp            |
+|      pair , members          |      char chars                   |  int                         |
+|  pair                        |  char                             |      digit                   |
+|      string : value          |      any-Unicode-character-       |      digit1-9 digits         |
+|  array                       |          except-"-or-\-or-        |      - digit                 |
+|      []                      |          control-character        |      - digit1-9 digits       |
+|      [ elements ]            |      \"                           |  frac                        |
+|  elements                    |      \\                           |      . digits                |
+|      value                   |      \/                           |  exp                         |
+|      value , elements        |      \b                           |      e digits                |
+|  value                       |      \f                           |  digits                      |
+|      string                  |      \n                           |      digit                   |
+|      number                  |      \r                           |      digit digits            |
+|      object                  |      \t                           |  e                           |
+|      array                   |      \u four-hex-digits           |      e                       |
+|      true                    |                                   |      e+                      |
+|      false                   |                                   |      e-                      |
+|      null                    |                                   |      E                       |
+|                              |                                   |      E+                      |
+|                              |                                   |      E-                      |
+|                              |                                   |                              |
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
 json::value json::parser::parse(const std::string& _value)
 {
   m_value = _value;
@@ -487,11 +597,45 @@ json::value json::parser::parse_string()
   if ( m_value[m_i] != '\"' )
     throw sid::exception("Expected \" at position " + sid::to_str(m_i));
 
+  auto check_hex = [&](char ch)
+    {
+      if ( ch == '\0' )
+	throw sid::exception("Missing hexadecimal sequence characters at the end position " + sid::to_str(m_i));
+      if ( ! ::isxdigit(ch) )
+	throw sid::exception("Missing hexadecimal character at " + sid::to_str(m_i));
+    };
+
   char ch = 0;
-  size_t i = ++m_i;
+  size_t i = m_i+1;
   while ( (ch = m_value[++m_i]) != '\"' )
   {
     if ( ch == '\0' ) throw sid::exception("Missing \" for string starting at " + sid::to_str(m_i));
+    if ( ch != '\\' ) continue;
+    // We're encountered an escape character. Process it
+    {
+      ch = m_value[++m_i];
+      switch ( ch )
+      {
+      case '\"': // Quotation mark
+      case '\\':
+      case '/':
+      case 'b':
+      case 'f':
+      case 'n':
+      case 'r':
+      case 't':
+	break;
+      case 'u':
+	// Must be followed by 4 hex digits
+	for ( int i = 0; i < 4; i++ )
+	  check_hex(m_value[++m_i]);
+	break;
+      case '\0':
+	throw sid::exception("Missing escape sequence characters at the end position " + sid::to_str(m_i));
+      default:
+	throw sid::exception("Invalid escape sequence for string at " + sid::to_str(m_i));
+      }
+    }
   }
   ++m_i;
   return m_value.substr(i, m_i-i-1);
@@ -520,11 +664,14 @@ json::value json::parser::parse_value()
       throw std::string("Expected value not found at position " + sid::to_str(m_i));
     std::string val = m_value.substr(m_i, pos-m_i);
     if ( val == "null" )
-      ;
-    else if ( val == "true" || val == "false" )
-      ;
+      cout << "null encountered" << endl;
+    else if ( val == "true" )
+      jval = true;
+    else if ( val == "false" )
+      jval = false;
     else
       throw std::string("Invalid value type. Did you miss enclosing in \"\"");
+    m_i = pos;
   }
   REMOVE_LEADING_SPACES(m_value, m_i);
   return jval;
