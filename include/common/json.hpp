@@ -61,6 +61,7 @@ public:
   value(const json::element _type = json::element::null);
   value(const int64_t _val);
   value(const uint64_t _val);
+  value(const double _val);
   value(const long double _val);
   value(const bool _val);
   value(const std::string& _val);
@@ -89,6 +90,7 @@ public:
   value& operator=(const value& _obj);
   value& operator=(const int64_t _val);
   value& operator=(const uint64_t _val);
+  value& operator=(const double _val);
   value& operator=(const long double _val);
   value& operator=(const bool _val);
   value& operator=(const std::string& _val);

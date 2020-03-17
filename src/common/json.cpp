@@ -103,6 +103,11 @@ json::value::value(const uint64_t _val)
   m_type = m_data.init(_val);
 }
 
+json::value::value(const double _val)
+{
+  m_type = m_data.init(static_cast<long double>(_val));
+}
+
 json::value::value(const long double _val)
 {
   m_type = m_data.init(_val);
@@ -120,7 +125,10 @@ json::value::value(const std::string& _val)
 
 json::value::value(const char* _val)
 {
-  m_type = m_data.init(std::string(_val));
+  if ( _val != nullptr )
+    m_type = m_data.init(std::string(_val));
+  else
+    m_type = m_data.init(json::element::null);
 }
 
 json::value::value(const int _val)
@@ -159,6 +167,11 @@ json::value& json::value::operator=(const uint64_t _val)
   return *this;
 }
 
+json::value& json::value::operator=(const double _val)
+{
+  return operator=(static_cast<long double>(_val));
+}
+
 json::value& json::value::operator=(const long double _val)
 {
   this->clear();
@@ -183,7 +196,10 @@ json::value& json::value::operator=(const std::string& _val)
 json::value& json::value::operator=(const char* _val)
 {
   this->clear();
-  m_type = m_data.init(std::string(_val));
+  if ( _val != nullptr )
+    m_type = m_data.init(std::string(_val));
+  else
+    m_type = m_data.init(json::element::null);
   return *this;
 }
 
@@ -272,6 +288,47 @@ std::string json::value::as_str() const
 
 std::string json::value::to_str() const
 {
+  auto escape_string =[&](const std::string& _input)->std::string
+    {
+      std::string _output;
+      for ( size_t i = 0; i < _input.length(); i++ )
+      {
+	char ch = _input[i];
+	switch ( ch )
+	{
+	case '/':
+	  _output += '\\' + ch;
+	  break;
+	case '\b':
+	  _output += "\\b";
+	  break;
+	case '\f':
+	  _output += "\\f";
+	  break;
+	case '\n':
+	  _output += "\\n";
+	  break;
+	case '\r':
+	  _output += "\\r";
+	  break;
+	case '\t':
+	  _output += "\\t";
+	  break;
+	case '\u':
+	  _output += "\\u";
+	  break;
+	case '\\':
+	case '\"': // Quotation mark
+	  _output += '\\' + ch;
+	  break;
+	default:
+	  _output += ch;
+	  break;
+	}
+      }
+      return _output;
+    };
+
   std::ostringstream out;
   if ( is_object() )
   {
@@ -298,7 +355,7 @@ std::string json::value::to_str() const
     out << "]";
   }
   else if ( is_string() )
-    out << "\"" << m_data._str << "\"";
+    out << "\"" << escape_string(m_data._str) << "\"";
   else if ( is_null() )
     out << "null";
   else
@@ -563,7 +620,7 @@ json::value json::parser::parse_object()
     // Must end with }
     if ( ch == '}' ) { ++m_i; break; }
     if ( ch != ',' )
-      throw sid::exception("Expected , or } at position " + sid::to_str(m_i));
+      throw sid::exception("Encountered " + std::string(1, ch) + ". Expected , or } at position " + sid::to_str(m_i));
   }
   m_containerStack.pop();
   return jobj;
@@ -597,48 +654,51 @@ json::value json::parser::parse_string()
   if ( m_value[m_i] != '\"' )
     throw sid::exception("Expected \" at position " + sid::to_str(m_i));
 
-  auto check_hex = [&](char ch)
+  auto check_hex = [&](char ch)->char
     {
       if ( ch == '\0' )
 	throw sid::exception("Missing hexadecimal sequence characters at the end position " + sid::to_str(m_i));
       if ( ! ::isxdigit(ch) )
 	throw sid::exception("Missing hexadecimal character at " + sid::to_str(m_i));
+      return ch;
     };
 
   char ch = 0;
-  size_t i = m_i+1;
+  //  size_t i = m_i+1;
+  std::string out;
   while ( (ch = m_value[++m_i]) != '\"' )
   {
     if ( ch == '\0' ) throw sid::exception("Missing \" for string starting at " + sid::to_str(m_i));
-    if ( ch != '\\' ) continue;
+    if ( ch != '\\' ) { out += ch; continue; }
     // We're encountered an escape character. Process it
     {
       ch = m_value[++m_i];
       switch ( ch )
       {
-      case '\"': // Quotation mark
-      case '\\':
-      case '/':
-      case 'b':
-      case 'f':
-      case 'n':
-      case 'r':
-      case 't':
+      case '/':  out += ch; break;
+      case 'b':  out += '\b'; break;
+      case 'f':  out += '\f'; break;
+      case 'n':  out += '\n'; break;
+      case 'r':  out += '\r'; break;
+      case 't':  out += '\t'; break;
+      case '\\': out += ch; break;
+      case '\"': out += ch;
 	break;
       case 'u':
+	out += std::string("\u") + std::string("ABCD");
 	// Must be followed by 4 hex digits
 	for ( int i = 0; i < 4; i++ )
-	  check_hex(m_value[++m_i]);
+	  out += check_hex(m_value[++m_i]);
 	break;
       case '\0':
 	throw sid::exception("Missing escape sequence characters at the end position " + sid::to_str(m_i));
       default:
-	throw sid::exception("Invalid escape sequence for string at " + sid::to_str(m_i));
+	throw sid::exception("Invalid escape sequence (" + std::string(1, ch) + ") for string at " + sid::to_str(m_i));
       }
     }
   }
   ++m_i;
-  return m_value.substr(i, m_i-i-1);
+  return out;//m_value.substr(i, m_i-i-1);
 }
 
 json::value json::parser::parse_value()
@@ -664,7 +724,7 @@ json::value json::parser::parse_value()
       throw std::string("Expected value not found at position " + sid::to_str(m_i));
     std::string val = m_value.substr(m_i, pos-m_i);
     if ( val == "null" )
-      cout << "null encountered" << endl;
+      ;
     else if ( val == "true" )
       jval = true;
     else if ( val == "false" )

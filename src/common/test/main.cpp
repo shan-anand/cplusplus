@@ -9,11 +9,14 @@
 using namespace std;
 using namespace sid;
 
-void parser_test()
+void parser_test(std::string jsonStr)
 {
-  const std::string jsonStr = "{\"key\": \"v\\\"alue1\", \"mname\": null, \"num1\": -34234.23456, \"num2\": 7.012e1, \"numbers\": [100, -100, 12.34, -34.02, -9.223372037e18, 1.844674407e19]}";
+  if ( jsonStr.empty() )
+    jsonStr = "{\"key\": \"v\\\"alue1\", \"mname\": null, \"num1\": -34234.23456, \"num2\": 7.012e1, \"numbers\": [100, -100, 12.34, -34.02, -9.223372037e18, 1.844674407e19]}";
+
   cout << jsonStr << endl;
   json::value jroot = json::value::get(jsonStr);
+  /*
   cout << jroot["key"].as_str() << endl;
   //cout.precision(std::numeric_limits< long double >::max_digits10);
   cout << jroot["num1"].as_str() << endl;
@@ -21,6 +24,7 @@ void parser_test()
   const json::value& jnumbers = jroot["numbers"];
   for ( size_t i = 0; i < jnumbers.size(); i++ )
     cout << jnumbers[i].as_str() << " ";
+  */
   cout << endl<< endl;
   cout << jroot.to_str() << endl << endl;
 }
@@ -29,33 +33,37 @@ int main(int argc, char* argv[])
 {
   try
   {
-    parser_test();
-    cout << "sizeof(json::value) = " << sizeof(json::value) << endl;
-    json::value jroot1, jroot2, jroot3, jroot4, jroot5, jroot6;
-    jroot1 = "Shan";
-    jroot2 = -100;
-    jroot3 = false;
-    jroot4["first"] = jroot1;
-    jroot4["last"] = "Anand";
-    jroot4["yob"] = 1975;
-    jroot5["name"] = jroot4;
-    jroot6.append(100);
-    jroot6.append(-200);
-    jroot6.append(300);
-    jroot4.clear();
-    cout << jroot1.as_str() << endl;
-    jroot1.clear();
-    cout << jroot2.as_str() << ", " << jroot2.get_uint64() << endl;
-    cout << jroot3.as_str() << endl;
-    if ( jroot5.has_key("name") )
+    json::value jroot;
+    json::value& jperson = jroot["person"];
+    json::value& jname = jperson["name"];
+    jname["first"] = "Shan";
+    jname["last"] = "Anand";
+    jname["middle"] = nullptr;
+    jperson["male"] = true;
+    jperson["year"] = 1975;
+    json::value& jtest = jroot["test"];
+    jtest["int"] = -3423;
+    jtest["uint"] = 3423;
+    jtest["double-1"] = 23432.32L;
+    jtest["double-2"] = -3432e16;
+    jtest["str-1"] = "v\nal\"u\\e";
+    json::value& jarray = jtest["array"];
+    jarray.append(100);
+    jarray.append(-200);
+    jarray.append(300);
+    jarray.append(-400);
+
+    cout << "Array count: " << jarray.size() << " val-2: " << jarray[1].as_str() << endl;
+    cout << "Year: " << jperson["year"].as_str() << ", " << jperson["year"].get_uint64() << endl;
+    if ( jperson.has_key("name") )
     {
-      const json::value& jname = jroot5["name"];
-      cout << jname["first"].as_str() << " " << jname["last"].as_str() << " year=" << jname["yob"].as_str() << endl;
+      const json::value& jname = jperson["name"];
+      cout << jname["first"].as_str() << " " << jname["last"].as_str() << endl;
     }
     else
       cout << "key not found" << endl;
-    cout << "Array count: " << jroot6.size() << " val-2: " << jroot6[1].as_str() << endl;
-    //cout << jroot4.as_str() << endl;
+    //cout << jroot.to_str() << endl;
+    parser_test(jroot.to_str());
   }
   catch (const std::string& err)
   {
