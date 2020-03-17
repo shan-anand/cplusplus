@@ -42,6 +42,7 @@ LICENSE: END
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/tcp.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -72,8 +73,8 @@ extern const SSL_METHOD* g_serverMethod;
 #define IO_WRITE 2
 #define IO_BOTH  3
 
-#define __SSL_free(s) if ( s ) { SSL_free(s); s = nullptr; }
-#define __SSL_CTX_free(s) if ( s ) { SSL_CTX_free(s); s = nullptr; }
+#define __SSL_free(s) if ( s ) { ::SSL_free(s); s = nullptr; }
+#define __SSL_CTX_free(s) if ( s ) { ::SSL_CTX_free(s); s = nullptr; }
 
 struct io_exec_output
 {
@@ -319,6 +320,15 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
       if ( ret == -1 )
 	throw sid::exception(http::errno_str(errno));
 
+      /*
+      int err_code = 0;
+      socklen_t ecs = sizeof(err_code);
+      if ( 0 == ::getsockopt(m_socket, SOL_SOCKET, SO_ERROR, &err_code, &ecs) )
+	cout << "SO_ERROR: " << err_code << endl;
+      else
+	cout << "Mistake in SO_ERROR errno: " << errno << endl;
+      */
+
       if ( ret > 0 )
       {
 	const int& revents = poll_fd.revents;
@@ -425,7 +435,7 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
     hints.ai_protocol = 0;           // Any protocol
 
     csPort = sid::to_str(httpPort);
-    int s = getaddrinfo(_server.c_str(), csPort.c_str(), &hints, &result);
+    int s = ::getaddrinfo(_server.c_str(), csPort.c_str(), &hints, &result);
     if ( s != 0 )
       throw sid::exception(std::string("getaddrinfo() failed with gai_error(") + sid::to_str(s) + ") " + gai_strerror(s));
 
@@ -445,14 +455,14 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
       {
       case AF_INET:
 	{
-	  sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+	  sfd = ::socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
 	  if ( sfd == -1 ) break;
 	  struct sockaddr_in* saddr = (struct sockaddr_in*) rp->ai_addr;
 	  // set the server and socket descriptor
 	  memset(szName, 0, sizeof(szName));
-	  inet_ntop(AF_INET, &(saddr->sin_addr), szName, INET_ADDRSTRLEN);
+	  ::inet_ntop(AF_INET, &(saddr->sin_addr), szName, INET_ADDRSTRLEN);
 	  //std::string svr = inet_ntoa(saddr->sin_addr);
-	  if ( connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1 )
+	  if ( ::connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1 )
 	  {
 	    // set the server and socket descriptor
 	    m_server = szName;
@@ -469,13 +479,13 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
 	break;
       case AF_INET6:
 	{
-	  sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+	  sfd = ::socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
 	  if ( sfd == -1 ) break;
 	  struct sockaddr_in6* saddr6 = (struct sockaddr_in6 *) rp->ai_addr;
 	  // set the server and socket descriptor
 	  memset(szName, 0, sizeof(szName));
-	  inet_ntop(AF_INET6, &(saddr6->sin6_addr), szName, INET6_ADDRSTRLEN);
-	  if ( connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1 )
+	  ::inet_ntop(AF_INET6, &(saddr6->sin6_addr), szName, INET6_ADDRSTRLEN);
+	  if ( ::connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1 )
 	  {
 	    // set the server and socket descriptor
 	    m_server = szName;
@@ -492,10 +502,21 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
 	break;
       } // switch
     } // for
-    freeaddrinfo(result);
+    ::freeaddrinfo(result);
 
     if ( ! found )
       throw sid::exception(std::string("Could not connect to server ") + _server + " at port " + csPort + " over " + szName + ". " + http::errno_str(iErrNo));
+
+#ifdef SO_KEEPALIVE
+    //#pragma message "Building with SO_KEEPALIVE flag"
+#define __setsockopt(_level, _optname, _optvalue) ::setsockopt(m_socket, _level, _optname, &_optvalue, sizeof(_optvalue));
+    int flags = 0;
+    flags = 10; __setsockopt(SOL_TCP, TCP_KEEPIDLE, flags);
+    flags = 5; __setsockopt(SOL_TCP, TCP_KEEPCNT, flags);
+    flags = 5; __setsockopt(SOL_TCP, TCP_KEEPINTVL, flags);
+    flags = 1; __setsockopt(SOL_TCP, SO_KEEPALIVE, flags);
+#undef __setsocketopt
+#endif
 
     // set the port member
     m_port = httpPort;
@@ -539,7 +560,7 @@ bool http_connection::open(int _sockfd)
     memset(&addr, 0, sizeof(addr));
     memset(ipstr, 0, sizeof(ipstr));
 
-    if ( -1 == getpeername(_sockfd, (struct sockaddr*) &addr, &len) )
+    if ( -1 == ::getpeername(_sockfd, (struct sockaddr*) &addr, &len) )
       throw sid::exception(http::errno_str(errno));
 
     switch ( addr.ss_family )
@@ -547,7 +568,7 @@ bool http_connection::open(int _sockfd)
     case AF_INET:
       {
 	struct sockaddr_in* saddr = (struct sockaddr_in *) &addr;
-	inet_ntop(AF_INET, &(saddr->sin_addr), ipstr, sizeof(ipstr));
+	::inet_ntop(AF_INET, &(saddr->sin_addr), ipstr, sizeof(ipstr));
 	// set the server and port members
 	m_socket = _sockfd;
 	m_port = ntohs(saddr->sin_port);
@@ -558,7 +579,7 @@ bool http_connection::open(int _sockfd)
     case AF_INET6:
       {
 	struct sockaddr_in6* saddr6 = (struct sockaddr_in6 *) &addr;
-	inet_ntop(AF_INET6, &(saddr6->sin6_addr), ipstr, sizeof(ipstr));
+	::inet_ntop(AF_INET6, &(saddr6->sin6_addr), ipstr, sizeof(ipstr));
 	// set the server and port members
 	m_socket = _sockfd;
 	m_port = ntohs(saddr6->sin6_port);
@@ -691,7 +712,7 @@ void https_connection::attach_ssl()
     __SSL_free(m_ssl);
     __SSL_CTX_free(m_sslctx);
 
-    m_sslctx = SSL_CTX_new ( (SSL_METHOD *) g_clientMethod );
+    m_sslctx = ::SSL_CTX_new ( (SSL_METHOD *) g_clientMethod );
     if ( !m_sslctx )
       throw sid::exception("Unable to create new SSL context");
 
@@ -709,7 +730,7 @@ void https_connection::attach_ssl()
       if ( cert.client.chainFile.empty() && cert.client.privateKeyFile.empty() )
 	throw sid::exception("Client certificate error: Chain file and private key file are both empty");
 
-      ret = SSL_CTX_use_certificate_chain_file(
+      ret = ::SSL_CTX_use_certificate_chain_file(
               m_sslctx,
 	      cert.client.chainFile.empty()? nullptr : cert.client.chainFile.c_str()
             );
@@ -717,7 +738,7 @@ void https_connection::attach_ssl()
 	throw sid::exception("SSL Ceritificate chain file error: " + s_ssl_error_string());
 
       /*
-      ret = SSL_CTX_use_certificate_file(
+      ret = ::SSL_CTX_use_certificate_file(
               m_sslctx,
 	      cert.client.certFile.empty()? nullptr : cert.client.certFile.c_str(),
 	      cert.client.privateKeyType
@@ -726,7 +747,7 @@ void https_connection::attach_ssl()
 	throw sid::exception("SSL Ceritificate file error: " + s_ssl_error_string());
       */
 
-      ret = SSL_CTX_use_PrivateKey_file(
+      ret = ::SSL_CTX_use_PrivateKey_file(
 	      m_sslctx,
 	      cert.client.privateKeyFile.empty()? nullptr : cert.client.privateKeyFile.c_str(),
 	      cert.client.privateKeyType
@@ -739,7 +760,7 @@ void https_connection::attach_ssl()
       if ( cert.server.caFile.empty() && cert.server.caPath.empty() )
 	throw sid::exception("Server certificate error: CA file and directory are both empty");
 
-      ret = SSL_CTX_load_verify_locations(
+      ret = ::SSL_CTX_load_verify_locations(
 	      m_sslctx,
 	      cert.server.caFile.empty()? nullptr : cert.server.caFile.c_str(),
 	      cert.server.caPath.empty()? nullptr : cert.server.caPath.c_str()
@@ -747,25 +768,25 @@ void https_connection::attach_ssl()
       if ( ret != 1 )
 	throw sid::exception("SSL server certificate error: " + s_ssl_error_string());
 
-      SSL_CTX_set_verify(m_sslctx, SSL_VERIFY_PEER, NULL);
+      ::SSL_CTX_set_verify(m_sslctx, SSL_VERIFY_PEER, NULL);
       break;
     }
 
-    m_ssl = SSL_new(m_sslctx);
+    m_ssl = ::SSL_new(m_sslctx);
     if ( !m_ssl )
       throw sid::exception("Unable to create new SSL object");
 
-    if ( 0 == SSL_set_fd(m_ssl, m_socket) )
+    if ( 0 == ::SSL_set_fd(m_ssl, m_socket) )
       throw sid::exception("Unable to set socket on SSL");
 
     IOLoopCallback ssl_connect_callback = [&](bool& bContinue)->int
       {
-	int retVal = SSL_connect(m_ssl);
+	int retVal = ::SSL_connect(m_ssl);
 	if ( retVal == 1 )
 	  ;
 	else if ( retVal < 0 )
 	{
-	  int sslErr = SSL_get_error(m_ssl, retVal);
+	  int sslErr = ::SSL_get_error(m_ssl, retVal);
 	  if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
 	    bContinue = true;
 	  else if ( sslErr != 0 )
@@ -848,10 +869,10 @@ ssize_t https_connection::write(const void* _buffer, size_t _count)
 {
   IOLoopCallback ssl_write_callback = [&](bool& bContinue)->int
     {
-      int retVal = SSL_write(m_ssl, _buffer, _count);
+      int retVal = ::SSL_write(m_ssl, _buffer, _count);
       if ( retVal <= 0 )
       {
-	int sslErr = SSL_get_error(m_ssl, retVal);
+	int sslErr = ::SSL_get_error(m_ssl, retVal);
 	if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
 	{
 	  bContinue = true;
@@ -871,10 +892,10 @@ ssize_t https_connection::read(void* _buffer, size_t _count)
 {
   IOLoopCallback ssl_read_callback = [&](bool& bContinue)->int
     {
-      int retVal = SSL_read(m_ssl, _buffer, _count);
+      int retVal = ::SSL_read(m_ssl, _buffer, _count);
       if ( retVal <= 0 )
       {
-	int sslErr = SSL_get_error(m_ssl, retVal);
+	int sslErr = ::SSL_get_error(m_ssl, retVal);
 	if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
 	{
 	  bContinue = true;
@@ -898,7 +919,7 @@ connection_description https_connection::description() const
   if ( m_ssl )
   {
     char szDesc[256] = {0};
-    SSL_CIPHER_description(SSL_get_current_cipher(m_ssl), szDesc, sizeof(szDesc)-1);
+    ::SSL_CIPHER_description(::SSL_get_current_cipher(m_ssl), szDesc, sizeof(szDesc)-1);
     desc.ssl.isAvailable = true;
     desc.ssl.info = szDesc;
   }
@@ -912,12 +933,12 @@ void https_connection::accept()
   {
     IOLoopCallback ssl_accept_callback = [&](bool& bContinue)->int
       {
-	int retVal = SSL_accept(m_ssl);
+	int retVal = ::SSL_accept(m_ssl);
 	if ( retVal == 1 )
 	  ;
 	else if ( retVal < 0 )
 	{
-	  int sslErr = SSL_get_error(m_ssl, retVal);
+	  int sslErr = ::SSL_get_error(m_ssl, retVal);
 	  if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
 	  {
 	    //cout << __func__ << ": retVal=" << retVal << ", sslErr=" << sslErr << endl;
