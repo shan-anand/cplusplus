@@ -314,9 +314,11 @@ std::string json::value::to_str() const
 	case '\t':
 	  _output += "\\t";
 	  break;
+	  /*
 	case '\u':
 	  _output += "\\u";
 	  break;
+	  */
 	case '\\':
 	case '\"': // Quotation mark
 	  _output += '\\' + ch;
@@ -685,7 +687,7 @@ json::value json::parser::parse_string()
       case '\"': out += ch;
 	break;
       case 'u':
-	out += std::string("\u") + std::string("ABCD");
+	//out += std::string("\u");
 	// Must be followed by 4 hex digits
 	for ( int i = 0; i < 4; i++ )
 	  out += check_hex(m_value[++m_i]);
