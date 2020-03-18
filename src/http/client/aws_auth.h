@@ -80,7 +80,6 @@ namespace AWS
     SignatureInput();
     void getSignature(SignatureOutput& out, const int awsApiVersion);
     void getSignature_v2(SignatureOutput& out);
-    void getSignature_v2a(SignatureOutput& out);
     void getSignature_v4(SignatureOutput& out);
     bool getCanonicalData(int awsVersion, CanonicalData& out);
 

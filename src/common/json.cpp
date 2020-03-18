@@ -597,7 +597,7 @@ json::value json::parser::parse(const std::string& _value)
   else if ( ch == '[' )
     m_jroot = parse_array();
   else
-    throw std::string("Invalid character [") + ch + "] at position. Expecting { or [";
+    throw sid::exception(std::string("Invalid character [") + ch + "] at position. Expecting { or [");
   return m_jroot;
 }
 
@@ -727,7 +727,7 @@ json::value json::parser::parse_value()
     if ( pos == std::string::npos )
       m_i = m_value.length();
     else if ( m_i == pos )
-      throw std::string("Expected value not found at position " + sid::to_str(m_i));
+      throw sid::exception("Expected value not found at position " + sid::to_str(m_i));
     std::string val = m_value.substr(m_i, pos-m_i);
     if ( val == "null" )
       ;
@@ -736,7 +736,7 @@ json::value json::parser::parse_value()
     else if ( val == "false" )
       jval = false;
     else
-      throw std::string("Invalid value type. Did you miss enclosing in \"\"");
+      throw sid::exception("Invalid value type. Did you miss enclosing in \"\"");
     m_i = pos;
   }
   REMOVE_LEADING_SPACES(m_value, m_i);

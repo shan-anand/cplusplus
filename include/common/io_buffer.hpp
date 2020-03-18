@@ -34,12 +34,13 @@ LICENSE: END
 
 /**
  * @file  io_buffer.hpp
- * @brief io_buffer_t definition. Used for all IO operations over the network.
+ * @brief io_buffer definition. Used for all IO operations over the network.
  */
 #ifndef _SID_UTIL_IO_BUFFER_HPP_
 #define _SID_UTIL_IO_BUFFER_HPP_
 
 #include <string>
+#include "exception.hpp"
 
 //! New type definition unsigned char
 using uchar8_t = unsigned char;
@@ -48,18 +49,18 @@ using uchar8_p = uchar8_t*;
 namespace sid {
 
 /**
- * @struct io_buffer_t
+ * @struct io_buffer
  * @brief Buffer used for input/output operation
  */
-struct io_buffer_t : public std::basic_string<uchar8_t>
+struct io_buffer : public std::basic_string<uchar8_t>
 {
   //! Default constructor
-  io_buffer_t() : m_zero_pos(0) {}
+  io_buffer() : m_zero_pos(0) {}
   //! Constructor to create a buffer with a pre-allocated size, filled with zeros
-  io_buffer_t(size_t n) : std::basic_string<uchar8_t>(n, 0), m_zero_pos(0) {}
+  io_buffer(size_t n) : std::basic_string<uchar8_t>(n, 0), m_zero_pos(0) {}
 
   //! Make a clone of the object (Deep copy)
-  io_buffer_t clone() const;
+  io_buffer clone() const;
 
   void clear() { std::basic_string<uchar8_t>::clear(); m_zero_pos = 0; }
 

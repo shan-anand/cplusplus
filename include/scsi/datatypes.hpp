@@ -1,10 +1,10 @@
 /*
 LICENSE: BEGIN
 ===============================================================================
-@author Shanmuga (Anand) Gunasekaran
+@author Shan Anand
 @email anand.gs@gmail.com
 @source https://github.com/shan-anand
-@file datatypes.hpp
+@file datatype.hpp
 @brief Definition of SCSI datatypes for serializing/deserializing them.
 ===============================================================================
 MIT License
@@ -34,11 +34,11 @@ LICENSE: END
 
 /**
  * @file  datatypes.hpp
- * @brief Definition of SCSI datatypes
+ * @brief Definition of scsi datatypes
  */
 
-#ifndef _SID_SCSI_DATATYPES_HPP_
-#define _SID_SCSI_DATATYPES_HPP_
+#ifndef _SID_SCSI_DATATYPES_H_
+#define _SID_SCSI_DATATYPES_H_
 
 #include <cstdint>
 #include <string>
@@ -58,60 +58,29 @@ LICENSE: END
 // inquiry standard response length
 #define INQUIRY_STANDARD_REPLY_LEN  96
 
-#define IMPLEMENT_IO_CLASS_EX(NEW_CLASS, BASE_CLASS)	  \
-  struct NEW_CLASS : public BASE_CLASS			  \
-  {							  \
-    Sense_t sense;					  \
-    NEW_CLASS() : BASE_CLASS() { sense.clear(); }	  \
-    void clear() { BASE_CLASS::clear(); sense.clear(); }  \
-  };
+#define IMPLEMENT_CLASS_EX(CLASS)                 \
+struct CLASS##_ex : public CLASS                  \
+{                                                 \
+  using super = CLASS;				  \
+  scsi::sense sense;				  \
+  CLASS##_ex() : CLASS() { sense.clear(); }       \
+  void clear() { CLASS::clear(); sense.clear(); } \
+};
 
 namespace sid {
 namespace scsi {
 
-/**
- * @struct Capacity_t
- * @brief Common data structure for capacity of the device
- */
-struct Capacity_t
-{
-  //! get blocks, block size or bytes
-  uint64_t blocks() const { return m_num_blocks; }
-  uint64_t block_size() const { return m_block_size; }
-  uint64_t bytes() const { return m_num_blocks * m_block_size; }
-  //! Checks for empty
-  bool empty() const { return (m_num_blocks == 0 || m_block_size == 0); }
-  //! Clear the contents of the object
-  void clear() { m_num_blocks = 0; m_block_size = 0; }
-
-  //! Constructor, the only way to set the contents of the object
-  Capacity_t(const uint64_t num_blocks = 0, uint32_t block_size = 0)
-	: m_num_blocks(num_blocks), m_block_size(block_size) {}
-private:
-  uint64_t m_num_blocks; //! Number of blocks
-  uint32_t m_block_size; //! Block length in bytes
-};
-
-/**
- * @struct Capacity10_t
- * @brief ISCSI data structure for (CAPACITY 10)
- */
-struct Capacity10_t
+struct capacity10
 {
   uint32_t num_blocks; //! Number of blocks [Bytes 0-3] + 1
   uint32_t block_size; //! Block length in bytes [Bytes 4-7]
 
-  Capacity10_t();
+  capacity10();
   void clear();
-  bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr);
-  Capacity_t operator()() const { return Capacity_t(num_blocks, block_size); }
+  bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr);
 };
 
-/**
- * @struct Capacity16_t
- * @brief ISCSI data structure for (CAPACITY 16)
- */
-struct Capacity16_t
+struct capacity16
 {
   uint64_t num_blocks; //! Number of blocks [Bytes 0 - 7] + 1
   uint32_t block_size; //! Block length in bytes [Bytes 8 - 11]
@@ -132,188 +101,114 @@ struct Capacity16_t
 
                        //! Reserved [Bytes 16 - 31]
 
-  Capacity16_t();
+  capacity16();
   void clear();
-  bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr);
-  Capacity_t operator()() const { return Capacity_t(num_blocks, block_size); }
+  bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr);
 };
 
-struct Sense_t
+struct sense
 {
-  uint8_t     response_code;  //! Response Code (0x72 or 0x73) [Byte 0:(0-6)]
-  SenseKey    key;            //! Sense key [Byte: 1:(0-3)]
+  uint8_t      response_code;  //! Response Code (0x72 or 0x73) [Byte 0:(0-6)]
+  sense_key    key;            //! Sense key [Byte: 1:(0-3)]
   union
   {
-    ASCQ      as;             //! Addtional sense (Has both asc and ascq) [Bytes 2-3]
+    scsi::ascq as;             //! Addtional sense (Has both asc and ascq) [Bytes 2-3]
     struct
     {
-      uint8_t asc;            //! Additional Sense Code [Byte 2:(0-7)]
-      uint8_t ascq;           //! Additional Sense Code Qualifier[Byte 3:(0-7)]
+      uint8_t  asc;            //! Additional Sense Code [Byte 2:(0-7)]
+      uint8_t  ascq;           //! Additional Sense Code Qualifier[Byte 3:(0-7)]
     };
   };
-  uint8_t     length;         //! Additional sense length
+  uint8_t      length;         //! Additional sense length
 
-  Sense_t();
+  sense();
   void clear();
   bool empty() const;
-  bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr);
-  std::string toString() const;
-};
-
-struct ByteRange_t;
-struct BlockRange_t;
-
-/**
- * @struct ByteRange_t
- * @brief Byte range to be read or written at the given offset/bytes
- */
-struct ByteRange_t
-{
-  uint64_t  offset;  //! Logical Byte Address to start IO operation
-  uint64_t  bytes;   //! Numbers of bytes from offset
-
-  ByteRange_t(const uint64_t _offset = 0, const uint64_t _bytes = 0) : offset(_offset), bytes(_bytes) {}
-  void clear() { offset = bytes = 0; }
-  bool empty() const { return (offset == 0 && bytes == 0); }
-  void set(const uint64_t _offset, const uint64_t _bytes) { offset = _offset; bytes = _bytes; }
-  uint64_t blocks(const uint32_t block_size) const { return (bytes / block_size); }
-  BlockRange_t block_range(const uint32_t block_size) const;
+  bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr);
+  std::string to_str() const;
 };
 
 /**
- * @struct ByteRanges_t
- * @brief A vector of ByteRange_t objects
+ * @struct read16
+ * @brief Data structure for SCSI READ(16)
  */
-struct ByteRanges_t : public std::vector<ByteRange_t>
+struct read16
 {
-  //! Returns the sum of total number of bytes in the vector
-  uint64_t bytes() const;
-  //! Returns the sum of total number of blocks in the vector
-  uint64_t blocks(const uint32_t block_size) const;
-};
-
-/**
- * @struct BlockRange_t
- * @brief Block range to be read or written at the given lba/blocks
- */
-struct BlockRange_t
-{
-  uint64_t  lba;      //! Logical Block Address to start IO operation
-  uint64_t  blocks;   //! Numbers of blocks from lba
-
-  BlockRange_t(const uint64_t _lba = 0, const uint64_t _blocks = 0) : lba(_lba), blocks(_blocks) {}
-  void clear() { lba = 0; blocks = 0; }
-  bool empty() const { return (lba == 0 && blocks == 0); }
-  void set(const uint64_t _lba, const uint64_t _blocks) { lba = _lba; blocks = _blocks; }
-  uint64_t bytes(const uint32_t block_size) const { return (this->blocks * block_size); }
-  ByteRange_t byte_range(const uint32_t block_size) const;
-};
-
-/**
- * @struct BlockRanges_t
- * @brief A vector of BlockRange_t objects
- */
-struct BlockRanges_t : public std::vector<BlockRange_t>
-{
-  //! Returns the sum of total number of blocks in the vector
-  uint64_t blocks() const;
-  //! Returns the sum of total number of bytes in the vector
-  uint64_t bytes(const uint32_t block_size) const;
-};
-
-/**
- * @struct IOFlags_t
- * @brief Input/Output flags used in all SCSI READ/WRITE operations
- */
-struct IOFlags_t
-{
-  uint8_t        protect;           //! [Byte 1:(5-7)]
+  // CDB (Command Descriptor Block) members
+  uint8_t opcode() const { return 0x88; } //! [Byte 0:(0-7)]
+  uint8_t        rd_protect;        //! [Byte 1:(5-7)]
   bool           dpo;               //! [Byte 1:(4)]
   bool           fua;               //! [Byte 1:(3)]
   bool           rarc;              //! [Byte 1:(2)]
   bool           fua_nv;            //! [Byte 1:(1)]
+  uint64_t       lba;               //! [Bytes 2 - 9]
+  uint32_t       transfer_length;   //! [Bytes 10 - 13]
   uint8_t        group;             //! [Byte 14:(0-5)]
   uint8_t        control;           //! [Byte 15:(0-7)]
 
-  IOFlags_t();
+  // Other members
+  unsigned char* data;              //! Pointer to the data where the data is read
+                                    //! The size of the buffer must be "transfer_length" or more
+  uint32_t       data_size_read;    //! Output
+
+  read16();
   void clear();
+  sid::io_buffer get() const;
 };
 
-/**
- * @struct Read16_t
- * @brief Data structure for SCSI READ(16)
- */
-struct Read16_t : public IOFlags_t
-{
-  // CDB (Command Descriptor Block) members
-  uint8_t opcode() const { return 0x88; } //! [Byte 0:(0-7)]
-  IOFlags_t      flags;             //! IO flags for read (For bytes range see IOFlags)
-  BlockRange_t   range;             //! Block range to read the data from
-                                    //! .lba [Bytes 2 - 9]
-                                    //! .blocks [Bytes 10 -13]. The datatype is a 64-bit value, but the value should only be 32-bit
-  uchar8_p       data;              //! Pointer to the data where the data is read
-                                    //! The size of the buffer must be "range.blocks*block_size" or more
-  // Output members
-  uint32_t       bytes_read;        //! Number of blocks actually read
-
-  Read16_t();
-  void clear();
-  sid::io_buffer_t get() const;
-};
-
-IMPLEMENT_IO_CLASS_EX(Read16Ex_t, Read16_t);
+IMPLEMENT_CLASS_EX(read16);
 
 /**
- * @struct Write16_t
+ * @struct write16
  * @brief Data structure for SCSI WRITE(16)
  */
-struct Write16_t
+struct write16
 {
   // CDB (Command Descriptor Block) members
   uint8_t opcode() const { return 0x8A; } //! [Byte 0:(0-7)]
-  IOFlags_t      flags;             //! IO flags for write (For bytes range see IOFlags)
-  BlockRange_t   range;             //! Block range to write the data to
-                                    //! .lba [Bytes 2 - 9]
-                                    //! .blocks [Bytes 10 -13]. The datatype is a 64-bit value, but the value should only be 32-bit
-  const uchar8_p data;              //! Pointer to the data used for writing
-                                    //! The size of the buffer must be "range.blocks*block_size" or more
-  // Output members
-  uint32_t       bytes_written;     //! Number of blocks actually written
+  uint8_t        wr_protect;        //! [Byte 1:(5-7)]
+  bool           dpo;               //! [Byte 1:(4)]
+  bool           fua;               //! [Byte 1:(3)]
+  bool           rarc;              //! [Byte 1:(2)]
+  bool           fua_nv;            //! [Byte 1:(1)]
+  uint64_t       lba;               //! [Bytes 2 - 9]
+  uint32_t       transfer_length;   //! [Bytes 10 -13]
+  uint8_t        group;             //! [Byte 14:(0-5)]
+  uint8_t        control;           //! [Byte 15:(0-7)]
 
-  Write16_t();
+  // Other members
+  const unsigned char* data;        //! Pointer to the data from where the data is to be written
+  uint32_t       data_size_written; //! Output
+
+  write16();
   void clear();
-  sid::io_buffer_t get() const;
+  sid::io_buffer get() const;
 };
 
-IMPLEMENT_IO_CLASS_EX(Write16Ex_t, Write16_t);
+IMPLEMENT_CLASS_EX(write16);
 
-namespace Inquiry
+namespace inquiry
 {
 
-/**
- * @struct Basic_t
- * @brief Base data structure for all types SCSI INQUIRY
- */
-struct Basic_t
+code_page get_code_page(const uint8_t _page_code) { return (scsi::code_page) _page_code; }
+
+struct basic
 {
   // == Byte 0 == ////////////////////////////////////////////////////////////////////////////
-  Peripheral_Qualifier   qualifier;      //! Peripheral qualifier [Byte 0:(5-7)]
-  Peripheral_Device_Type device_type;    //! Device type [Byte 0:(0-4)]
+  peripheral_qualifier   qualifier;      //! Peripheral qualifier [Byte 0:(5-7)]
+  peripheral_device_type device_type;    //! Device type [Byte 0:(0-4)]
 
   virtual void clear();
-  virtual bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr) = 0;
+  virtual bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) = 0;
 
 protected:
-  Basic_t();
-  bool p_set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr);
+  basic();
+  bool p_set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr);
 };
 
-/**
- * @struct Standard_t
- * @brief Standard inquiry data structure for SCSI
- */
-struct Standard_t : public Basic_t
+struct standard : public basic
 {
+  using super = basic;
   // == Byte 1 == ////////////////////////////////////////////////////////////////////////////
   uint8_t  rmb;                          //! removable medium bit [Byte 1:(7)]
                                          //! Device type modifier [Byte 1:(0-6)]
@@ -329,7 +224,7 @@ struct Standard_t : public Basic_t
   uint8_t  response_data_format;         //! [Byte 3:(0-3)]
 
   // == Byte 4 == ////////////////////////////////////////////////////////////////////////////
-  uint8_t  additional_length;            //! Additional data length (N-4) [Byte 4:(0-7)]
+  uint8_t  additional_length;            //! Additional data length (N-4) [Byte 4:(0-7)] 
 
   // == Byte 5 == ////////////////////////////////////////////////////////////////////////////
   bool     sccs;                         //! SSC suppored bit [Byte 5:(7)]
@@ -365,48 +260,46 @@ struct Standard_t : public Basic_t
   // == Byte 96 == //////////////////////////////////////////////////////////////////////////
   // [Bytes 96 - N] are vendor specific-parameters
 
-  Standard_t();
+  standard();
   void clear();
-  bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr) override;
+  bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
 };
 
-/**
- * @struct BasicVPD_t
- * @brief Base data structure for all types SCSI VPD INQUIRY
- *        Custom implementations must use this as the base class and implement their own
- */
-struct BasicVPD_t : public Basic_t
+struct basic_vpd : public basic
 {
+  using super = basic;
   // == Byte 1 == ////////////////////////////////////////////////////////////////////////////
   uint8_t page_code;                     //! Page code [Byte 1:(0-7)]
 
-  virtual CodePage getCodePage() const = 0;
+  virtual scsi::code_page get_code_page() const = 0;
   void clear() override;
-  virtual bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr) = 0;
+  virtual bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) = 0;
 
 protected:
-  BasicVPD_t(const uint8_t code_page);
-  BasicVPD_t(const CodePage& code_page) : BasicVPD_t(static_cast<uint8_t>(code_page)) {}
-  bool p_set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr);
+  basic_vpd(const uint8_t _code_page);
+  basic_vpd(const scsi::code_page& _code_page) : basic_vpd(static_cast<uint8_t>(_code_page)) {}
+  bool p_set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr);
 };
 
-struct SupportedVPDPages_t : public BasicVPD_t
+struct supported_vpd_pages : public basic_vpd
 {
-  static CodePage codePage() { return CodePage::Supported_VPD_Pages; }
-  CodePage getCodePage() const override { return codePage(); }
+  using super = basic_vpd;
+  static scsi::code_page code_page() { return scsi::code_page::supported_vpd_pages; }
+  scsi::code_page get_code_page() const override { return code_page(); }
 
   uint8_t           page_length;  //! Number of pages (n-3) [Byte 3:(0-7)]
   std::set<uint8_t> pages;        //! Supported Pages [Bytes 4-n]
 
-  SupportedVPDPages_t();
+  supported_vpd_pages();
   void clear() override;
-  bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr) override;
+  bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
 };
 
-struct UnitSerialNumber_t : public BasicVPD_t
+struct unit_serial_number : public basic_vpd
 {
-  static CodePage codePage() { return CodePage::Unit_Serial_Number; }
-  CodePage getCodePage() const override { return codePage(); }
+  using super = basic_vpd;
+  static scsi::code_page code_page() { return scsi::code_page::unit_serial_number; }
+  scsi::code_page get_code_page() const override { return code_page(); }
 
   // == Byte 2 == ////////////////////////////////////////////////////////////////////////////
   // Reserved                            //! Reserved [Byte 2:(0-7)]
@@ -417,79 +310,108 @@ struct UnitSerialNumber_t : public BasicVPD_t
   // == Bytes 4 - n == ///////////////////////////////////////////////////////////////////////
   std::string serial_number;             //! Product serial number [Bytes 4 - (page_length+4)]
 
-  UnitSerialNumber_t();
+  unit_serial_number();
   void clear() override;
-  bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr) override;
+  bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
 };
 
-struct DeviceDesignator_t
+struct device_designator
 {
-  ProtocolId     protocol_id;        //! [Byte 0:(4-7)]
-  CodeSet        code_set;           //! [Byte 0:(0-3)]
-  bool           protocol_id_valid;  //! [Byte 1:(7)]
-  Association    association;        //! [Byte 1:(4-5)]
-  IdentifierType identifier_type;    //! [Byte 1:(0-3)]
-  // identifier_length               //! (n-3) [Byte 3:(0-7)]
-  std::string    identifier;         //! [Bytes 4-n]
+  scsi::protocol_id     protocol_id;        //! [Byte 0:(4-7)]
+  scsi::code_set        code_set;           //! [Byte 0:(0-3)]
+  bool                  protocol_id_valid;  //! [Byte 1:(7)]
+  scsi::association     association;        //! [Byte 1:(4-5)]
+  scsi::identifier_type identifier_type;    //! [Byte 1:(0-3)]
+  // identifier_length                      //! (n-3) [Byte 3:(0-7)]
+  std::string           identifier;         //! [Bytes 4-n]
 };
-using DeviceDesignators_t = std::vector<DeviceDesignator_t>;
+using device_designators = std::vector<device_designator>;
 
-struct DeviceIdentification_t : public BasicVPD_t
+struct device_identification : public basic_vpd
 {
-  static CodePage codePage() { return CodePage::Device_Identification; }
-  CodePage getCodePage() const override { return codePage(); }
-  DeviceDesignators_t designators;
+  using super = basic_vpd;
+  static scsi::code_page code_page() { return scsi::code_page::device_identification; }
+  scsi::code_page get_code_page() const override { return code_page(); }
+  device_designators designators;
 
-  DeviceIdentification_t();
+  device_identification();
   void clear() override;
-  bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr) override;
+  bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
 };
 
-struct BlockLimits_t : public BasicVPD_t
+struct block_limits : public basic_vpd
 {
-  static CodePage codePage() { return CodePage::Block_Limits; }
-  CodePage getCodePage() const override { return codePage(); }
+  using super = basic_vpd;
+  static scsi::code_page code_page() { return scsi::code_page::block_limits; }
+  scsi::code_page get_code_page() const override { return code_page(); }
 
-  BlockLimits_t();
+  block_limits();
   void clear() override;
-  bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr) override;
+  bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
 };
 
-struct BlockDeviceCharacteristics_t : public BasicVPD_t
+struct block_device_characteristics : public basic_vpd
 {
-  static CodePage codePage() { return CodePage::Block_Device_Characteristics; }
-  CodePage getCodePage() const override { return codePage(); }
+  using super = basic_vpd;
+  static scsi::code_page code_page() { return scsi::code_page::block_device_characteristics; }
+  scsi::code_page get_code_page() const override { return code_page(); }
 
-  BlockDeviceCharacteristics_t();
+  block_device_characteristics();
   void clear();
-  bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr) override;
+  bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
 };
 
-struct LogicalBlockProvisioning_t : public BasicVPD_t
+struct logical_block_provisioning : public basic_vpd
 {
-  static CodePage codePage() { return CodePage::Logical_Block_Provisioning; }
-  CodePage getCodePage() const override { return codePage(); }
+  using super = basic_vpd;
+  static scsi::code_page code_page() { return scsi::code_page::logical_block_provisioning; }
+  scsi::code_page get_code_page() const override { return code_page(); }
 
-  LogicalBlockProvisioning_t();
+  logical_block_provisioning();
   void clear();
-  bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr) override;
+  bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
 };
 
-struct CustomVPD_t : public BasicVPD_t
+struct custom_vpd : public basic_vpd
 {
-  static CodePage codePage() { return CodePage::Custom_VPD; }
-  CodePage getCodePage() const override { return codePage(); }
+  using super = basic_vpd;
+  static scsi::code_page code_page() { return scsi::code_page::custom_vpd; }
+  scsi::code_page get_code_page() const override { return code_page(); }
 
-  sid::io_buffer_t data; //! Raw data, to be processed by the caller
+  sid::io_buffer data; //! Raw data, to be processed by the caller
 
-  CustomVPD_t(const uint8_t code_page);
+  custom_vpd(const uint8_t _code_page);
   void clear();
-  bool set(const sid::io_buffer_t& ioBuffer, size_t* reqSize = nullptr) override;
+  bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
 };
 
 } // namespace Inquiry
 
+/**
+ * @struct data_block
+ * @brief Data to be read or written at the given offset/blocks
+ */
+struct data_block
+{
+  uint64_t  lba;      //! Logical Block Address to start IO operation
+  uint32_t  blocks;   //! Numbers of blocks to read/write
+
+  data_block(const uint64_t& lba_p = 0, const uint32_t& blocks_p = 0) : lba(lba_p), blocks(blocks_p) {}
+  void clear() { lba = blocks = 0; }
+  bool empty() const { return (lba == 0 && blocks == 0); }
+  uint64_t bytes(const uint32_t& block_size) const { return (this->blocks * block_size); }
+};
+
+struct data_blocks : public std::vector<data_block>
+{
+  using super = std::vector<data_block>;
+  //! Returns the sum of total number of blocks in the vector
+  uint64_t blocks() const;
+  //! Returns the sum of total number of bytes in the vector
+  uint64_t bytes(const uint32_t& block_size) const;
+};
+
 } // namespace scsi
 } // namespace sid
 
-#endif // _SID_SCSI_DATATYPES_HPP_
+#endif // _SID_SCSI_DATATYPES_H_

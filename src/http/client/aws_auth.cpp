@@ -72,219 +72,12 @@ void SignatureInput::getSignature(SignatureOutput& out, const int awsApiVersion)
   switch ( awsApiVersion )
   {
   case 4:     getSignature_v4(out);   break;
-  case 2:     getSignature_v2a(out);  break;
+  case 2:     getSignature_v2(out);  break;
   default:
     throw sid::exception("Unsupported awsApiVersion " + sid::to_str(awsApiVersion));
     break;
   }
   cout << out.toString() << endl;
-  ; // LOG_PRINTF(INFO, "SignatureInput::%s: Signature Output\n%s\n", __func__, out.toString().c_str());
-}
-
-void SignatureInput::getSignature_v2(SignatureOutput& out)
-{/*
-  bool bStatus = false;
-
-    // @see http://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html
-
-    // normalizedHeaders will contain all headers - including "date",
-    // "content-type", "range" (if it exists), all "x-amz-*", and other headers;
-    // each header is stripped of leading ' ', and trailing ' ' or ':'
-  CloudAdapter::Http_headers_t normalizedHeaders = CloudAdapter::getNormalizedHeaders(mapRequest);
-  string hashStr;
-  hashStr = method.to_str() + "\n";
-    CloudAdapter::appendPositionalHeader(hashStr, normalizedHeaders, "content-md5");
-    CloudAdapter::appendPositionalHeader(hashStr, normalizedHeaders, "content-type");
-    if (normalizedHeaders.find("date") != normalizedHeaders.end())
-        CloudAdapter::appendPositionalHeader(hashStr, normalizedHeaders, "date");
-    else
-    {
-        ; // LOG_PRINTF(ERROR, "AmazonS3Adapter::%s OID %s: unable to find 'date' header; failed to attach signature\n", __func__, OID.c_str());
-        mapRequest.insert(pair<string,string>("Authorization:","UNABLE TO CALCULATE"));
-        return;
-    }
-    // Add canonicalized headers
-    CloudAdapter::Http_headers_iter_t iter;
-    for (iter=normalizedHeaders.begin();iter!=normalizedHeaders.end();iter++)
-    {
-        string tag = iter->first;
-        string val = iter->second;
-        // TODO: If any duplicates, combine val's with "," no whitespace
-        if (tag.find("x-amz-") == 0)
-            hashStr = hashStr + tag + ":" + val + string("\n");
-    }
-    // should always begin with /<bucket_name>/<URI_path> with
-    // <URI_path> up to first arg; it should following args and
-    // their values, if any, if they match those shown below;
-    // the args should be sorted
-    // examples:
-    //   /mypath?prefix=helloworld    ==> do not append the arg
-    //   /mypath?acl                  ==> append '?acl'
-    //   /mypath?versionid=2          ==> append '?versionid=2'
-    //   /mypath?versionid=2&prefix=2 ==> append '?prefix=2&versionid=2'
-    //
-    // http://docs.amazonwebservices.com/AmazonS3/2006-03-01/dev/index.html
-    
-    // split URI into path - up to first '?', if any - first arg, and the rest
-    // discard the rest
-    string path;
-    string::size_type delim = resource.find('?');
-    if (delim != string::npos)
-    {
-        path = resource.substr(0, delim);
-        if (delim == resource.length() - 1)
-        {
-            // the '?' is the last character in the string 
-          ; // LOG_PRINTF(WARNING, "AmazonS3Adapter::%s: OID %s resource %s - last char is '?'; unexpected; no args (delim %u)\n", 
-                     __func__, OID.c_str(), resource.c_str(), (uint32_t) delim);
-        }
-    }
-    else
-    {
-        path = resource;
-    }
-    // only include first arg if it's one of "?versioning", "?location",
-    // "?acl", "?torrent", or "?versionid"
-    // TODO: these are "subresources'; are there other subresources?
-    // The full set of subresources:
-    //   acl, location, logging, notification, partNumber, policy,
-    //   requestPayment, torrent, uploadId, uploads, versionId,
-    //   versioning, versions and website
-    // The subresources must be stored.
-    // They must include and values.
-    // http://docs.amazonwebservices.com/AmazonS3/latest/dev/
-    string subresourceArg;
-    delim = resource.find('?');
-    if (delim != string::npos)
-    {
-        map<string,string> subresources;
-        path = resource.substr(0, delim);
-        if (delim == resource.length() - 1)
-        {
-            // the '?' is the last character in the string 
-            ; // LOG_PRINTF(WARNING, "AmazonS3Adapter::%s: OID %s resource %s - last char is '?'; unexpected; no args (delim %u)\n", __func__, OID.c_str(), resource.c_str(), (uint32_t) delim);
-        }
-        else
-        {
-            // we're looking for <arg>=<val>[&<arg>=<val>]*
-            // start with what's behind the first '?'
-            string remaining = resource.substr(delim + 1);
-            while (! remaining.empty())
-            {
-                string arg; string val;
-                delim = remaining.find('&');
-                if (delim != string::npos)
-                {
-                    // TODO: bad strings that end with '&'
-                    arg = remaining.substr(0, delim);
-                    remaining = remaining.substr(delim + 1);
-                }
-                else 
-                {
-                    arg = remaining;
-                    remaining = "";
-                }
-                // split arg on '='
-                delim = arg.find('=');
-                if (delim != string::npos)
-                {
-                    if (delim == arg.length() - 1)
-                    {
-                        // the '=' is the last character in the string 
-                        ; // LOG_PRINTF(WARNING, "AmazonS3Adapter::%s: OID %s resource %s arg '%s' - last char is '='; unexpected; no value\n", __func__, OID.c_str(), resource.c_str(), arg.c_str());
-                    }
-                    else
-                    {
-                        val = arg.substr(delim + 1);
-                        arg = arg.substr(0, delim);
-                    }
-                }
-                if (arg == "acl" ||
-                    arg == "location" ||
-                    arg == "logging" ||
-                    arg == "notificcation" || 
-                    arg == "partNumber" || 
-                    arg == "policy" || 
-                    arg == "requestPayment" || 
-                    arg == "torrent" ||
-                    arg == "uploadId" ||
-                    arg == "uploads" ||
-                    arg == "versionId" || 
-                    arg == "versioning" || 
-                    arg == "versions" || 
-                    arg == "website")
-                {
-                    subresources.insert(make_pair(arg, val));
-                }
-            }
-        }
-
-        ostringstream subresourceStr;
-        map<string,string>::iterator subIter;
-        for (subIter=subresources.begin();subIter!=subresources.end();subIter++)
-        {
-            if (! subresourceStr.str().empty())
-                subresourceStr << "&";
-            if (! subIter->second.empty())
-                subresourceStr << subIter->first << "=" << subIter->second;
-            else
-                subresourceStr << subIter->first;
-        }
-        subresourceArg = subresourceStr.str();
-    }
-    if (! subresourceArg.empty())
-        ; // LOG_PRINTF(DEBUG_2, "AmazonS3Adapter::%s: resource '%s' subresource '%s'\n", __func__, resource.c_str(), subresourceArg.c_str());
-
-    // now construct canonicalized resource
-    string canonicalizedResource;
-
-    string leadingBucket = string("/") + bucketName + string("/");
-    if (path.find(leadingBucket) != 0)
-    {
-        // prepend /<bucket_name>
-        canonicalizedResource = string("/") + bucketName;
-        if (path.find("/") != 0)
-            canonicalizedResource = canonicalizedResource + string("/");
-        canonicalizedResource = canonicalizedResource + path;
-    }
-    else
-        canonicalizedResource = path;
-    if (! subresourceArg.empty())
-        canonicalizedResource = canonicalizedResource + string("?") + subresourceArg;
-
-    hashStr = hashStr + canonicalizedResource;
-    ; // LOG_PRINTF(DEBUG_4, "AmazonS3Adapter::%s: canonicalized hash string\n%s\n", __func__, hashStr.c_str());
-
-    ; // LOG_PRINTF(DEBUG_4, "AmazonS3Adapter::%s OID %s: StringToSign:\n%s\n", __func__, OID.c_str(), hashStr.c_str());
-
-    // Signing the request
-    std::string signature;
-    sid::hash::sha1 sha1;
-    sid::hash::digest digest = sha1.get_hmac(this->secret, hashStr);
-    if ( ! digest.empty() )
-    {
-      ; // LOG_PRINTF(DEBUG_4, "AmazonS3Adapter::%s: raw digest: '0x%s'\n", __func__, digest.to_hex_str().c_str());
-
-      signature = digest.to_base64();
-      ; // LOG_PRINTF(DEBUG_4, "AmazonS3Adapter%s: signature = %s\n", __func__, signature.c_str());
-    }
-    else
-    {
-      ; // LOG_PRINTF(ERROR, "AmazonS3Adapter::%s: failed to calculate hash\n", __func__);
-      signature = std::string("HMAC error");
-    }
-    ///////////////////////////////////////////////////
-    // Generate the "Authorization" header
-    // variables: authStr
-    std::string authStr = "AWS " + accessKeyId + ":" + signature;
-    bStatus = true;
-
-    out.awsVersion = 2;
-    out.success = bStatus;
-    out.stringToSign = hashStr;
-    out.signature = signature;
-    out.authStr = authStr;
- */
 }
 
 std::string SignatureInput::private_fixAndGetHost(std::string* hostOnly)
@@ -312,7 +105,7 @@ std::string SignatureInput::private_fixAndGetHost(std::string* hostOnly)
   return hostHeader;
 }
 
-void SignatureInput::getSignature_v2a(SignatureOutput& out)
+void SignatureInput::getSignature_v2(SignatureOutput& out)
 {
    /**
      CanonicalizedResource = [ "/" + Bucket ] +
@@ -363,8 +156,6 @@ void SignatureInput::getSignature_v2a(SignatureOutput& out)
                    canonicalData.headers +
                    canonicalData.uri;
 
-    ; // LOG_PRINTF(DEBUG_4, "AmazonS3Adapter::%s OID %s: StringToSign:\n%s\n", __func__, OID.c_str(), stringToSign.c_str());
-
     ///////////////////////////////////////////////////
     // Generate the signature
     // variables: signature
@@ -381,12 +172,10 @@ void SignatureInput::getSignature_v2a(SignatureOutput& out)
   }
   catch (const sid::exception& e)
   {
-    ; // LOG_PRINTF(ERROR, "AmazonS3Adapter::%s OID %s: %s\n", __func__, OID.c_str(), csErr.c_str());
     authStr = "UNABLE TO CALCULATE";
   }
   catch (...)
   {
-    ; // LOG_PRINTF(ERROR, "AmazonS3Adapter::%s OID %s: %s\n", __func__, OID.c_str(), "An Unhanlded exception occurred");
     authStr = "UNABLE TO CALCULATE";
   }
 
@@ -535,7 +324,6 @@ void SignatureInput::getSignature_v4(SignatureOutput& out)
     ///////////////////////////////////////////////////
     // Generate the signing key
     // variables: signingKey
-    ; // LOG_PRINTF(INFO, "Anand-3: Canonical_Request=\n%s\n\nString_To_Sign=\n%s\n", canonicalRequest.c_str(), stringToSign.c_str());
     digest = sha256.get_hmac("AWS4"+this->secret, dateStr);
     if ( digest.empty() ) throw sid::exception("Failed to create the date key");
     digest = sha256.get_hmac(digest.data(), aws_region);
@@ -565,12 +353,10 @@ void SignatureInput::getSignature_v4(SignatureOutput& out)
   }
   catch (const sid::exception& e)
   {
-    ; // LOG_PRINTF(ERROR, "AmazonS3Adapter::%s OID %s: %s\n", __func__, OID.c_str(), csErr.c_str());
     authStr = "UNABLE TO CALCULATE";
   }
   catch (...)
   {
-    ; // LOG_PRINTF(ERROR, "AmazonS3Adapter::%s OID %s: %s\n", __func__, OID.c_str(), "An Unhanlded exception occurred");
     authStr = "UNABLE TO CALCULATE";
   }
 
@@ -614,7 +400,6 @@ bool SignatureInput::getCanonicalData(int awsVersion, CanonicalData& out)
     if ( pos == tResource.length() - 1)
     {
       // the '?' is the last character in the string 
-      ; // LOG_PRINTF(WARNING, "AmazonS3Adapter::%s: resource %s - last char is '?'; unexpected; no args (delim %u)\n", __func__, tResource.c_str(), (uint32_t) pos);
       break;
     }
 

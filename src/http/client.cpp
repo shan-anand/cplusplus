@@ -63,7 +63,7 @@ bool client::run(bool _followRedirects)
       // Nothing to do here
     };
 
-  return run(redirect_callback, _followRedirects);
+  return this->run(redirect_callback, _followRedirects);
 }
 
 bool client::run(FNRedirectCallback& _redirect_callback, bool _followRedirects)

@@ -73,9 +73,9 @@ void exit_handler(int signal)
 
 int main(int argc, char* argv[])
 {
-  signal(SIGINT, exit_handler);
-  signal(SIGQUIT, exit_handler);
-  signal(SIGABRT, exit_handler);
+  ::signal(SIGINT, exit_handler);
+  ::signal(SIGQUIT, exit_handler);
+  ::signal(SIGABRT, exit_handler);
 
   try
   {
@@ -119,15 +119,15 @@ void input_thread()
   bool bContinue = true;
 
   #define HISTORY_FILE "~/.http_server_history"
-  using_history();
-  read_history(HISTORY_FILE);
+  ::using_history();
+  ::read_history(HISTORY_FILE);
 
   auto is_ready_for_read = [&]()->bool
     {
       struct timespec ts = {1000, 0};
       pollfd poll_fd = {STDIN_FILENO, POLLRDHUP, 0};
       poll_fd.events |= (POLLIN | POLLPRI);
-      int ret = ppoll(&poll_fd, 1, &ts, nullptr);
+      int ret = ::ppoll(&poll_fd, 1, &ts, nullptr);
       if ( ret == -1 )
 	throw sid::exception(http::errno_str(errno));
 
@@ -309,7 +309,7 @@ bool run_command(const std::string& cmdLine)
   std::string cmd;
   Args args;
   // add history entry for manipulating it
-  add_history(cmdLine.c_str());
+  ::add_history(cmdLine.c_str());
 
   if ( cmdLine == "exit" || cmdLine == "quit" )
     return false;

@@ -1,13 +1,11 @@
 /*
 LICENSE: BEGIN
 ===============================================================================
-@author Shanmuga (Anand) Gunasekaran
+@author Shan Anand
 @email anand.gs@gmail.com
 @source https://github.com/shan-anand
 @file device.hpp
-@brief SCSI device interface. Defines virtual functions.
-       It will be used as the base class to implement SCSI operations,
-       Example: IScsi and Scsi generic device
+@brief SCSI device interface
 ===============================================================================
 MIT License
 
@@ -36,118 +34,57 @@ LICENSE: END
 
 /**
  * @file  device.hpp
- * @brief SCSI Device interface that defines all SCSI calls.
+ * @brief Constant values in SCSI
  */
 
-#ifndef _SID_SCSI_DEVICE_HPP_
-#define _SID_SCSI_DEVICE_HPP_
+#ifndef _SID_SCSI_DEVICE_H_
+#define _SID_SCSI_DEVICE_H_
 
-#include "constants.hpp"
-#include "datatypes.hpp"
+#include <string>
+#include <common/exception.hpp>
 #include <common/smart_ptr.hpp>
-
-#define SCSI_DEFAULT_SINGLE_IO_SIZE        (128*1024)
 
 namespace sid {
 namespace scsi {
 
-class Device_t;
-using Device_s = smart_ptr<Device_t>;
+class device;
+using device_ptr = smart_ptr<device>;
 
-struct DeviceInfo_t;
-using DeviceInfo_s = smart_ptr<DeviceInfo_t>;
-
-enum class DeviceType { Invalid = -1, Generic, IScsi };
+//! SCSI device types
+enum class device_type : uint8_t { invalid, generic, iscsi };
 
 /**
- * @class DeviceInfo_t
- * @brief SCSI Device information interface
+ * @struct device_info
+ * @brief Connection interface for SCSI device
  */
-struct DeviceInfo_t : public smart_ref
+struct device_info
 {
-  DeviceInfo_t();
-  virtual ~DeviceInfo_t();
-
-  //! Virtual functions to implemented for the actual device
-  virtual scsi::DeviceType type() const = 0;
-  virtual bool set(const std::string& infoStr, std::string* pcsError = nullptr) = 0;
-  virtual void clear() = 0;
-  virtual bool empty() const = 0;
+  virtual device_type type() const = 0;
   virtual std::string id() const = 0;
-  virtual std::string toString() const = 0;
-  virtual scsi::Device_s create() const = 0;
 };
 
 /**
- * @class Device_t
- * @brief Send SCSI commands
+ * @struct device
+ * @brief SCSI device interface definition
  */
-class Device_t : public smart_ref
+class device : public smart_ref
 {
 public:
-  virtual ~Device_t();
+  device();
+  static device_ptr create(device_info* _deviceInfo);
 
-  //! get/set verbose level
-  const Verbose& verbose() const { return m_verbose; }
-  void verbose(const Verbose& v) { m_verbose = v; }
+  virtual device_type type() const = 0;
 
-  //! get/set error messages
-  const std::string& error() const { return m_error; }
-  std::string& error() { return m_error; }
-  std::string& error(const std::string& str) { m_error = str; return m_error; }
+  virtual std::string id() const = 0;
+  virtual bool read_capacity(scsi::capacity16& _capacity) = 0;
+  virtual bool read(scsi::read16& _read16) = 0;
+  virtual bool write(scsi::write16& _write16) = 0;
+  virtual bool test_unit_ready() = 0;
 
-  //! Get the capacity of the device
-  scsi::Capacity_t capacity(bool force = false);
-
-  //! Get the device information object
-  scsi::DeviceInfo_s deviceInfo() const { return m_deviceInfo; }
-
-  //! Get the scsi::Device_s pointer
-  scsi::Device_s base_ptr() { return dynamic_cast<scsi::Device_t*>(this); }
-
-public:
-  //! Get the device type
-  virtual scsi::DeviceType type() const = 0;
-  //! Check whether the device is empty
-  virtual bool empty() const noexcept = 0;
-  //! Clone a new device object
-  virtual scsi::Device_s clone() = 0;
-
-  virtual bool test_unit_ready() noexcept = 0;
-  virtual bool read_capacity(scsi::Capacity10_t& capacity10) noexcept = 0;
-  virtual bool read_capacity(scsi::Capacity16_t& capacity16) noexcept = 0;
-
-  virtual bool inquiry(scsi::Inquiry::Standard_t& inquiry) noexcept = 0;
-  virtual bool inquiry(scsi::Inquiry::UnitSerialNumber_t& usn) noexcept = 0;
-  virtual bool inquiry(scsi::Inquiry::SupportedVPDPages_t& inq) noexcept = 0;
-
-  virtual bool read(scsi::Read16_t& read16, scsi::Sense_t* sense = nullptr) noexcept = 0;
-  virtual bool write(scsi::Write16_t& write16, scsi::Sense_t* sense = nullptr) noexcept = 0;
-
-  // Implement scsi::DataTypeEx functions
-  bool read(scsi::Read16Ex_t& read16x) noexcept { return read(read16x, &read16x.sense); }
-  bool write(scsi::Write16Ex_t& write16x) noexcept { return write(write16x, &write16x.sense); }
-
-protected:
-  //! Default constructor
-  Device_t();
-  //! Disable copy constructor
-  Device_t(const Device_t&) = delete;
-  //! Disable copy operator
-  Device_t& operator=(const Device_t&) = delete;
-
-private:
-  //! Member variables
-  Verbose          m_verbose;
-  std::string      m_error;
-  scsi::Capacity_t m_capacity;
-
-protected:
-  DeviceInfo_s     m_deviceInfo;
+  virtual bool inquiry(scsi::inquiry::basic* _inquiry) = 0;
 };
 
 } // namespace scsi
 } // namespace sid
 
-#endif // _SID_SCSI_DEVICE_HPP_
-
+#endif // _SID_SCSI_DEVICE_H_

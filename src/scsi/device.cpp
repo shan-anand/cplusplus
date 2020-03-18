@@ -46,14 +46,15 @@ using namespace sid::scsi;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Device_t
+// device
 //
-Device_t::Device_t()
+device::device()
 {
-  m_verbose = Verbose::None;
+  //m_verbose = Verbose::None;
 }
 
-scsi::Capacity_t Device_t::capacity(bool force/* = false*/)
+/*
+scsi::capacity16 device::capacity(bool force/ * = false* /)
 {
   if ( m_capacity.empty() || force )
   {
@@ -64,3 +65,4 @@ scsi::Capacity_t Device_t::capacity(bool force/* = false*/)
   }
   return m_capacity;
 }
+*/

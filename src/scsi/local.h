@@ -8,7 +8,7 @@
 
 namespace local
 {
-template <typename T> std::string toString(const T& v, bool inHex = false)
+template <typename T> std::string to_str(const T& v, bool inHex = false)
 {
   std::ostringstream out;
   if ( !inHex )

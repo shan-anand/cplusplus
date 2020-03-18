@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <vector>
 #include <set>
@@ -273,13 +272,13 @@ int getParamType(const Param& param, const ValidParams* p_vp, ParamCount& params
 
 Class getArgClass(const std::string& arg)
 {
-  if ( strncmp(arg.c_str(), "--", 2) != 0 && strncmp(arg.c_str(), "--", 1) != 0 )
+  if ( ::strncmp(arg.c_str(), "--", 2) != 0 && ::strncmp(arg.c_str(), "--", 1) != 0 )
     throw sid::exception("Expecting a parameter. Encountered: " + arg);
-  else if ( strncmp(arg.c_str(), P_PREFIX_AWS, strlen(P_PREFIX_AWS)) == 0 )
+  else if ( ::strncmp(arg.c_str(), P_PREFIX_AWS, ::strlen(P_PREFIX_AWS)) == 0 )
     return Class::aws;
-  else if ( strncmp(arg.c_str(), P_PREFIX_ATMOS, strlen(P_PREFIX_ATMOS)) == 0 )
+  else if ( ::strncmp(arg.c_str(), P_PREFIX_ATMOS, ::strlen(P_PREFIX_ATMOS)) == 0 )
     return Class::atmos;
-  else if ( strncmp(arg.c_str(), P_PREFIX_AZURE, strlen(P_PREFIX_AZURE)) == 0 )
+  else if ( ::strncmp(arg.c_str(), P_PREFIX_AZURE, ::strlen(P_PREFIX_AZURE)) == 0 )
     return Class::azure;
 
   return Class::none;
