@@ -88,7 +88,7 @@ bool client::run(FNRedirectCallback& _redirect_callback, bool _followRedirects)
       {
         bool isFound = false;
         std::string hval = this->request.headers.get("Expect", &isFound);
-        expecting100Continue = ( isFound && strcasecmp(hval.c_str(), "100-continue") == 0 );
+        expecting100Continue = ( isFound && ::strcasecmp(hval.c_str(), "100-continue") == 0 );
       }
       std::string data = this->request.to_str(!expecting100Continue);
 

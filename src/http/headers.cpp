@@ -164,7 +164,7 @@ bool headers::exists(const std::string& _key, std::string* _pValue) const
 std::string headers::get(const std::string& _key, bool* _pisFound) const
 {
   std::string value;
-  bool isFound = exists(_key, &value);
+  bool isFound = this->exists(_key, &value);
   if ( _pisFound ) *_pisFound = isFound;
   return value;
 }
@@ -175,7 +175,7 @@ std::vector<std::string> headers::get_all(const std::string& _key) const
 
   for ( const http::header& header : *this )
   {
-    if ( strcasecmp(header.key.c_str(), _key.c_str()) == 0 )
+    if ( ::strcasecmp(header.key.c_str(), _key.c_str()) == 0 )
       values.push_back(header.value);
   }
 
@@ -209,7 +209,7 @@ headers::iterator headers::find(const std::string& _key)
 {
   for ( headers::iterator it = this->begin(); it != this->end(); it++ )
   {
-    if ( strcasecmp(it->key.c_str(), _key.c_str()) == 0 )
+    if ( ::strcasecmp(it->key.c_str(), _key.c_str()) == 0 )
       return it;
   }
   return this->end();
@@ -219,7 +219,7 @@ headers::const_iterator headers::find(const std::string& _key) const
 {
   for ( headers::const_iterator it = this->begin(); it != this->end(); it++ )
   {
-    if ( strcasecmp(it->key.c_str(), _key.c_str()) == 0 )
+    if ( ::strcasecmp(it->key.c_str(), _key.c_str()) == 0 )
       return it;
   }
   return this->end();
@@ -275,15 +275,15 @@ http::transfer_encoding headers::transfer_encoding(bool* _pisFound/* = nullptr*/
     if ( tpos != std::string::npos )
       value = sid::trim(value.substr(0, tpos));
 
-    if ( strcasecmp(value.c_str(), "chunked") == 0 )
+    if ( ::strcasecmp(value.c_str(), "chunked") == 0 )
       encoding = http::transfer_encoding::chunked;
-    else if ( strcasecmp(value.c_str(), "compress") == 0 )
+    else if ( ::strcasecmp(value.c_str(), "compress") == 0 )
       encoding = http::transfer_encoding::compress;
-    else if ( strcasecmp(value.c_str(), "deflate") == 0 )
+    else if ( ::strcasecmp(value.c_str(), "deflate") == 0 )
       encoding = http::transfer_encoding::deflate;
-    else if ( strcasecmp(value.c_str(), "gzip") == 0 )
+    else if ( ::strcasecmp(value.c_str(), "gzip") == 0 )
       encoding = http::transfer_encoding::gzip;
-    else if ( strcasecmp(value.c_str(), "identity") == 0 )
+    else if ( ::strcasecmp(value.c_str(), "identity") == 0 )
       encoding = http::transfer_encoding::identity;
     else
       throw sid::exception("Invalid Transfer-Encoding enountered: " + value);
@@ -300,9 +300,9 @@ http::header_connection headers::connection(bool* _pisFound/* = nullptr*/) const
   if ( _pisFound ) *_pisFound = isFound;
   if ( isFound )
   {
-    if ( strcasecmp(value.c_str(), "Close") == 0 )
+    if ( ::strcasecmp(value.c_str(), "Close") == 0 )
       res = http::header_connection::close;
-    else if ( strcasecmp(value.c_str(), "Keep-Alive") == 0 )
+    else if ( ::strcasecmp(value.c_str(), "Keep-Alive") == 0 )
       res = http::header_connection::keep_alive;
   }
   return res;

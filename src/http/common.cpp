@@ -53,7 +53,8 @@ LICENSE: END
 
 using namespace sid;
 
-#define HTTP_DATE_FORMAT "%a, %d %b %y %T %z"
+#define HTTP_DATE_FORMAT "%a, %d %b %y %T %Z"
+//#define HTTP_DATE_FORMAT "%a, %d %b %y %T %z"
 static const std::string urlReservedChars = " !\'();:@&+$,?%#[]/\"";
 
 static bool gbVerbose = false;
@@ -66,25 +67,25 @@ bool http::library_init()
   static bool firstTime = true;
   if ( !firstTime ) return g_bInitSuccessful;
 
-  SSL_library_init();
+  ::SSL_library_init();
 
-  SSL_load_error_strings();
-  ERR_load_BIO_strings();
-  SSLeay_add_ssl_algorithms();
+  ::SSL_load_error_strings();
+  ::ERR_load_BIO_strings();
+  ::SSLeay_add_ssl_algorithms();
     
   // Set up OpenSSL to enable all algorithms, ciphers and digests
-  OpenSSL_add_all_algorithms();
-  OpenSSL_add_all_ciphers();
-  OpenSSL_add_all_digests();
+  ::OpenSSL_add_all_algorithms();
+  ::OpenSSL_add_all_ciphers();
+  ::OpenSSL_add_all_digests();
 
-  g_serverMethod = SSLv23_server_method();
+  g_serverMethod = ::SSLv23_server_method();
   if ( ! g_serverMethod ) 
   {
     cerr << "No serverMethod" << endl; // XXX
     return g_bInitSuccessful;
   }
 
-  g_clientMethod = SSLv23_client_method();
+  g_clientMethod = ::SSLv23_client_method();
   if ( ! g_clientMethod  ) 
   {
     cerr << "No clientMethod" << endl; // XXX
@@ -102,7 +103,7 @@ void http::library_cleanup()
   if ( !g_bInitSuccessful ) return;
 
 #ifdef RSA_SSL_C
-  SSL_library_cleanup();
+  ::SSL_library_cleanup();
 #endif
 }
 
@@ -113,7 +114,7 @@ bool http::is_verbose() { return gbVerbose; }
 std::string http::errno_str(const int _errno)
 {
   char buff[1024] = {0};
-  const char* out = strerror_r(_errno, buff, sizeof(buff)-1);
+  const char* out = ::strerror_r(_errno, buff, sizeof(buff)-1);
   std::string _errStr = std::string("errno (") + sid::to_str(_errno) + ") ";
   _errStr += (out && *out != '\0')? out : (_errno == 0)? "Success" : "Unknown error";
   return _errStr;
@@ -132,7 +133,7 @@ bool http::get_line(const std::string& _input, size_t& _pos1, std::string& _outp
 std::string http::date_to_str(const struct tm& _tm)
 {
   char szDate[256] = {0};
-  size_t len = strftime(szDate, sizeof(szDate)-1, HTTP_DATE_FORMAT, &_tm);
+  size_t len = ::strftime(szDate, sizeof(szDate)-1, HTTP_DATE_FORMAT, &_tm);
   szDate[len] = '\0';
   return std::string(szDate);
 }
@@ -140,13 +141,13 @@ std::string http::date_to_str(const struct tm& _tm)
 std::string http::date_to_str(const time_t& _tt)
 {
   struct tm tm = {0};
-  gmtime_r(&_tt, /*out*/ &tm);
+  ::gmtime_r(&_tt, /*out*/ &tm);
   return date_to_str(tm);
 }
 
 bool http::date_from_str(const std::string& _input, struct tm& _tm)
 {
-  return ( ! strptime(_input.c_str(), HTTP_DATE_FORMAT, &_tm) );
+  return ( ! ::strptime(_input.c_str(), HTTP_DATE_FORMAT, &_tm) );
 }
 
 bool http::date_from_str(const std::string& _input, time_t& _tt)
@@ -154,7 +155,7 @@ bool http::date_from_str(const std::string& _input, time_t& _tt)
   struct tm tm = {0};
   if ( ! date_from_str(_input, /*out*/ tm) )
     return false;
-  _tt = mktime(&tm);
+  _tt = ::mktime(&tm);
   return true;
 }
 
@@ -204,11 +205,11 @@ std::string http::url_decode(const std::string& _input)
       ia[1] = _input[++i];
       // make sure the 2 characters are hexdecimal characters,
       //   otherwise throw an exception
-      if ( !isxdigit(ia[0]) || !isxdigit(ia[1]) )
+      if ( !::isxdigit(ia[0]) || !::isxdigit(ia[1]) )
         throw sid::exception("Invalid hex input to urlDecode: " + _input);
       // convert the hexadecimal string to long and
       //   write it to the buffer as a character
-      out << (char) strtol(ia, NULL, 16);
+      out << (char) ::strtol(ia, NULL, 16);
     }
     else
     {

@@ -42,6 +42,7 @@ LICENSE: END
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 #include <netinet/tcp.h>
 #include <cstdio>
 #include <cstdlib>
@@ -316,7 +317,7 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
 	poll_fd.events |= (POLLIN | POLLPRI);
       if ( _ioType & IO_WRITE )
 	poll_fd.events |= POLLOUT;
-      int ret = ppoll(&poll_fd, 1, &ts, nullptr);
+      int ret = ::ppoll(&poll_fd, 1, &ts, nullptr);
       if ( ret == -1 )
 	throw sid::exception(http::errno_str(errno));
 
@@ -332,16 +333,24 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
       if ( ret > 0 )
       {
 	const int& revents = poll_fd.revents;
-	if ( (revents & POLLERR) )
-	  throw sid::exception("Error polling for data");
-	if ( (revents & POLLHUP) || (revents & POLLRDHUP) )
-	  throw sid::exception("Error polling for data as the peer closed the connection");
-	if ( (revents & POLLNVAL) )
-	  throw sid::exception("Error polling for data due to invalid request");
 	if ( (_ioType & IO_READ) && (revents & POLLIN) )
-	  isReady = true;
+	{
+	  // If there is data in the input buffer, set the ready flag, otherwise do not set it
+	  int bytesAvailable = 0;
+	  if ( -1 != ::ioctl (m_socket, TIOCINQ /*FIONREAD*/, &bytesAvailable) && bytesAvailable > 0 )
+	    isReady = true;
+	}
 	else if ( (_ioType & IO_WRITE) && (revents & POLLOUT) )
 	  isReady = true;
+	if ( !isReady )
+	{
+	  if ( (revents & POLLERR) )
+	    throw sid::exception("Error polling for data");
+	  else if ( (revents & POLLHUP) || (revents & POLLRDHUP) )
+	    throw sid::exception("Error polling for data as the peer closed the connection. Return events 0x" + sid::to_str(revents, sid::num_base::hex));
+	  else if ( (revents & POLLNVAL) )
+	    throw sid::exception("Error polling for data due to invalid request");
+	}
       }
     };
 
@@ -369,7 +378,7 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
 
       struct timeval tv = {0};
       tv.tv_sec = this->get_timeout();
-      int ret = select(m_socket+1, pr_fds, pw_fds, &e_fds, &tv);
+      int ret = ::select(m_socket+1, pr_fds, pw_fds, &e_fds, &tv);
       if ( ret == -1 )
 	throw sid::exception(http::errno_str(errno));
 
@@ -400,6 +409,7 @@ bool http_connection::close()
 {
   if ( m_socket != -1 )
   {
+    //::shutdown(m_socket, SHUT_RDWR);
     ::close(m_socket);
     m_socket = -1;
     m_server.clear();
@@ -427,7 +437,7 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
     if ( _server.empty() )
       throw sid::exception("Server name cannot be empty");
 
-    memset(&hints, 0, sizeof(struct addrinfo));
+    ::memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = (m_family == connection_family::ip_v4)? AF_INET :
                       (m_family == connection_family::ip_v6)? AF_INET6 : AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM; // Stream socket
@@ -459,7 +469,7 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
 	  if ( sfd == -1 ) break;
 	  struct sockaddr_in* saddr = (struct sockaddr_in*) rp->ai_addr;
 	  // set the server and socket descriptor
-	  memset(szName, 0, sizeof(szName));
+	  ::memset(szName, 0, sizeof(szName));
 	  ::inet_ntop(AF_INET, &(saddr->sin_addr), szName, INET_ADDRSTRLEN);
 	  //std::string svr = inet_ntoa(saddr->sin_addr);
 	  if ( ::connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1 )
@@ -483,7 +493,7 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
 	  if ( sfd == -1 ) break;
 	  struct sockaddr_in6* saddr6 = (struct sockaddr_in6 *) rp->ai_addr;
 	  // set the server and socket descriptor
-	  memset(szName, 0, sizeof(szName));
+	  ::memset(szName, 0, sizeof(szName));
 	  ::inet_ntop(AF_INET6, &(saddr6->sin6_addr), szName, INET6_ADDRSTRLEN);
 	  if ( ::connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1 )
 	  {
@@ -557,8 +567,8 @@ bool http_connection::open(int _sockfd)
     socklen_t len = sizeof(addr);
     char ipstr[INET6_ADDRSTRLEN+1];
 
-    memset(&addr, 0, sizeof(addr));
-    memset(ipstr, 0, sizeof(ipstr));
+    ::memset(&addr, 0, sizeof(addr));
+    ::memset(ipstr, 0, sizeof(ipstr));
 
     if ( -1 == ::getpeername(_sockfd, (struct sockaddr*) &addr, &len) )
       throw sid::exception(http::errno_str(errno));
@@ -699,8 +709,8 @@ bool https_connection::close()
 static std::string s_ssl_error_string()
 {
   char szError[1024] = {0};
-  unsigned long e = ERR_get_error();
-  ERR_error_string_n(e, szError, sizeof(szError)-1);
+  unsigned long e = ::ERR_get_error();
+  ::ERR_error_string_n(e, szError, sizeof(szError)-1);
   return std::string(szError);
 }
 

@@ -161,17 +161,6 @@ void input_thread()
   global.exit = true;
 }
 
-std::string s_getCurrentTime()
-{
-  char szNow[256] = {0};
-  time_t now = time(NULL);
-  struct tm *tmp = localtime(&now);
-  if ( tmp )
-    strftime(szNow, sizeof(szNow)-1, "%a, %d %b %Y %X %Z", tmp);
-
-  return std::string(szNow);
-}
-
 void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
 {
   try
@@ -235,11 +224,12 @@ void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
     http::response response;
     response.status = http::status_code::OK;
     response.version = http::version_id::v11;
-    response.headers("Date", s_getCurrentTime());
+    response.headers("Date", http::date_to_str(::time(nullptr)));
     response.headers("Content-Type", "text/xml");
     response.headers.add("X-Server", "Anand's Server");
     response.content.set_data("<ProcessCount>" + sid::to_str(currentProcessId) + "</ProcessCount>");
     response.headers("Content-Length", sid::to_str(response.content.length()));
+
     // Send the response
     if ( ! response.send(conn) )
       throw sid::exception(response.error);

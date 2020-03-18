@@ -65,7 +65,7 @@ void cookie::clear()
 
 bool cookie::equals(const std::string& _name) const
 {
-  return ( strcasecmp(_name.c_str(), this->entry.name.c_str()) == 0 );
+  return ( ::strcasecmp(_name.c_str(), this->entry.name.c_str()) == 0 );
 }
 
 bool cookie::set(const std::string& _value)
@@ -100,15 +100,15 @@ bool cookie::set(const std::string& _value)
       this->entry.value = val;
       isEntryExtracted = true;
     }
-    else if ( strcasecmp(key.c_str(), "secure") == 0 )
+    else if ( ::strcasecmp(key.c_str(), "secure") == 0 )
       this->is_secure = true;
-    else if ( strcasecmp(key.c_str(), "httponly") == 0 )
+    else if ( ::strcasecmp(key.c_str(), "httponly") == 0 )
       this->is_http_only = true;
-    else if ( strcasecmp(key.c_str(), "domain") == 0 )
+    else if ( ::strcasecmp(key.c_str(), "domain") == 0 )
       this->domain = val;
-    else if ( strcasecmp(key.c_str(), "path") == 0 )
+    else if ( ::strcasecmp(key.c_str(), "path") == 0 )
       this->path = val;
-    else if ( strcasecmp(key.c_str(), "expires") == 0 )
+    else if ( ::strcasecmp(key.c_str(), "expires") == 0 )
     {
       this->expiration.type = cookie_expiration::expire;
       if ( ! http::date_from_str(val, expiration.time) )
@@ -117,7 +117,7 @@ bool cookie::set(const std::string& _value)
   }
 
   // set the current time
-  this->time_received = std::time(nullptr);
+  this->time_received = ::time(nullptr);
   return true;
 }
 
@@ -160,13 +160,13 @@ bool cookie::is_expired() const
   switch ( this->expiration.type )
   {
   case cookie_expiration::expire:
-    isExpired = ( difftime(this->expiration.time, this->time_received) <= 0 ); 
+    isExpired = ( ::difftime(this->expiration.time, this->time_received) <= 0 );
     break;
   case cookie_expiration::max_age:
     {
-      time_t currentTime = std::time(nullptr);
+      time_t currentTime = ::time(nullptr);
       time_t expirationTime = this->time_received + this->expiration.max_age;
-      isExpired = ( difftime(currentTime, expirationTime) <= 0 );
+      isExpired = ( ::difftime(currentTime, expirationTime) <= 0 );
     }
     break;
   case cookie_expiration::none:
@@ -216,13 +216,13 @@ size_t cookies::add(http::request& _request, const http::connection_ptr _conn) c
 
     if ( ! cookie.domain.empty() )
     {
-      if ( strcasecmp(cookie.domain.c_str(), _conn->server().c_str()) != 0 )
+      if ( ::strcasecmp(cookie.domain.c_str(), _conn->server().c_str()) != 0 )
         continue;
     }
     if ( ! cookie.path.empty() )
     {
       if ( _request.uri.length() >= cookie.path.length() &&
-           strncasecmp(cookie.path.c_str(), _request.uri.c_str(), cookie.path.length()) != 0 )
+           ::strncasecmp(cookie.path.c_str(), _request.uri.c_str(), cookie.path.length()) != 0 )
         continue;
     }
     value = cookie.to_str(true);
@@ -245,7 +245,7 @@ http::cookies cookies::get_response_cookies(const http::headers& _headers, bool 
 
   for ( const http::header& header : _headers )
   {
-    if ( strcasecmp(header.key.c_str(), "Set-cookie") == 0 )
+    if ( ::strcasecmp(header.key.c_str(), "Set-cookie") == 0 )
     {
       http::cookie cookie;
       if ( cookie.set(header.value) && (_forceGetAll || !cookie.is_expired() ) )

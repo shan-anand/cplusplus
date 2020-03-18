@@ -73,14 +73,14 @@ std::string www_authenticate::get_auth_string(const http::request& _request)
     Algorithm alg = Algorithm::none;
     QOP qop = QOP::none;
 
-    exists("realm", /*out*/ realm);
-    if ( !exists("nc", /*out*/ nc) || nc.empty() )
+    this->exists("realm", /*out*/ realm);
+    if ( ! this->exists("nc", /*out*/ nc) || nc.empty() )
       nc = "00000001";
-    exists("nonce", /*out*/ nonce);
-    if ( !exists("cnonce", /*out*/ cnonce) || cnonce.empty() )
+    this->exists("nonce", /*out*/ nonce);
+    if ( ! this->exists("cnonce", /*out*/ cnonce) || cnonce.empty() )
       cnonce = "82973294";
-    exists("opaque", /*out*/ opaque);
-    if ( exists("algorithm", /*out*/ temp) )
+    this->exists("opaque", /*out*/ opaque);
+    if ( this->exists("algorithm", /*out*/ temp) )
     {
       if ( temp == "MD5-sess" )
         alg = Algorithm::MD5_sess;
@@ -88,7 +88,7 @@ std::string www_authenticate::get_auth_string(const http::request& _request)
         alg = Algorithm::MD5;
     }
 
-    if ( exists("qop", /*out*/ temp) )
+    if ( this->exists("qop", /*out*/ temp) )
     {
       if ( temp == "auth-int" )
         qop = QOP::auth_int;
@@ -100,7 +100,7 @@ std::string www_authenticate::get_auth_string(const http::request& _request)
     switch ( qop )
     {
     case QOP::auth_int: qopStr = "auth-int"; break;
-    default: qopStr = "auth"; break;
+    default:            qopStr = "auth";     break;
     }
 
     sid::hash::md5 md5;

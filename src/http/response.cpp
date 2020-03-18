@@ -557,7 +557,7 @@ bool IResponseCallback::is_valid(const connection_ptr _conn, const status& _stat
 
 bool IResponseCallback::is_valid(const connection_ptr _conn, const header& _header, response& _response)
 {
-  if ( strcasecmp(_header.key.c_str(), "Set-Cookie") == 0 )
+  if ( ::strcasecmp(_header.key.c_str(), "Set-Cookie") == 0 )
   {
     http::cookie cookie;
     if ( cookie.set(_header.value) )
