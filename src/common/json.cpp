@@ -297,7 +297,8 @@ std::string json::value::to_str() const
 	switch ( ch )
 	{
 	case '/':
-	  _output += '\\' + ch;
+	  _output += '\\';
+	  _output += ch;
 	  break;
 	case '\b':
 	  _output += "\\b";
@@ -314,15 +315,16 @@ std::string json::value::to_str() const
 	case '\t':
 	  _output += "\\t";
 	  break;
+	case '\\':
+	case '\"': // Quotation mark
+	  _output += '\\';
+	  _output += + ch;
+	  break;
 	  /*
 	case '\u':
 	  _output += "\\u";
 	  break;
 	  */
-	case '\\':
-	case '\"': // Quotation mark
-	  _output += '\\' + ch;
-	  break;
 	default:
 	  _output += ch;
 	  break;
@@ -677,20 +679,22 @@ json::value json::parser::parse_string()
       ch = m_value[++m_i];
       switch ( ch )
       {
-      case '/':  out += ch; break;
+      case '/':  out += ch;   break;
       case 'b':  out += '\b'; break;
       case 'f':  out += '\f'; break;
       case 'n':  out += '\n'; break;
       case 'r':  out += '\r'; break;
       case 't':  out += '\t'; break;
-      case '\\': out += ch; break;
-      case '\"': out += ch;
-	break;
+      case '\\': out += ch;   break;
+      case '\"': out += ch;   break;
       case 'u':
-	//out += std::string("\u");
-	// Must be followed by 4 hex digits
-	for ( int i = 0; i < 4; i++ )
-	  out += check_hex(m_value[++m_i]);
+	{
+	  size_t i = m_i;
+	  // Must be followed by 4 hex digits
+	  for ( int i = 0; i < 4; i++ )
+	    check_hex(m_value[++m_i]);
+	  out += m_value.substr(i, m_i-i);
+	}
 	break;
       case '\0':
 	throw sid::exception("Missing escape sequence characters at the end position " + sid::to_str(m_i));

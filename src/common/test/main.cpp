@@ -47,6 +47,8 @@ int main(int argc, char* argv[])
     jtest["double-1"] = 23432.32L;
     jtest["double-2"] = -3432e16;
     jtest["str-1"] = "v\nal\"u\\e";
+    jtest["str-2"] = "unicode-\u0B85";
+    jtest["str-3"] = json::value::get("{\"k1\":\"\\\\u0B85\"}");
     json::value& jarray = jtest["array"];
     jarray.append(100);
     jarray.append(-200);
@@ -54,6 +56,9 @@ int main(int argc, char* argv[])
     jarray.append(-400);
 
     cout << "Array count: " << jarray.size() << " val-2: " << jarray[1].as_str() << endl;
+    cout << "str-1: " << jtest["str-1"].as_str() << " : " << jtest["str-1"].to_str() << endl;
+    cout << "str-2: " << jtest["str-2"].as_str() << " : " << jtest["str-2"].to_str() << endl;
+    cout << "str-3: " << jtest["str-3"]["k1"].as_str() << " : " << jtest["str-3"]["k1"].to_str() << endl;
     cout << "Year: " << jperson["year"].as_str() << ", " << jperson["year"].get_uint64() << endl;
     if ( jperson.has_key("name") )
     {
