@@ -42,10 +42,17 @@ LICENSE: END
 namespace sid {
 namespace json {
 
-enum class element { null, object, array, string, boolean, _signed, _unsigned, _double };
+//! json element type
+enum class element : uint8_t { null, object, array, string, boolean, _signed, _unsigned, _double };
+
+//! json formatter
+enum class format : uint8_t { compact, pretty };
 
 //! Forward declaration of parser (not exposed)
 struct parser;
+
+#pragma pack(push)
+#pragma pack(1)
 
 /**
  * @class value
@@ -112,7 +119,10 @@ public:
   value& operator[](const std::string& _key);
   void append(const value& _obj);
 
-  std::string to_str() const;
+  std::string to_str(json::format _format = json::format::compact) const;
+
+private:
+  std::string private_to_str(json::format _format, uint32_t _level) const;
 
 private:
   using array = std::vector<value>;
@@ -126,11 +136,11 @@ private:
     bool        _bval;
     std::string _str;
     array       _arr;
-    object      _map;
+    object*     _map;
 
     union_data(const json::element _type = json::element::null);
     union_data(const union_data& _obj, const json::element _type = json::element::null);
-    ~union_data(){}
+    ~union_data();
 
     json::element clear(const json::element _type);
 
@@ -148,6 +158,8 @@ private:
   json::element m_type;
   union_data    m_data;
 };
+
+#pragma pack(pop)
 
 } // namespace json
 } // namespace sid

@@ -212,7 +212,7 @@ bool json::value::has_key(const std::string& _key) const
 {
   if ( ! is_object() )
     throw sid::exception(__func__ + std::string("() can be used only for object type"));
-  for ( const auto& entry : m_data._map )
+  for ( const auto& entry : *m_data._map )
     if ( entry.first == _key ) return true;
   return false;
 }
@@ -222,7 +222,7 @@ std::vector<std::string> json::value::get_keys() const
   if ( ! is_object() )
     throw sid::exception(__func__ + std::string("() can be used only for object type"));
   std::vector<std::string> keys;
-  for ( const auto& entry : m_data._map )
+  for ( const auto& entry : *m_data._map )
     keys.push_back(entry.first);
   return keys;
 }
@@ -232,7 +232,7 @@ size_t json::value::size() const
   if ( is_array() )
     return m_data._arr.size();
   else if ( is_object() )
-    return m_data._map.size();
+    return m_data._map->size();
   throw sid::exception(__func__ + std::string("() can be used only for array and object types"));
 }
 
@@ -286,7 +286,14 @@ std::string json::value::as_str() const
   throw sid::exception(__func__ + std::string("() can be used only for string, number or boolean types"));
 }
 
-std::string json::value::to_str() const
+std::string json::value::to_str(json::format _format/* = json::format::compact*/) const
+{
+  if ( is_object() || is_array() )
+    return private_to_str(_format, 0);
+  throw sid::exception("to_str() can be applied only on a object or array");
+}
+
+std::string json::value::private_to_str(json::format _format, uint32_t _level) const
 {
   auto escape_string =[&](const std::string& _input)->std::string
     {
@@ -333,17 +340,31 @@ std::string json::value::to_str() const
       return _output;
     };
 
+  std::string padding((_level+1)*2, ' ');
+  std::string final_padding(_level*2, ' ');
   std::ostringstream out;
   if ( is_object() )
   {
     out << "{";
     bool isFirst = true;
-    for ( const auto& entry : m_data._map )
+    for ( const auto& entry : *m_data._map )
     {
-      if ( ! isFirst ) out << ",";
+      if ( ! isFirst )
+      {
+	out << ",";
+	if ( _format == json::format::pretty )
+	  out << endl;
+      }
+      else if ( _format == json::format::pretty )
+	out << endl;
       isFirst = false;
-      out << "\"" << entry.first << "\":" << entry.second.to_str();
+      if ( _format == json::format::compact )
+	out << "\"" << entry.first << "\":" << entry.second.private_to_str(_format, _level+1);
+      else if ( _format == json::format::pretty )
+	out << padding << "\"" << entry.first << "\" : " << entry.second.private_to_str(_format, _level+1);
     }
+    if ( !isFirst && _format == json::format::pretty )
+      out << endl << final_padding;
     out << "}";
   }
   else if ( is_array() )
@@ -352,10 +373,21 @@ std::string json::value::to_str() const
     bool isFirst = true;
     for ( size_t i = 0; i < this->size(); i++ )
     {
-      if ( ! isFirst ) out << ",";
+      if ( ! isFirst )
+      {
+	out << ",";
+	if ( _format == json::format::pretty )
+	  out << endl;
+      }
+      else if ( _format == json::format::pretty )
+	out << endl;
       isFirst = false;
-      out << (*this)[i].to_str();
+      if ( _format == json::format::pretty )
+	out << padding;
+      out << (*this)[i].private_to_str(_format, _level+1);
     }
+    if ( !isFirst && _format == json::format::pretty )
+      out << endl << final_padding;
     out << "]";
   }
   else if ( is_string() )
@@ -422,7 +454,7 @@ const json::value& json::value::operator[](const std::string& _key) const
 {
   if ( ! is_object() )
     throw sid::exception(__func__ + std::string("() can be used only for object type"));
-  for ( const auto& entry : m_data._map )
+  for ( const auto& entry : *m_data._map )
     if ( entry.first == _key ) return entry.second;
   throw sid::exception(__func__ + std::string("() key not found"));
 }
@@ -434,7 +466,7 @@ json::value& json::value::operator[](const std::string& _key)
     this->clear();
     m_type = m_data.init(json::element::object);
   }
-  return m_data._map[_key];
+  return (*m_data._map)[_key];
 }
 
 void json::value::append(const value& _obj)
@@ -462,13 +494,17 @@ json::value::union_data::union_data(const union_data& _obj, const json::element 
   init(_obj, _type);
 }
 
+json::value::union_data::~union_data()
+{
+}
+
 json::element json::value::union_data::clear(const json::element _type)
 {
   switch ( _type )
   {
   case json::element::string: _str.~string(); break;
   case json::element::array:  _arr.~array(); break;
-  case json::element::object: _map.~object(); break;
+  case json::element::object: delete _map; _map = nullptr; break;
   default: break;
   }
   return json::element::null;
@@ -485,7 +521,7 @@ json::element json::value::union_data::init(const json::element _type/* = json::
   case json::element::_double:   _dbl = 0; break;
   case json::element::boolean:         _bval = false; break;
   case json::element::array:           new (&_arr) array; break;
-  case json::element::object:          new (&_map) object; break;
+  case json::element::object:          _map = new object; break;
   }
   return _type;
 }
@@ -501,7 +537,7 @@ json::element json::value::union_data::init(const union_data& _obj, const json::
   case json::element::_double:   init(_obj._dbl);  break;
   case json::element::boolean:         init(_obj._bval); break;
   case json::element::array:           init(_obj._arr); break;
-  case json::element::object:          init(_obj._map); break;
+  case json::element::object:          init(*_obj._map); break;
   }
   return _type;
 }
@@ -544,7 +580,7 @@ json::element json::value::union_data::init(const array& _val)
 
 json::element json::value::union_data::init(const object& _val)
 {
-  new (&_map) object(_val);
+  _map = new object(_val);
   return json::element::object;
 }
 
@@ -604,7 +640,7 @@ json::value json::parser::parse(const std::string& _value)
 json::value json::parser::parse_object()
 {
   char ch = 0;
-  json::value jobj;
+  json::value jobj = json::value(json::element::object);
 
   m_containerStack.push(json::element::object);
   while ( true )
@@ -612,6 +648,7 @@ json::value json::parser::parse_object()
     ++m_i;
     // "string" : value
     REMOVE_LEADING_SPACES(m_value, m_i);
+    if ( m_value[m_i] == '}' ) { ++m_i; break; }
     json::value jkey = parse_string();
     REMOVE_LEADING_SPACES(m_value, m_i);
     if ( m_value[m_i] != ':' )
@@ -633,7 +670,7 @@ json::value json::parser::parse_object()
 json::value json::parser::parse_array()
 {
   char ch = 0;
-  json::value jarr;
+  json::value jarr = json::value(json::element::array);
 
   m_containerStack.push(json::element::array);
   while ( true )
@@ -641,6 +678,7 @@ json::value json::parser::parse_array()
     ++m_i;
     // value
     REMOVE_LEADING_SPACES(m_value, m_i);
+    if ( m_value[m_i] == ']' ) { ++m_i; break; }
     jarr.append(parse_value());
     ch = m_value[m_i];
     // Can have a ,
@@ -723,7 +761,7 @@ json::value json::parser::parse_value()
     throw sid::exception("Unexpected end of data while expecting a value");
   else
   {
-    size_t pos = m_value.find_first_of(",}] \t", m_i);
+    size_t pos = m_value.find_first_of(",}] \t\r\n", m_i);
     if ( pos == std::string::npos )
       m_i = m_value.length();
     else if ( m_i == pos )
@@ -736,7 +774,7 @@ json::value json::parser::parse_value()
     else if ( val == "false" )
       jval = false;
     else
-      throw sid::exception("Invalid value type. Did you miss enclosing in \"\"");
+      throw sid::exception("Invalid value typeat position " + sid::to_str(m_i) + ". Did you miss enclosing in \"\"");
     m_i = pos;
   }
   REMOVE_LEADING_SPACES(m_value, m_i);
