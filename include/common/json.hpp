@@ -48,6 +48,14 @@ enum class element : uint8_t { null, object, array, string, boolean, _signed, _u
 //! json formatter
 enum class format : uint8_t { compact, pretty };
 
+//! json formatter for pretty formatting
+struct pretty_formatter
+{
+  char     sep_char;
+  uint32_t sep_count;
+  pretty_formatter(char _sep_char = ' ', uint32_t _sep_count = 2) : sep_char(_sep_char), sep_count(_sep_count) {}
+};
+
 //! Forward declaration of parser (not exposed)
 struct parser;
 
@@ -120,9 +128,10 @@ public:
   void append(const value& _obj);
 
   std::string to_str(json::format _format = json::format::compact) const;
+  std::string to_str(const pretty_formatter& _formatter) const;
 
 private:
-  std::string private_to_str(json::format _format, uint32_t _level) const;
+  std::string private_to_str(json::format _format, const pretty_formatter& _formatter, uint32_t _level) const;
 
 private:
   using array = std::vector<value>;

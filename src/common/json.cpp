@@ -43,7 +43,7 @@ LICENSE: END
 
 using namespace sid;
 
-#define REMOVE_LEADING_SPACES(value, i)  for (; isspace(value[i]) && i < value.length(); i++ );
+#define REMOVE_LEADING_SPACES(value, i)  for (; ::isspace(value[i]) && i < value.length(); i++ );
 
 namespace sid {
 namespace json {
@@ -289,11 +289,22 @@ std::string json::value::as_str() const
 std::string json::value::to_str(json::format _format/* = json::format::compact*/) const
 {
   if ( is_object() || is_array() )
-    return private_to_str(_format, 0);
+    return private_to_str(_format, pretty_formatter(), 0);
   throw sid::exception("to_str() can be applied only on a object or array");
 }
 
-std::string json::value::private_to_str(json::format _format, uint32_t _level) const
+std::string json::value::to_str(const pretty_formatter& _formatter) const
+{
+  if ( is_object() || is_array() )
+  {
+    if ( ! ::isspace(_formatter.sep_char) && _formatter.sep_char != '\0' )
+      throw sid::exception("to_str() formatter must be a valid space character. It cannot be \"" + std::string(1, _formatter.sep_char) + "\"");
+    return private_to_str(json::format::pretty, _formatter, 0);
+  }
+  throw sid::exception("to_str() can be applied only on a object or array");
+}
+
+std::string json::value::private_to_str(json::format _format, const pretty_formatter& _formatter, uint32_t _level) const
 {
   auto escape_string =[&](const std::string& _input)->std::string
     {
@@ -340,8 +351,12 @@ std::string json::value::private_to_str(json::format _format, uint32_t _level) c
       return _output;
     };
 
-  std::string padding((_level+1)*2, ' ');
-  std::string final_padding(_level*2, ' ');
+  std::string padding, final_padding;
+  if ( _format == json::format::pretty && _formatter.sep_char != '\0' )
+  {
+    padding = std::string((_level+1) * _formatter.sep_count, _formatter.sep_char);
+    final_padding = std::string(_level * _formatter.sep_count, _formatter.sep_char);
+  }
   std::ostringstream out;
   if ( is_object() )
   {
@@ -359,9 +374,9 @@ std::string json::value::private_to_str(json::format _format, uint32_t _level) c
 	out << endl;
       isFirst = false;
       if ( _format == json::format::compact )
-	out << "\"" << entry.first << "\":" << entry.second.private_to_str(_format, _level+1);
+	out << "\"" << entry.first << "\":" << entry.second.private_to_str(_format, _formatter, _level+1);
       else if ( _format == json::format::pretty )
-	out << padding << "\"" << entry.first << "\" : " << entry.second.private_to_str(_format, _level+1);
+	out << padding << "\"" << entry.first << "\" : " << entry.second.private_to_str(_format, _formatter, _level+1);
     }
     if ( !isFirst && _format == json::format::pretty )
       out << endl << final_padding;
@@ -384,7 +399,7 @@ std::string json::value::private_to_str(json::format _format, uint32_t _level) c
       isFirst = false;
       if ( _format == json::format::pretty )
 	out << padding;
-      out << (*this)[i].private_to_str(_format, _level+1);
+      out << (*this)[i].private_to_str(_format, _formatter, _level+1);
     }
     if ( !isFirst && _format == json::format::pretty )
       out << endl << final_padding;
@@ -648,6 +663,7 @@ json::value json::parser::parse_object()
     ++m_i;
     // "string" : value
     REMOVE_LEADING_SPACES(m_value, m_i);
+    // This is the case where there are no elements in the object (An empty object)
     if ( m_value[m_i] == '}' ) { ++m_i; break; }
     json::value jkey = parse_string();
     REMOVE_LEADING_SPACES(m_value, m_i);
@@ -678,6 +694,7 @@ json::value json::parser::parse_array()
     ++m_i;
     // value
     REMOVE_LEADING_SPACES(m_value, m_i);
+    // This is the case where there are no elements in the array (An empty array)
     if ( m_value[m_i] == ']' ) { ++m_i; break; }
     jarr.append(parse_value());
     ch = m_value[m_i];
@@ -694,7 +711,7 @@ json::value json::parser::parse_array()
 json::value json::parser::parse_string()
 {
   if ( m_value[m_i] != '\"' )
-    throw sid::exception("Expected \" at position " + sid::to_str(m_i));
+    throw sid::exception("Expected \" at position " + sid::to_str(m_i) + ", found \"" + std::string(1, m_value[m_i]) + "\"");
 
   auto check_hex = [&](char ch)->char
     {
