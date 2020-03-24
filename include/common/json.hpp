@@ -70,7 +70,16 @@ class value
 {
   friend class parser;
 public:
-  static value get(const std::string& _value);
+  /**
+   * @fn json::value get(const std::string& _value, bool _strict = true);
+   * @brief Convert the given json string to json object
+   *
+   * @param _value [in] Input json string
+   * @param _strict [in] Use strict parsing (default)
+   *                     If set to false, it relaxes the parsing logic for boolean and null types by accepting
+   *                     True, TRUE, False, FALSE, Null, NULL (in addition to true, false, null)
+   */
+  static value get(const std::string& _value, bool _strict = true);
 
   // Constructors
   value(const json::element _type = json::element::null);
@@ -96,7 +105,7 @@ public:
   bool is_signed() const { return m_type == json::element::_signed; }
   bool is_unsigned() const { return m_type == json::element::_unsigned; }
   bool is_double() const { return m_type == json::element::_double; }
-  bool is_number() const { return is_signed() || is_unsigned() || is_double(); }
+  bool is_num() const { return is_signed() || is_unsigned() || is_double(); }
   bool is_bool() const { return m_type == json::element::boolean; }
   bool is_array() const { return m_type == json::element::array; }
   bool is_object() const { return m_type == json::element::object; }
@@ -125,9 +134,12 @@ public:
   const value& operator[](size_t _index) const;
   const value& operator[](const std::string& _key) const;
   value& operator[](const std::string& _key);
+  //! Append value to the array
   void append(const value& _obj);
 
+  //! Convert json to string format
   std::string to_str(json::format _format = json::format::compact) const;
+  //! Convert json to string format using pretty formatter
   std::string to_str(const pretty_formatter& _formatter) const;
 
 private:

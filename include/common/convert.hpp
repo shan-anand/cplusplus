@@ -59,6 +59,12 @@ int is_octal(int c);
 int is_decimal(int c);
 int is_hex(int c);
 
+//! convert errno to string using the current errno value
+std::string to_errno_str(const std::string& _prefix = std::string());
+//! convert errno to string using the given _errno value
+std::string to_errno_str(int _errno, const std::string& _prefix = std::string());
+
+
 //////////////////////////////////////////////////////////////////////////////////
 //
 // Boolean conversion functions
@@ -171,12 +177,12 @@ T to_num(const char* _nptr, const num_base& _baseType)
     if ( *ps == '+' || *ps == '-' ) { csVal += *ps; ps++; }
     if ( *ps == '\0' ) throw EINVAL;
 
-    const char* pe = ps+strlen(ps)-1;
+    const char* pe = ps + ::strlen(ps)-1;
     // discard the trailing spaces
     while ( isspace(*pe) ) pe--;
 
     // if it starts with 0x or 0X then it's hexadecimal
-    if ( *ps == '0' && tolower(*(ps+1)) == 'x' )
+    if ( *ps == '0' && ::tolower(*(ps+1)) == 'x' )
     {
       // if the _baseType is not set explicity, use hexadecimal, otherwise use the explicitly set type
       base = (_baseType == num_base::any)? num_base::hex : _baseType;
@@ -184,7 +190,7 @@ T to_num(const char* _nptr, const num_base& _baseType)
       ps += (base == num_base::hex)? 2 : 1;
     }
     // if it starts with 0b or 0B then it's binary
-    else if ( *ps == '0' && tolower(*(ps+1)) == 'b' )
+    else if ( *ps == '0' && ::tolower(*(ps+1)) == 'b' )
     {
       // if the _baseType is not set explicity, use binary, otherwise use the explicitly set type
       base = (_baseType == num_base::any)? num_base::binary : _baseType;
@@ -225,30 +231,26 @@ T to_num(const char* _nptr, const num_base& _baseType)
       if ( csVal[0] == '-' )
 	errno = ERANGE;
       else
-	res = strtoull(csVal.c_str(), nullptr, static_cast<int>(base));
+	res = ::strtoull(csVal.c_str(), nullptr, static_cast<int>(base));
     }
     else
-      res = strtoll(csVal.c_str(), nullptr, static_cast<int>(base));
+      res = ::strtoll(csVal.c_str(), nullptr, static_cast<int>(base));
 
     if ( !errno )
       errno = ( res != ((_num_type) ((T) res)) || (res < 0 && ((T) res) > 0) )? ERANGE:0;
 
     if ( errno ) throw errno;
   }
+  catch (const sid::exception&) { throw; }
   catch (int iError)
   {
     errno = iError;
-    char szBuf[256] = {0};
     const char* pbase = ( _baseType == num_base::any)? "":
                         ( base == num_base::decimal )? " in decimal base" :
                         ( base == num_base::hex )? " in hexadecimal base":
                         ( base == num_base::octal )? " in octal base":
                         ( base == num_base::binary )? " in binary base" : "";
-    throw sid::exception(iError, std::string(strerror_r(errno, szBuf, sizeof(szBuf)-1)) + pbase + ": " + ((_nptr)? _nptr:"NULL"));
-  }
-  catch (const std::string& error)
-  {
-    throw sid::exception(error);
+    throw sid::exception(iError, sid::to_errno_str(iError) + " " + pbase + ": " + ((_nptr)? _nptr:"NULL"));
   }
   catch (...)
   {
@@ -340,10 +342,10 @@ T to_num(const std::string& _csVal, const num_base& _baseType, const T& _default
   return _defaultValueOnError;
 }
 
-template <> double to_num<double>(const char* _nptr);
-template <> double to_num<double>(const std::string& _csVal);
-template <> bool to_num<double>(const char* _nptr, /*out*/ double& _outVal, /*out*/ std::string* _pcsError/* = nullptr*/);
-template <> bool to_num<double>(const std::string& _csVal, /*out*/ double& _outVal, /*out*/ std::string* _pcsError/* = nullptr*/);
+template <> long double to_num<long double>(const char* _nptr);
+template <> long double to_num<long double>(const std::string& _csVal);
+template <> bool to_num<long double>(const char* _nptr, /*out*/ long double& _outVal, /*out*/ std::string* _pcsError/* = nullptr*/);
+template <> bool to_num<long double>(const std::string& _csVal, /*out*/ long double& _outVal, /*out*/ std::string* _pcsError/* = nullptr*/);
 
 
 bool equals(const std::string& _primary, const std::string& _secondary, const match_case& _matchCase);

@@ -61,63 +61,60 @@ using namespace std;
 #define WHITESPACE " \t\r\n"
 
 template <>
-double sid::to_num<double>(const char* _nptr)
+long double sid::to_num<long double>(const char* _nptr)
 {
-  double res = 0;
+  long double res = 0;
   try
   {
     if ( !_nptr ) throw EINVAL;
+    while ( *_nptr == ' ' ) _nptr++;
+    if ( *_nptr == '\0' ) throw EINVAL;
     char* endptr = nullptr;
     errno = 0;
-    res = strtod(_nptr, &endptr);
-    if ( res == 0 )
-    {
-      if ( errno == ERANGE )
-	throw errno;
-      if ( endptr == _nptr )
-	throw sid::exception("No conversion was performed");
-    }
-    else if ( res == HUGE_VALF || res == HUGE_VALL )
+    res = ::strtold(_nptr, &endptr);
+    if ( errno != 0 )
+      throw errno;
+    if ( res == 0.0 && endptr == _nptr )
+      throw EINVAL;
+    /*
+    if ( res == HUGE_VALF || res == HUGE_VALL )
     {
       if ( errno == ERANGE )
 	throw errno;
     }
+    */
   }
+  catch (const sid::exception&) { throw; }
   catch (int iError)
   {
     errno = iError;
-    char szBuf[256] = {0};
-    throw sid::exception(iError, std::string(strerror_r(errno, szBuf, sizeof(szBuf)-1))  + " from double: " + ((_nptr)? _nptr:"NULL"));
-  }
-  catch (const std::string& error)
-  {
-    throw sid::exception(error);
+    throw sid::exception(iError, sid::to_errno_str(iError, std::string("Failed to convert [") + ((_nptr)? _nptr:"NULL") + "] to long double value"));
   }
   catch (...)
   {
-    throw sid::exception(std::string("An unhandled exception occurred while converting from double: ") + ((_nptr)? _nptr:"NULL"));
+    throw sid::exception(std::string("An unhandled exception occurred while converting to long double: ") + ((_nptr)? _nptr:"NULL"));
   }
   return res;
 }
 
 template <>
-double sid::to_num<double>(const std::string& _csVal)
+long double sid::to_num<long double>(const std::string& _csVal)
 {
-  return to_num<double>(_csVal.c_str());
+  return to_num<long double>(_csVal.c_str());
 }
 
 template <>
-bool sid::to_num<double>(const char* _nptr, /*out*/ double& _outVal, /*out*/ std::string* _pcsError/* = nullptr*/)
+bool sid::to_num<long double>(const char* _nptr, /*out*/ long double& _outVal, /*out*/ std::string* _pcsError/* = nullptr*/)
 {
-  try { _outVal = to_num<double>(_nptr); return true; }
+  try { _outVal = to_num<long double>(_nptr); return true; }
   catch (const sid::exception& e) { if ( _pcsError ) *_pcsError = e.message(); }
   return false;
 }
 
 template <>
-bool sid::to_num<double>(const std::string& _csVal, /*out*/ double& _outVal, /*out*/ std::string* _pcsError/* = nullptr*/)
+bool sid::to_num<long double>(const std::string& _csVal, /*out*/ long double& _outVal, /*out*/ std::string* _pcsError/* = nullptr*/)
 {
-  return to_num<double>(_csVal.c_str(), _outVal, _pcsError);
+  return to_num<long double>(_csVal.c_str(), _outVal, _pcsError);
 }
 
 std::string sid::to_str(const long double& _number)
@@ -193,6 +190,22 @@ std::string sid::to_upper(const std::string& _input)
 		 (int(*)(int)) std::toupper);
   */
 }
+
+std::string sid::to_errno_str(const std::string& _prefix/* = std::string()*/)
+{
+  return sid::to_errno_str(errno, _prefix);
+}
+
+std::string sid::to_errno_str(int _errno, const std::string& _prefix/* = std::string()*/)
+{
+  std::ostringstream out;
+  char buff[512] = {0};
+  if ( ! _prefix.empty() )
+    out << _prefix << ", ";
+  out << "(" << _errno << ") " << ::strerror_r(_errno, buff, sizeof(buff)-1);
+  return out.str();
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////
 //
@@ -919,7 +932,7 @@ static bool s_to_size(
     }
 
     std::string csError;
-    if ( !sid::to_num(csVal, _outVal, &csError) )
+    if ( ! sid::to_num(csVal, _outVal, &csError) )
       throw sid::exception(csError);
     _outVal *= factor;
 

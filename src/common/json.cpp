@@ -54,6 +54,7 @@ namespace json {
  */
 struct parser
 {
+  bool        m_strict; //! Use strict or flexible parsing
   std::string m_value;  //! Json string value
   size_t      m_i;      //! Current location of the parser
   json::value m_jroot;  //! json::value object
@@ -76,10 +77,21 @@ struct parser
 // Implementation of json::value
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @fn json::value get(const std::string& _value, bool _strict = true);
+ * @brief Convert the given json string to json object
+ *
+ * @param _value [in] Input json string
+ * @param _strict [in] Use strict parsing (default)
+ *                     If set to false, it relaxes the parsing logic for boolean and null types by accepting
+ *                     True, TRUE, False, FALSE, Null, NULL (in addition to true, false, null)
+ */
 /*static*/
-json::value json::value::get(const std::string& _value)
+json::value json::value::get(const std::string& _value, bool _strict/* = true*/)
 {
   json::parser jparser;
+  jparser.m_strict = _strict;
   return jparser.parse(_value);
 }
 
@@ -238,21 +250,21 @@ size_t json::value::size() const
 
 int64_t json::value::get_int64() const
 {
-  if ( is_number() )
+  if ( is_num() )
     return m_data._i64;
   throw sid::exception(__func__ + std::string("() can be used only for number type"));
 }
 
 uint64_t json::value::get_uint64() const
 {
-  if ( is_number() )
+  if ( is_num() )
     return m_data._u64;
   throw sid::exception(__func__ + std::string("() can be used only for number type"));
 }
 
 long double json::value::get_double() const
 {
-  if ( is_number() )
+  if ( is_num() )
     return m_data._dbl;
   throw sid::exception(__func__ + std::string("() can be used only for number type"));
 }
@@ -314,10 +326,10 @@ std::string json::value::private_to_str(json::format _format, const pretty_forma
 	char ch = _input[i];
 	switch ( ch )
 	{
-	case '/':
-	  _output += '\\';
-	  _output += ch;
-	  break;
+	  //case '/':
+	  //_output += '\\';
+	  //_output += ch;
+	  //break;
 	case '\b':
 	  _output += "\\b";
 	  break;
@@ -414,47 +426,6 @@ std::string json::value::private_to_str(json::format _format, const pretty_forma
 
   return out.str();
 }
-
-/*
-std::string json::value::to_str() const
-{
-  std::ostringstream out;
-  private_to_str(out);
-  return out.str();
-}
-
-void json::value::private_to_str(std::ostringstream& out) const
-{
-  if ( is_object() )
-  {
-    out << "{";
-    bool isFirst = true;
-    for ( const auto& entry : m_data._map )
-    {
-      if ( ! isFirst ) out << ",";
-      isFirst = false;
-      out << "\"" << entry.first << "\":"; entry.second.private_to_str(out);
-    }
-    out << "}";
-  }
-  else if ( is_array() )
-  {
-    out << "[";
-    bool isFirst = true;
-    for ( size_t i = 0; i < this->size(); i++ )
-    {
-      if ( ! isFirst ) out << ",";
-      isFirst = false;
-      (*this)[i].private_to_str(out);
-    }
-    out << "]";
-  }
-  else if ( is_string() )
-    out << "\"" << m_data._str << "\"";
-  else if ( ! is_null() )
-    out << this->as_str();
-}
-*/
 
 const json::value& json::value::operator[](size_t _index) const
 {
@@ -647,8 +618,10 @@ json::value json::parser::parse(const std::string& _value)
     m_jroot = parse_object();
   else if ( ch == '[' )
     m_jroot = parse_array();
+  else if ( ch != '\0' )
+    throw sid::exception(std::string("Invalid character [") + ch + "] at position " + sid::to_str(m_i) + ". Expecting { or [");
   else
-    throw sid::exception(std::string("Invalid character [") + ch + "] at position. Expecting { or [");
+    throw sid::exception(std::string("End of data reached at position ") + sid::to_str(m_i) + ". Expecting { or [");
   return m_jroot;
 }
 
@@ -778,6 +751,7 @@ json::value json::parser::parse_value()
     throw sid::exception("Unexpected end of data while expecting a value");
   else
   {
+    bool is_valid = true;
     size_t pos = m_value.find_first_of(",}] \t\r\n", m_i);
     if ( pos == std::string::npos )
       m_i = m_value.length();
@@ -790,8 +764,22 @@ json::value json::parser::parse_value()
       jval = true;
     else if ( val == "false" )
       jval = false;
+    else if ( ! m_strict )
+    {
+      if ( val == "Null" || val == "NULL" )
+	;
+      else if ( val == "True" || val == "TRUE" )
+	jval = true;
+      else if ( val == "False" || val == "FALSE" )
+	jval = false;
+      else
+	is_valid = false;
+    }
     else
-      throw sid::exception("Invalid value typeat position " + sid::to_str(m_i) + ". Did you miss enclosing in \"\"");
+      is_valid = false;
+
+    if ( ! is_valid )
+      throw sid::exception("Invalid value [" + val + "] at position " + sid::to_str(m_i) + ". Did you miss enclosing in \"\"?");
     m_i = pos;
   }
   REMOVE_LEADING_SPACES(m_value, m_i);
@@ -869,13 +857,7 @@ json::value json::parser::parse_number()
   if ( num.hasFraction || num.hasExponent )
   {
     std::string numStr = m_value.substr(pos_start, m_i-pos_start);
-    char* p_end = nullptr;
-    errno = 0;
-    long double dbl = strtold(numStr.c_str(), &p_end);
-    if ( errno != 0 )
-      throw sid::exception("errno is set");
-    if ( dbl == 0.0 && p_end == numStr.c_str() )
-      throw sid::exception("Error in converting the double value");
+    long double dbl = sid::to_num<long double>(numStr);
     return json::value(dbl);
   }
   else if ( num.integer.negative )
