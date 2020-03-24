@@ -141,7 +141,7 @@ bool server::run(uint16_t _port, FNProcessCallback& _fnProcessCallback, FNExitCa
     m_port = (_port != 0)? _port : (m_type == http::connection_type::http)? DEFAULT_PORT_HTTP : DEFAULT_PORT_HTTPS;
     m_socket = ::socket(AF_INET6, SOCK_STREAM, 0);
     if ( m_socket < 0 )
-      throw sid::exception("Error creating server socket: " + http::errno_str(errno));
+      throw sid::exception("Error creating server socket: " + sid::to_errno_str());
 
     int reuse_port = 1;
     ::setsockopt(m_socket, SOL_SOCKET, SO_REUSEPORT, &reuse_port, sizeof(reuse_port));
@@ -154,7 +154,7 @@ bool server::run(uint16_t _port, FNProcessCallback& _fnProcessCallback, FNExitCa
 
     // bind the host address, port to the socket
     if ( ::bind(m_socket, (struct sockaddr *) &serv_addr6, sizeof(serv_addr6)) < 0 )
-      throw sid::exception("Error binding server socket: " + http::errno_str(errno));
+      throw sid::exception("Error binding server socket: " + sid::to_errno_str());
 
     // Set server socket to non-blocking
     int flags = ::fcntl(m_socket, F_GETFD);
@@ -163,7 +163,7 @@ bool server::run(uint16_t _port, FNProcessCallback& _fnProcessCallback, FNExitCa
       throw sid::exception("Unable to set socket to non-blocking");
 
     if ( ::listen(m_socket, SOMAXCONN) < 0 )
-      throw sid::exception("Error listening for connections: " + http::errno_str(errno));
+      throw sid::exception("Error listening for connections: " + sid::to_errno_str());
 
     m_exitLoop = false;
     m_isRunning = true;
@@ -182,11 +182,11 @@ bool server::run(uint16_t _port, FNProcessCallback& _fnProcessCallback, FNExitCa
       if ( pollRes == 0 ) continue;
 
       if ( pollRes == -1 )
-        throw sid::exception("Polling failed: " + http::errno_str(errno));
+        throw sid::exception("Polling failed: " + sid::to_errno_str());
 
       client_fd = ::accept(m_socket, (struct sockaddr *)&cli_addr6, &clientLen);
       if ( client_fd < 0 )
-        throw sid::exception("Error accepting socket: " + http::errno_str(errno));
+        throw sid::exception("Error accepting socket: " + sid::to_errno_str());
       //cout << "Request received" << endl;
 
       try

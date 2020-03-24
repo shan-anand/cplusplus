@@ -319,7 +319,7 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
 	poll_fd.events |= POLLOUT;
       int ret = ::ppoll(&poll_fd, 1, &ts, nullptr);
       if ( ret == -1 )
-	throw sid::exception(http::errno_str(errno));
+	throw sid::exception(sid::to_errno_str("ppoll() failed"));
 
       /*
       int err_code = 0;
@@ -380,7 +380,7 @@ bool http_connection::isReadyForIO(int _ioType, bool* _pOperationTimedOut) const
       tv.tv_sec = this->get_timeout();
       int ret = ::select(m_socket+1, pr_fds, pw_fds, &e_fds, &tv);
       if ( ret == -1 )
-	throw sid::exception(http::errno_str(errno));
+	throw sid::exception(sid::to_errno_str("select() failed"));
 
       if ( ret > 0 )
       {
@@ -515,7 +515,7 @@ bool http_connection::open(const std::string& _server, const unsigned short& _po
     ::freeaddrinfo(result);
 
     if ( ! found )
-      throw sid::exception(std::string("Could not connect to server ") + _server + " at port " + csPort + " over " + szName + ". " + http::errno_str(iErrNo));
+      throw sid::exception(std::string("Could not connect to server ") + _server + " at port " + csPort + " over " + szName + ". " + sid::to_errno_str(iErrNo));
 
 #ifdef SO_KEEPALIVE
     //#pragma message "Building with SO_KEEPALIVE flag"
@@ -571,7 +571,7 @@ bool http_connection::open(int _sockfd)
     ::memset(ipstr, 0, sizeof(ipstr));
 
     if ( -1 == ::getpeername(_sockfd, (struct sockaddr*) &addr, &len) )
-      throw sid::exception(http::errno_str(errno));
+      throw sid::exception(sid::to_errno_str());
 
     switch ( addr.ss_family )
     {
@@ -630,7 +630,7 @@ ssize_t http_connection::write(const void* _buffer, size_t _count)
 	  //cout << "write: EWOULDBLOCK returned. Continuing the loop" << endl;
 	}
 	else if ( errno != 0 )
-	  throw sid::exception("Write failed with error: " + http::errno_str(errno));
+	  throw sid::exception("Write failed with error: " + sid::to_errno_str());
       }
       return retVal;
     };
@@ -653,7 +653,7 @@ ssize_t http_connection::read(void* _buffer, size_t _count)
 	  //cout << "read: EWOULDBLOCK returned. Continuing the loop" << endl;
 	}
 	else if ( errno != 0 )
-	  throw sid::exception("Read failed with error: " + http::errno_str(errno));
+	  throw sid::exception("Read failed with error: " + sid::to_errno_str());
       }
       return retVal;
     };
@@ -800,7 +800,7 @@ void https_connection::attach_ssl()
 	  if ( sslErr == SSL_ERROR_WANT_READ || sslErr == SSL_ERROR_WANT_WRITE )
 	    bContinue = true;
 	  else if ( sslErr != 0 )
-	    throw sid::exception("SSL handshake was unsuccessful. retVal=" + sid::to_str(retVal) + ", sslErr=" + sid::to_str(sslErr) + ", errno=" + http::errno_str(errno));
+	    throw sid::exception("SSL handshake was unsuccessful. retVal=" + sid::to_str(retVal) + ", sslErr=" + sid::to_str(sslErr) + ", errno=" + sid::to_errno_str());
 	}
 	else
 	  throw sid::exception("SSL handshake was unsuccessful");

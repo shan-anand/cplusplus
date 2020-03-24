@@ -129,7 +129,7 @@ void input_thread()
       poll_fd.events |= (POLLIN | POLLPRI);
       int ret = ::ppoll(&poll_fd, 1, &ts, nullptr);
       if ( ret == -1 )
-	throw sid::exception(http::errno_str(errno));
+	throw sid::exception(sid::to_errno_str("ppoll failed"));
 
       if ( ret > 0 )
       {

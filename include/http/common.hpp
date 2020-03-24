@@ -55,7 +55,6 @@ void library_cleanup();
 void set_verbose(bool _turnOn);
 bool is_verbose();
 
-std::string errno_str(const int _errno);
 bool get_line(const std::string& _input, size_t& pos1, std::string& _output);
 
 std::string date_to_str(const struct tm& _tm);
