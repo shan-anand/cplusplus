@@ -298,133 +298,158 @@ std::string json::value::as_str() const
   throw sid::exception(__func__ + std::string("() can be used only for string, number or boolean types"));
 }
 
+//! Convert json to string format
 std::string json::value::to_str(json::format _format/* = json::format::compact*/) const
 {
-  if ( is_object() || is_array() )
-    return private_to_str(_format, pretty_formatter(), 0);
-  throw sid::exception("to_str() can be applied only on a object or array");
+  std::ostringstream out;
+  this->write(out, _format);
+  return out.str();
 }
 
+//! Convert json to string format using pretty formatter
 std::string json::value::to_str(const pretty_formatter& _formatter) const
 {
-  if ( is_object() || is_array() )
-  {
-    if ( ! ::isspace(_formatter.sep_char) && _formatter.sep_char != '\0' )
-      throw sid::exception("to_str() formatter must be a valid space character. It cannot be \"" + std::string(1, _formatter.sep_char) + "\"");
-    return private_to_str(json::format::pretty, _formatter, 0);
-  }
-  throw sid::exception("to_str() can be applied only on a object or array");
+  std::ostringstream out;
+  this->write(out, _formatter);
+  return out.str();
 }
 
-std::string json::value::private_to_str(json::format _format, const pretty_formatter& _formatter, uint32_t _level) const
+//! Write json to the given output stream
+void json::value::write(std::ostream& _out, json::format _format/* = json::format::compact*/) const
+{
+  if ( ! is_object() && ! is_array() )
+    throw sid::exception("Can be applied only on a object or array");
+
+  this->p_write(_out, _format, pretty_formatter(), 0);
+}
+
+//! Write json to the given output stream using pretty format
+void json::value::write(std::ostream& _out, const pretty_formatter& _formatter) const
+{
+  if ( ! is_object() && ! is_array() )
+    throw sid::exception("Can be applied only on a object or array");
+
+  if ( ! ::isspace(_formatter.sep_char) && _formatter.sep_char != '\0' )
+    throw sid::exception("Formatter must be a valid space character. It cannot be \"" + std::string(1, _formatter.sep_char) + "\"");
+
+  this->p_write(_out, json::format::pretty, _formatter, 0);
+}
+
+void json::value::p_write(std::ostream& _out, json::format _format, const pretty_formatter& _formatter, uint32_t _level) const
 {
   auto escape_string =[&](const std::string& _input)->std::string
     {
-      std::string _output;
+      std::string output;
       for ( size_t i = 0; i < _input.length(); i++ )
       {
 	char ch = _input[i];
 	switch ( ch )
 	{
 	  //case '/':
-	  //_output += '\\';
-	  //_output += ch;
+	  //output += '\\';
+	  //output += ch;
 	  //break;
 	case '\b':
-	  _output += "\\b";
+	  output += "\\b";
 	  break;
 	case '\f':
-	  _output += "\\f";
+	  output += "\\f";
 	  break;
 	case '\n':
-	  _output += "\\n";
+	  output += "\\n";
 	  break;
 	case '\r':
-	  _output += "\\r";
+	  output += "\\r";
 	  break;
 	case '\t':
-	  _output += "\\t";
+	  output += "\\t";
 	  break;
 	case '\\':
 	case '\"': // Quotation mark
-	  _output += '\\';
-	  _output += + ch;
+	  output += '\\';
+	  output += + ch;
 	  break;
 	  /*
 	case '\u':
-	  _output += "\\u";
+	  output += "\\u";
 	  break;
 	  */
 	default:
-	  _output += ch;
+	  output += ch;
 	  break;
 	}
       }
-      return _output;
+      return output;
     };
 
-  std::string padding, final_padding;
+  std::string padding;
+  const char* final_padding = padding.c_str();;
   if ( _format == json::format::pretty && _formatter.sep_char != '\0' )
   {
     padding = std::string((_level+1) * _formatter.sep_count, _formatter.sep_char);
-    final_padding = std::string(_level * _formatter.sep_count, _formatter.sep_char);
+    //final_padding = std::string(_level * _formatter.sep_count, _formatter.sep_char);
+    final_padding = (padding.c_str() + _formatter.sep_count);
   }
-  std::ostringstream out;
+
   if ( is_object() )
   {
-    out << "{";
+    _out << "{";
     bool isFirst = true;
     for ( const auto& entry : *m_data._map )
     {
       if ( ! isFirst )
       {
-	out << ",";
+	_out << ",";
 	if ( _format == json::format::pretty )
-	  out << endl;
+	  _out << endl;
       }
       else if ( _format == json::format::pretty )
-	out << endl;
+	_out << endl;
       isFirst = false;
       if ( _format == json::format::compact )
-	out << "\"" << entry.first << "\":" << entry.second.private_to_str(_format, _formatter, _level+1);
+      {
+	_out << "\"" << entry.first << "\":";
+	entry.second.p_write(_out, _format, _formatter, _level+1);
+      }
       else if ( _format == json::format::pretty )
-	out << padding << "\"" << entry.first << "\" : " << entry.second.private_to_str(_format, _formatter, _level+1);
+      {
+	_out << padding << "\"" << entry.first << "\" : ";
+	entry.second.p_write(_out, _format, _formatter, _level+1);
+      }
     }
     if ( !isFirst && _format == json::format::pretty )
-      out << endl << final_padding;
-    out << "}";
+      _out << endl << final_padding;
+    _out << "}";
   }
   else if ( is_array() )
   {
-    out << "[";
+    _out << "[";
     bool isFirst = true;
     for ( size_t i = 0; i < this->size(); i++ )
     {
       if ( ! isFirst )
       {
-	out << ",";
+	_out << ",";
 	if ( _format == json::format::pretty )
-	  out << endl;
+	  _out << endl;
       }
       else if ( _format == json::format::pretty )
-	out << endl;
+	_out << endl;
       isFirst = false;
       if ( _format == json::format::pretty )
-	out << padding;
-      out << (*this)[i].private_to_str(_format, _formatter, _level+1);
+	_out << padding;
+      (*this)[i].p_write(_out, _format, _formatter, _level+1);
     }
     if ( !isFirst && _format == json::format::pretty )
-      out << endl << final_padding;
-    out << "]";
+      _out << endl << final_padding;
+    _out << "]";
   }
   else if ( is_string() )
-    out << "\"" << escape_string(m_data._str) << "\"";
+    _out << "\"" << escape_string(m_data._str)<< "\"";
   else if ( is_null() )
-    out << "null";
+    _out << "null";
   else
-    out << this->as_str();
-
-  return out.str();
+    _out << this->as_str();
 }
 
 const json::value& json::value::operator[](size_t _index) const

@@ -142,8 +142,13 @@ public:
   //! Convert json to string format using pretty formatter
   std::string to_str(const pretty_formatter& _formatter) const;
 
+  //! Write json to the given output stream
+  void write(std::ostream& _out, json::format _format = json::format::compact) const;
+  //! Write json to the given output stream using pretty format
+  void write(std::ostream& _out, const pretty_formatter& _formatter) const;
+
 private:
-  std::string private_to_str(json::format _format, const pretty_formatter& _formatter, uint32_t _level) const;
+  void p_write(std::ostream& _out, json::format _format, const pretty_formatter& _formatter, uint32_t _level) const;
 
 private:
   using array = std::vector<value>;

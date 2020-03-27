@@ -33,7 +33,8 @@ void parser_test(std::string jsonStr)
     cout << jnumbers[i].as_str() << " ";
   */
   cout << endl<< endl;
-  cout << jroot.to_str() << endl << endl;
+  //jroot.write(cout, json::format::pretty);
+  cout << jroot.to_str(json::format::pretty) << endl << endl;
 }
 
 template <typename T>
@@ -109,6 +110,7 @@ int main(int argc, char* argv[])
 	jsonStr += buf;
       }
       jroot = json::value::get(jsonStr);
+      //return 0;
     }
     else
     {
@@ -184,7 +186,7 @@ int main(int argc, char* argv[])
     //cout << "str-2: " << jtest["str-2"].as_str() << " : " << jtest["str-2"].to_str() << endl;
     //cout << "str-3: " << jtest["str-3"]["k1"].as_str() << " : " << jtest["str-3"]["k1"].to_str() << endl;
     //cout << jroot.to_str() << endl;
-    parser_test(jroot.to_str(json::format::pretty));
+    parser_test(jroot.to_str());
     //json::pretty_formatter formatter(' ', 0);
     //parser_test(jroot.to_str(formatter));
     parser_test("[\t\n{  \n \t }\n\t]");
