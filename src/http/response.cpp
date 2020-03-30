@@ -57,15 +57,15 @@ struct data_chunk
 };
 
 /**
- * @class IResponseCallback
- * @brief Response callback classed used during response parsing
+ * @class response_callback
+ * @brief Response callback class used during response parsing
  *
  * This is an internal class that is used only in this file.
  */
-class IResponseCallback
+class response_callback
 {
 public:
-  static IResponseCallback* get_singleton();
+  static response_callback* get_singleton();
 
   bool is_valid(const connection_ptr _conn, const status& _status, response& _response);
   bool is_valid(const connection_ptr _conn, const header& _header, response& _response);
@@ -74,7 +74,7 @@ public:
   bool is_valid(const connection_ptr _conn, response& _response);
 
 private: // should not be instantiated separately
-  IResponseCallback() {}
+  response_callback() {}
 };
 
 /**
@@ -98,7 +98,7 @@ response_handler(connection_ptr _conn) : m_conn(_conn)
     m_keepAlive = false;
     m_chunk.clear();
     m_chunkToBeRead = 0;
-    pCallback = IResponseCallback::get_singleton();
+    m_response_callback = response_callback::get_singleton();
   }
 
 public:
@@ -129,7 +129,7 @@ private:
   bool                       m_keepAlive;     //! Is keep alive set?
   data_chunk                 m_chunk;         //! Current chunk object (if response is in chunks)
   int                        m_chunkToBeRead; //! Remaining chunk bytes to be read (if response is in chunks)
-  IResponseCallback*         pCallback;       //! Response callback in case something needs to be processed
+  response_callback*         m_response_callback; //! Response callback in case something needs to be processed
 };
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -314,7 +314,7 @@ bool response_handler::parse_status(/*in/out*/ response& _response)
 
   m_endOfStatus = true;
 
-  if ( pCallback && ! pCallback->is_valid(m_conn, _response.status, _response) )
+  if ( m_response_callback && ! m_response_callback->is_valid(m_conn, _response.status, _response) )
     m_forceStop = true; // Force stop
 
   return continue_parsing();
@@ -341,7 +341,7 @@ bool response_handler::parse_headers(const method& _requestMethod, /*in/out*/ re
     if ( ! line.empty() )
     {
       const http::header& header = _response.headers.add(line);
-      if ( pCallback && ! pCallback->is_valid(m_conn, header, _response) )
+      if ( m_response_callback && ! m_response_callback->is_valid(m_conn, header, _response) )
       {
         m_forceStop = true; // Force stop
         break;
@@ -352,7 +352,7 @@ bool response_handler::parse_headers(const method& _requestMethod, /*in/out*/ re
       m_endOfHeaders = true;
       //cerr << "End of Headers" << endl;
 
-      if ( pCallback && ! pCallback->is_valid(m_conn, _response.headers, _response) )
+      if ( m_response_callback && ! m_response_callback->is_valid(m_conn, _response.headers, _response) )
       {
         m_forceStop = true; // Force stop
         break;
@@ -417,12 +417,12 @@ void response_handler::parse_data_chunked(/*in/out*/ response& _response)
       if ( ! sid::to_num(line, sid::num_base::hex, /*out*/ m_chunk.length) )
         throw sid::exception("Expecting chunk length. Encountered " + line.substr(0, line.length() > 10? 10:line.length()));
       m_chunkToBeRead = m_chunk.length;
-      if ( pCallback && ! pCallback->is_valid(m_conn, m_chunk, _response, true) )
+      if ( m_response_callback && ! m_response_callback->is_valid(m_conn, m_chunk, _response, true) )
         m_forceStop = true; // Force stop
 
       if ( m_chunk.length == 0 )
       {
-        if ( pCallback && ! pCallback->is_valid(m_conn, m_chunk, _response, false) )
+        if ( m_response_callback && ! m_response_callback->is_valid(m_conn, m_chunk, _response, false) )
           m_forceStop = true; // Force stop
         m_chunk.clear();
         m_endOfData = true; // END OF DATA
@@ -481,7 +481,7 @@ void response_handler::parse_data_chunked(/*in/out*/ response& _response)
     if ( m_chunkToBeRead <= 0 )
     {
       _response.content.append(m_chunk.data);
-      if ( pCallback && ! pCallback->is_valid(m_conn, m_chunk, _response, false) )
+      if ( m_response_callback && ! m_response_callback->is_valid(m_conn, m_chunk, _response, false) )
         m_forceStop = true; // Force stop
       m_chunk.clear();
     }
@@ -533,7 +533,7 @@ void response_handler::parse(const char* _buffer, int _nread, const method& _req
 
     if ( m_endOfData )
     {
-      if ( pCallback ) pCallback->is_valid(m_conn, _response);
+      if ( m_response_callback ) m_response_callback->is_valid(m_conn, _response);
     }
   }
   catch ( const sid::exception& ) { /* Rethrow string exception */ throw; }
@@ -544,18 +544,18 @@ void response_handler::parse(const char* _buffer, int _nread, const method& _req
 }
 
 //////////////////////////////////////////////////////////////////////////
-/*static*/ IResponseCallback* IResponseCallback::get_singleton()
+/*static*/ response_callback* response_callback::get_singleton()
 {
-  static IResponseCallback callback;
+  static response_callback callback;
   return &callback;
 }
 
-bool IResponseCallback::is_valid(const connection_ptr _conn, const status& _status, response& _response)
+bool response_callback::is_valid(const connection_ptr _conn, const status& _status, response& _response)
 {
   return true;
 }
 
-bool IResponseCallback::is_valid(const connection_ptr _conn, const header& _header, response& _response)
+bool response_callback::is_valid(const connection_ptr _conn, const header& _header, response& _response)
 {
   if ( ::strcasecmp(_header.key.c_str(), "Set-Cookie") == 0 )
   {
@@ -567,12 +567,12 @@ bool IResponseCallback::is_valid(const connection_ptr _conn, const header& _head
   return true;
 }
 
-bool IResponseCallback::is_valid(const connection_ptr _conn, const headers& _headers, response& _response)
+bool response_callback::is_valid(const connection_ptr _conn, const headers& _headers, response& _response)
 {
   return true;
 }
 
-bool IResponseCallback::is_valid(const connection_ptr _conn, const data_chunk& _chunk, response& _response, bool _isStart)
+bool response_callback::is_valid(const connection_ptr _conn, const data_chunk& _chunk, response& _response, bool _isStart)
 {
 /*
   cerr << "Data chunk " << (isStart? "start":"end") << ": length=" << chunk.length;
@@ -591,7 +591,7 @@ bool IResponseCallback::is_valid(const connection_ptr _conn, const data_chunk& _
   return true;
 }
 
-bool IResponseCallback::is_valid(const connection_ptr _conn, response& _response)
+bool response_callback::is_valid(const connection_ptr _conn, response& _response)
 {
   return true;
 }
