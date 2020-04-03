@@ -12,8 +12,24 @@
 using namespace std;
 using namespace sid;
 
-void file_test()
+
+std::string get_file_contents(const std::string& filePath)
 {
+  std::ifstream in;
+  in.open(filePath);
+  if ( ! in.is_open() )
+    throw sid::exception("Failed to open file: " + filePath);
+  char buf[8096] = {0};
+  std::string jsonStr;
+  while ( ! in.eof() )
+  {
+    ::memset(buf, 0, sizeof(buf));
+    in.read(buf, sizeof(buf)-1);
+    if ( in.bad() )
+      throw sid::exception(sid::to_errno_str("Failed to read data"));
+    jsonStr += buf;
+  }
+  return jsonStr;
 }
 
 void parser_test(std::string jsonStr)
@@ -73,6 +89,9 @@ int main(int argc, char* argv[])
 {
   try
   {
+    //json::value j1 = "string";
+    //json::value j2 = j1;
+    //return 0;
     /*
     long double d;
     std::string csErr;
@@ -94,23 +113,9 @@ int main(int argc, char* argv[])
     json::value jroot;
     if ( argc > 1 )
     {
-      const std::string filePath = argv[1];
-      std::ifstream in;
-      in.open(filePath);
-      if ( ! in.is_open() )
-	throw sid::exception("Failed to open file: " + filePath);
-      char buf[8096] = {0};
-      std::string jsonStr;
-      while ( ! in.eof() )
-      {
-	::memset(buf, 0, sizeof(buf));
-	in.read(buf, sizeof(buf)-1);
-	if ( in.bad() )
-	  throw sid::exception(sid::to_errno_str("Failed to read data"));
-	jsonStr += buf;
-      }
+      std::string jsonStr = get_file_contents(argv[1]);
       jroot = json::value::get(jsonStr);
-      //return 0;
+      return 0;
     }
     else
     {

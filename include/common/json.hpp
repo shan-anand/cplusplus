@@ -99,7 +99,9 @@ public:
   bool empty() const { return m_type == json::element::null; }
   void clear();
 
+  //! get the element type
   json::element type() const { return m_type; }
+  //! element type check as functions
   bool is_null() const { return m_type == json::element::null; }
   bool is_string() const { return m_type == json::element::string; }
   bool is_signed() const { return m_type == json::element::_signed; }
@@ -135,7 +137,19 @@ public:
   const value& operator[](const std::string& _key) const;
   value& operator[](const std::string& _key);
   //! Append value to the array
-  void append(const value& _obj);
+  value& append();
+  value& append(const value& _obj);
+  template <typename T> value& append(const T& _val)
+  {
+    if ( ! is_array() )
+      {
+	clear();
+	m_type = m_data.init(json::element::array);
+      }
+    value& jval = append();
+    jval.m_data.init(_val);
+    return jval;
+  }
 
   //! Convert json to string format
   std::string to_str(json::format _format = json::format::compact) const;
@@ -172,11 +186,13 @@ private:
 
     json::element init(const json::element _type = json::element::null);
     json::element init(const union_data& _obj, const json::element _type = json::element::null);
+    json::element init(const int _val);
     json::element init(const int64_t _val);
     json::element init(const uint64_t _val);
     json::element init(const long double _val);
     json::element init(const bool _val);
     json::element init(const std::string& _val);
+    json::element init(const char* _val);
     json::element init(const array& _val);
     json::element init(const object& _val);
   };
