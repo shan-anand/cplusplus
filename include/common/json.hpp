@@ -39,6 +39,21 @@ LICENSE: END
 #include "exception.hpp"
 #include "smart_ptr.hpp"
 
+// #define SID_JSON_MAP_OPTIMIZE_FOR_SPEED
+// #define SID_JSON_MAP_OPTIMIZE_FOR_SIZE
+
+// Cannot be optimized for both speed and size
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED) && defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
+#error "json libray can be optimed only for speed (SID_JSON_MAP_OPTIMIZE_FOR_SPEED) or for size (SID_JSON_MAP_OPTIMIZE_FOR_SIZE), but not both"
+#elif defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+#pragma message "Compiler flag set to optimize json for speed"
+#elif defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
+#pragma message "Compiler flag set to optimize json for size"
+#else // if nothing is set, default it to optimize for speed
+#pragma message "Setting json to optimize for speed"
+#define SID_JSON_MAP_OPTIMIZE_FOR_SPEED
+#endif
+
 namespace sid {
 namespace json {
 
@@ -62,6 +77,21 @@ struct parser;
 #pragma pack(push)
 #pragma pack(1)
 
+struct parser_stats
+{
+  uint64_t objects;
+  uint64_t arrays;
+  uint64_t strings;
+  uint64_t numbers;
+  uint64_t booleans;
+  uint64_t nulls;
+  uint64_t keys;
+
+  parser_stats();
+  void clear();
+  std::string to_str() const;
+};
+
 /**
  * @class value
  * @bried json value class
@@ -71,15 +101,18 @@ class value
   friend class parser;
 public:
   /**
-   * @fn json::value get(const std::string& _value, bool _strict = true);
+   * @fn bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, bool _strict = true);
    * @brief Convert the given json string to json object
    *
+   * @param _jout [out] json output
+   * @param _stats [out] Parser statistics
    * @param _value [in] Input json string
    * @param _strict [in] Use strict parsing (default)
    *                     If set to false, it relaxes the parsing logic for boolean and null types by accepting
    *                     True, TRUE, False, FALSE, Null, NULL (in addition to true, false, null)
    */
-  static value get(const std::string& _value, bool _strict = true);
+  static bool parse(json::value& _jout, const std::string& _value, bool _strict = true);
+  static bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, bool _strict = true);
 
   // Constructors
   value(const json::element _type = json::element::null);
@@ -147,7 +180,7 @@ public:
 	m_type = m_data.init(json::element::array);
       }
     value& jval = append();
-    jval.m_data.init(_val);
+    jval.m_type = jval.m_data.init(_val);
     return jval;
   }
 
@@ -176,8 +209,11 @@ private:
     bool        _bval;
     std::string _str;
     array       _arr;
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+    object      _map;
+#else
     object*     _map;
-
+#endif
     union_data(const json::element _type = json::element::null);
     union_data(const union_data& _obj, const json::element _type = json::element::null);
     ~union_data();
@@ -195,6 +231,14 @@ private:
     json::element init(const char* _val);
     json::element init(const array& _val);
     json::element init(const object& _val);
+
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+    const object& map() const { return _map; }
+    object& map() { return _map; }
+#else
+    const object& map() const { return (*_map); }
+    object& map() { return (*_map); }
+#endif
   };
 
   json::element m_type;

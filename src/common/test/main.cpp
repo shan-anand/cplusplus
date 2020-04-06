@@ -38,7 +38,8 @@ void parser_test(std::string jsonStr)
     jsonStr = "{\"key\": \"v\\\"alue1\", \"mname\": null, \"num1\": -34234.23456, \"num2\": 7.012e1, \"numbers\": [100, -100, 12.34, -34.02, -9.223372037e18, 1.844674407e19]}";
 
   cout << jsonStr << endl;
-  json::value jroot = json::value::get(jsonStr);
+  json::value jroot;
+  json::value::parse(jroot, jsonStr);
   /*
   cout << jroot["key"].as_str() << endl;
   //cout.precision(std::numeric_limits< long double >::max_digits10);
@@ -110,47 +111,58 @@ int main(int argc, char* argv[])
     cout << typeid(char).name() << endl;
     return 0;
 */
+    cout << "sizeof(json::value) = " << sizeof(json::value) << endl;
     json::value jroot;
     if ( argc > 1 )
     {
       std::string jsonStr = get_file_contents(argv[1]);
-      jroot = json::value::get(jsonStr);
+      json::parser_stats stats;
+      //jroot = std::move(json::value::get(jsonStr, stats));
+      json::value::parse(jroot, stats, jsonStr);
+      cout << stats.to_str() << endl;
+      //json::value j1 = jroot;
+      //cout << stats.to_str() << endl;
       return 0;
     }
     else
     {
-      json::value& jperson = jroot["person"];
-      json::value& jname = jperson["name"];
-      jname["first"] = "Shan";
-      jname["last"] = "Anand";
-      jname["middle"] = nullptr;
-      jperson["male"] = true;
-      jperson["year"] = 1975;
-      json::value& jtest = jroot["test"];
-      jtest["int"] = -3423;
-      jtest["uint"] = 3423;
-      jtest["double-1"] = 23432.32L;
-      jtest["double-2"] = -3432e16;
-      jtest["str-1"] = "v\nal\"u\\e";
-      jtest["str-2"] = "unicode-\u0B85";
-      jtest["str-3"] = json::value::get("{\"k1\":\"\\\\u0B85\"}");
-      json::value& jarray = jtest["array"];
-      jarray.append(100);
-      jarray.append(-200);
-      jarray.append(300);
-      jarray.append(-400);
-      jtest["array2"] = json::value(json::element::array);
-      jtest["object2"] = json::value(json::element::object);
-
-      cout << "Year: " << jperson["year"].as_str() << ", " << jperson["year"].get_uint64() << endl;
-      if ( jperson.has_key("name") )
+      for ( size_t i = 0; i < 600000; i++ )
       {
-	const json::value& jname = jperson["name"];
-	cout << jname["first"].as_str() << " " << jname["last"].as_str() << endl;
+	json::value& jperson = jroot.append();
+	json::value& jname = jperson["name"];
+	jname["id"] = i;
+	jname["first"] = "Shan";
+	jname["last"] = "Anand";
+	jname["middle"] = nullptr;
+	jperson["male"] = true;
+	jperson["year"] = 1975;
+	json::value& jtest = jperson;//["test"];
+	jtest["int"] = -3423;
+	jtest["uint"] = 3423;
+	jtest["double-1"] = 23432.32L;
+	jtest["double-2"] = -3432e16;
+	jtest["str-1"] = "v\nal\"u\\e";
+	jtest["str-2"] = "unicode-\u0B85";
+	//jtest["str-3"] = json::value::get("{\"k1\":\"\\\\u0B85\"}");
+	json::value& jarray = jtest["array"];
+	jarray.append(100);
+	jarray.append(-200);
+	jarray.append(300);
+	jarray.append(-400);
+	//jtest["array2"] = json::value(json::element::array);
+	//jtest["object2"] = json::value(json::element::object);
+	/*
+	json::value& jmetadata = jperson["metadata"];
+	for ( size_t j = 0; j < (i%5)+1; j++ )
+	{
+	  json::value& jentry = jmetadata.append();
+	  jentry["key"] = "key-" + sid::to_str(j);
+	  jentry["value"] = "value-" + sid::to_str(j);
+	}
+	*/
       }
-      else
-	cout << "key not found" << endl;
-      cout << "Array count: " << jarray.size() << " val-2: " << jarray[1].as_str() << endl;
+      cout << jroot.to_str(json::format::pretty) << endl;
+      return 0;
     }
 
     struct New1
