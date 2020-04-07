@@ -113,12 +113,12 @@ json::parser_stats::parser_stats()
   clear();
 }
 
-uint64_t gobjects_alloc;
+uint64_t gobjects_alloc = 0;
 
 void json::parser_stats::clear()
 {
   objects = 0;
-  gobjects_alloc = 0;
+  //gobjects_alloc = 0;
   arrays = 0;
   strings = 0;
   numbers = 0;
@@ -172,14 +172,19 @@ bool json::value::parse(json::value& _jout, parser_stats& _stats, const std::str
   return jparser.parse(_value);
 }
 
-json::value::value(const json::element _type)
+void json::value::p_set(const json::element _type/* = json::element::null*/)
+{
+  m_type = m_data.init(_type);
+}
+
+json::value::value(const json::element _type/* = json::element::null&*/)
 {
   m_type = m_data.init(_type);
 }
 
 json::value::value(const value& _obj)
 {
-  m_type = m_data.init(_obj.m_data, _obj.m_type);
+  m_type = m_data.init(_obj.m_data, true, _obj.m_type);
 }
 
 json::value::value(const int64_t _val)
@@ -234,8 +239,14 @@ void json::value::clear()
 
 json::value& json::value::operator=(const value& _obj)
 {
-  this->clear();
-  m_type = m_data.init(_obj.m_data, _obj.m_type);
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+  const bool is_new = true;
+#else
+  const bool is_new = ( m_type != _obj.m_type || m_type != json::element::object );
+#endif
+  if ( is_new )
+    this->clear();
+  m_type = m_data.init(_obj.m_data, is_new, _obj.m_type);
   return *this;
 }
 
@@ -572,7 +583,7 @@ json::value& json::value::append()
     m_type = m_data.init(json::element::array);
   }
   json::value jval;
-  m_data._arr.push_back(jval);
+  m_data._arr.push_back(std::move(jval));
   return m_data._arr[m_data._arr.size()-1];
 }
 
@@ -588,7 +599,7 @@ json::value::union_data::union_data(const json::element _type)
 
 json::value::union_data::union_data(const union_data& _obj, const json::element _type)
 {
-  init(_obj, _type);
+  init(_obj, true, _type);
 }
 
 json::value::union_data::~union_data()
@@ -631,7 +642,7 @@ json::element json::value::union_data::init(const json::element _type/* = json::
   return _type;
 }
 
-json::element json::value::union_data::init(const union_data& _obj, const json::element _type/* = json::element::null*/)
+json::element json::value::union_data::init(const union_data& _obj, const bool _new/* = true*/, const json::element _type/* = json::element::null*/)
 {
   switch ( _type )
   {
@@ -642,7 +653,7 @@ json::element json::value::union_data::init(const union_data& _obj, const json::
   case json::element::_double:   init(_obj._dbl);  break;
   case json::element::boolean:         init(_obj._bval); break;
   case json::element::array:           init(_obj._arr); break;
-  case json::element::object:          init(_obj.map()); break;
+  case json::element::object:          init(_obj.map(), _new); break;
   }
   return _type;
 }
@@ -695,13 +706,16 @@ json::element json::value::union_data::init(const array& _val)
   return json::element::array;
 }
 
-json::element json::value::union_data::init(const object& _val)
+json::element json::value::union_data::init(const object& _val, const bool _new/* = true*/)
 {
   ++gobjects_alloc;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
   new (&_map) object(_val);
 #else
-  _map = new object(_val);
+  if ( _new )
+    _map = new object(_val);
+  else
+    *_map = _val;
 #endif
   return json::element::object;
 }
@@ -770,7 +784,7 @@ void json::parser::parse_object(json::value& _jobj)
 {
   char ch = 0;
   if ( ! _jobj.is_object() )
-    _jobj = json::value(json::element::object);
+    _jobj.p_set(json::element::object);
 
   m_containerStack.push(json::element::object);
   m_stats.objects++;
@@ -789,7 +803,8 @@ void json::parser::parse_object(json::value& _jobj)
       throw sid::exception("Expected : at position " + loc_str());
     m_p++;
     REMOVE_LEADING_SPACES(m_p);
-    parse_value(_jobj[m_key]);
+    json::value& jval = _jobj[m_key];
+    parse_value(jval);
     ch = *m_p;
     // Can have a ,
     // Must end with }
@@ -804,7 +819,7 @@ void json::parser::parse_array(json::value& _jarr)
 {
   char ch = 0;
   if ( ! _jarr.is_array() )
-    _jarr = json::value(json::element::array);
+    _jarr.p_set(json::element::array);
 
   m_containerStack.push(json::element::array);
   m_stats.arrays++;

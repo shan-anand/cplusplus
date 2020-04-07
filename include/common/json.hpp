@@ -40,7 +40,7 @@ LICENSE: END
 #include "smart_ptr.hpp"
 
 // #define SID_JSON_MAP_OPTIMIZE_FOR_SPEED
-// #define SID_JSON_MAP_OPTIMIZE_FOR_SIZE
+#define SID_JSON_MAP_OPTIMIZE_FOR_SIZE
 
 // Cannot be optimized for both speed and size
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED) && defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
@@ -126,8 +126,9 @@ public:
   value(const int _val);
   // Copy constructor
   value(const value& _obj);
-  // Virtual destructor
-  virtual ~value();
+
+  // Destructor
+  ~value();
 
   bool empty() const { return m_type == json::element::null; }
   void clear();
@@ -196,6 +197,7 @@ public:
 
 private:
   void p_write(std::ostream& _out, json::format _format, const pretty_formatter& _formatter, uint32_t _level) const;
+  void p_set(const json::element _type = json::element::null);
 
 private:
   using array = std::vector<value>;
@@ -221,7 +223,7 @@ private:
     json::element clear(const json::element _type);
 
     json::element init(const json::element _type = json::element::null);
-    json::element init(const union_data& _obj, const json::element _type = json::element::null);
+    json::element init(const union_data& _obj, const bool _new = true, const json::element _type = json::element::null);
     json::element init(const int _val);
     json::element init(const int64_t _val);
     json::element init(const uint64_t _val);
@@ -230,8 +232,9 @@ private:
     json::element init(const std::string& _val);
     json::element init(const char* _val);
     json::element init(const array& _val);
-    json::element init(const object& _val);
+    json::element init(const object& _val, const bool _new = true);
 
+    union_data& operator=(const union_data& _obj) { *this = std::move(_obj); return *this; }
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
     const object& map() const { return _map; }
     object& map() { return _map; }
