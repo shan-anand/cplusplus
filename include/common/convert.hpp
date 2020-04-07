@@ -409,6 +409,13 @@ bool to_size(const std::string& _input, uint64_t& _outVal, const uint64_t _defau
     std::string::size_type    _start = 0 // position in string to start
 	);
 
+#define JOIN_WITH_SPACE 1
+#define JOIN_SKIP_EMPTY 2
+#define JOIN_WITH_SPACE_SKIP_EMPTY (JOIN_WITH_SPACE | JOIN_SKIP_EMPTY)
+
+  std::string join(const std::vector<std::string>& _input, const char& _sep = ',', int _joinFlag = 0);
+  std::string join(const std::set<std::string>& _input, const char& _sep = ',', int _joinFlag = 0);
+
   // Input functions
   int get_char_no_return(const char* _validChars = nullptr);
   int get_char_no_return_silent(const char* _validChars = nullptr);

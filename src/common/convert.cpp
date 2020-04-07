@@ -692,6 +692,35 @@ int sid::split(std::vector<std::string>& _result, const string& _input, const ch
   return _result.size();
 }
 
+template <typename T> std::string _internal_join(const T& _input, const char& _sep, int _joinFlag)
+{
+  std::ostringstream out;
+  const char sep[3] {_sep, (_sep != ' ' && (_joinFlag & JOIN_WITH_SPACE))? ' ' : '\0', '\0'};
+  bool firstTime = true;
+  for ( const auto& entry : _input )
+  {
+    if ( ! entry.empty()  || !(_joinFlag & JOIN_SKIP_EMPTY) )
+    {
+      if ( firstTime )
+	firstTime = false;
+      else
+	out << sep;
+      out << entry;
+    }
+  }
+  return out.str();
+}
+
+std::string sid::join(const std::vector<std::string>& _input, const char& _sep/* = ','*/, int _joinFlag/* = 0*/)
+{
+  return _internal_join(_input, _sep, _joinFlag);
+}
+
+std::string sid::join(const std::set<std::string>& _input, const char& _sep/* = ','*/, int _joinFlag/* = 0*/)
+{
+  return _internal_join(_input, _sep, _joinFlag);
+}
+
 #define CONTROL(x)  ((x) & 0x1F)
 
 int sid::get_char_no_return(const char* _validChars)
