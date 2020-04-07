@@ -126,6 +126,8 @@ public:
   value(const int _val);
   // Copy constructor
   value(const value& _obj);
+  // Move constructor
+  value(value&& _obj) noexcept;
 
   // Destructor
   ~value();
@@ -218,6 +220,7 @@ private:
 #endif
     union_data(const json::element _type = json::element::null);
     union_data(const union_data& _obj, const json::element _type = json::element::null);
+    union_data(union_data&& _obj, const json::element _type = json::element::null) noexcept;
     ~union_data();
 
     json::element clear(const json::element _type);
@@ -233,6 +236,7 @@ private:
     json::element init(const char* _val);
     json::element init(const array& _val);
     json::element init(const object& _val, const bool _new = true);
+    json::element init_move(union_data&& _obj, json::element _type) noexcept;
 
     union_data& operator=(const union_data& _obj) { *this = std::move(_obj); return *this; }
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)

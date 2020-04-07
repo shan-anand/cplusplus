@@ -118,7 +118,6 @@ uint64_t gobjects_alloc = 0;
 void json::parser_stats::clear()
 {
   objects = 0;
-  //gobjects_alloc = 0;
   arrays = 0;
   strings = 0;
   numbers = 0;
@@ -185,6 +184,13 @@ json::value::value(const json::element _type/* = json::element::null&*/)
 json::value::value(const value& _obj)
 {
   m_type = m_data.init(_obj.m_data, true, _obj.m_type);
+}
+
+// Move constructor
+json::value::value(value&& _obj) noexcept
+{
+  m_type = m_data.init_move(std::move(_obj.m_data), _obj.m_type);
+  _obj.m_type = json::element::null;
 }
 
 json::value::value(const int64_t _val)
@@ -602,6 +608,11 @@ json::value::union_data::union_data(const union_data& _obj, const json::element 
   init(_obj, true, _type);
 }
 
+json::value::union_data::union_data(union_data&& _obj, const json::element _type) noexcept
+{
+  init_move(std::move(_obj), _type);
+}
+
 json::value::union_data::~union_data()
 {
 }
@@ -634,7 +645,7 @@ json::element json::value::union_data::init(const json::element _type/* = json::
   case json::element::boolean:         _bval = false; break;
   case json::element::array:           new (&_arr) array; break;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
-  case json::element::object:          new (&_map) object; ++gobjects_alloc; break;
+  case json::element::object:          new (&_map) object; break;
 #else
   case json::element::object:          _map = new object; ++gobjects_alloc; break;
 #endif
@@ -708,16 +719,34 @@ json::element json::value::union_data::init(const array& _val)
 
 json::element json::value::union_data::init(const object& _val, const bool _new/* = true*/)
 {
-  ++gobjects_alloc;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
   new (&_map) object(_val);
 #else
   if ( _new )
+  {
     _map = new object(_val);
+    ++gobjects_alloc;
+  }
   else
     *_map = _val;
 #endif
   return json::element::object;
+}
+
+json::element json::value::union_data::init_move(union_data&& _obj, json::element _type) noexcept
+{
+  switch ( _type )
+  {
+  case json::element::null:            break;
+  case json::element::string:          _str = _obj._str; break;
+  case json::element::_signed:         _i64 = _obj._i64;  break;
+  case json::element::_unsigned:       _u64 = _obj._u64;  break;
+  case json::element::_double:         _dbl = _obj._dbl;  break;
+  case json::element::boolean:         _bval = _obj._bval; break;
+  case json::element::array:           _arr = _obj._arr; break;
+  case json::element::object:          _map = _obj._map; break;
+  }
+  return _type;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
