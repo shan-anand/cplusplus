@@ -738,13 +738,18 @@ json::element json::value::union_data::init_move(union_data&& _obj, json::elemen
   switch ( _type )
   {
   case json::element::null:            break;
-  case json::element::string:          _str = _obj._str; break;
-  case json::element::_signed:         _i64 = _obj._i64;  break;
-  case json::element::_unsigned:       _u64 = _obj._u64;  break;
-  case json::element::_double:         _dbl = _obj._dbl;  break;
+  case json::element::string:          _str  = _obj._str;  break;
+  case json::element::_signed:         _i64  = _obj._i64;  break;
+  case json::element::_unsigned:       _u64  = _obj._u64;  break;
+  case json::element::_double:         _dbl  = _obj._dbl;  break;
   case json::element::boolean:         _bval = _obj._bval; break;
-  case json::element::array:           _arr = _obj._arr; break;
-  case json::element::object:          _map = _obj._map; break;
+    //case json::element::array:           _arr  = _obj._arr;  break;
+  case json::element::array:           new (&_arr) array(_obj._arr); break;
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+  case json::element::object:          new (&_map) object(_obj._map); break;
+#else
+  case json::element::object:          _map  = _obj._map;  break;
+#endif
   }
   return _type;
 }
