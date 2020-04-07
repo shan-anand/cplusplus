@@ -77,6 +77,7 @@ struct parser;
 #pragma pack(push)
 #pragma pack(1)
 
+//! Parser statistics object
 struct parser_stats
 {
   uint64_t objects;
@@ -86,6 +87,7 @@ struct parser_stats
   uint64_t booleans;
   uint64_t nulls;
   uint64_t keys;
+  uint64_t time_ms;
 
   parser_stats();
   void clear();
@@ -94,7 +96,7 @@ struct parser_stats
 
 /**
  * @class value
- * @bried json value class
+ * @brief json value class
  */
 class value
 {
@@ -159,17 +161,21 @@ public:
   value& operator=(const char* _val);
   value& operator=(const int _val);
 
+  bool has_index(const size_t _index) const;
   bool has_key(const std::string& _key) const;
   std::vector<std::string> get_keys() const;
   size_t size() const; // For array and object type
 
+  //! get functions
   int64_t get_int64() const;
   uint64_t get_uint64() const;
   long double get_double() const;
+  bool get_bool() const;
   std::string get_str() const;
   std::string as_str() const;
-  bool get_bool() const;
-  const value& operator[](size_t _index) const;
+
+  const value& operator[](const size_t _index) const;
+  value& operator[](const size_t _index);
   const value& operator[](const std::string& _key) const;
   value& operator[](const std::string& _key);
   //! Append value to the array
@@ -218,13 +224,19 @@ private:
 #else
     object*     _map;
 #endif
+    //! Default constructor
     union_data(const json::element _type = json::element::null);
+    //! Copy constructor
     union_data(const union_data& _obj, const json::element _type = json::element::null);
+    //! Move constructor
     union_data(union_data&& _obj, const json::element _type = json::element::null) noexcept;
+    //! Destructor
     ~union_data();
 
+    //! Clear the memory used by the object
     json::element clear(const json::element _type);
 
+    //! Copy initializer routines
     json::element init(const json::element _type = json::element::null);
     json::element init(const union_data& _obj, const bool _new = true, const json::element _type = json::element::null);
     json::element init(const int _val);
@@ -236,7 +248,8 @@ private:
     json::element init(const char* _val);
     json::element init(const array& _val);
     json::element init(const object& _val, const bool _new = true);
-    json::element init_move(union_data&& _obj, json::element _type) noexcept;
+    //! Move initializer routine
+    json::element init(union_data&& _obj, json::element _type) noexcept;
 
     union_data& operator=(const union_data& _obj) { *this = std::move(_obj); return *this; }
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
@@ -248,8 +261,8 @@ private:
 #endif
   };
 
-  json::element m_type;
-  union_data    m_data;
+  json::element m_type; //! Type of the object
+  union_data    m_data; //! The object
 };
 
 #pragma pack(pop)

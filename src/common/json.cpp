@@ -40,6 +40,9 @@ LICENSE: END
 #include <common/convert.hpp>
 #include <common/optional.hpp>
 #include <stack>
+#include <iomanip>
+#include <ctime>
+#include <unistd.h>
 
 using namespace sid;
 
@@ -124,18 +127,20 @@ void json::parser_stats::clear()
   booleans = 0;
   nulls = 0;
   keys = 0;
+  time_ms = 0;
 }
 
 std::string json::parser_stats::to_str() const
 {
   std::ostringstream out;
-  out << "objects...: " << sid::get_sep(objects) << " (" << sid::get_sep(gobjects_alloc) << ")" << endl
-      << "arrays....: " << sid::get_sep(arrays) << endl
-      << "strings...: " << sid::get_sep(strings) << endl
-      << "numbers...: " << sid::get_sep(numbers) << endl
-      << "booleans..: " << sid::get_sep(booleans) << endl
-      << "nulls.....: " << sid::get_sep(nulls) << endl
-      << "(keys)....: " << sid::get_sep(keys) << endl
+  out << "objects.......: " << sid::get_sep(objects) << " (" << sid::get_sep(gobjects_alloc) << ")" << endl
+      << "arrays........: " << sid::get_sep(arrays) << endl
+      << "strings.......: " << sid::get_sep(strings) << endl
+      << "numbers.......: " << sid::get_sep(numbers) << endl
+      << "booleans......: " << sid::get_sep(booleans) << endl
+      << "nulls.........: " << sid::get_sep(nulls) << endl
+      << "(keys)........: " << sid::get_sep(keys) << endl
+      << "(time taken)..: " << sid::get_sep(time_ms/1000) << "." << std::setfill('0') << std::setw(3) << (time_ms % 1000) << " seconds" << endl
     ;
   return out.str();
 }
@@ -176,7 +181,7 @@ void json::value::p_set(const json::element _type/* = json::element::null*/)
   m_type = m_data.init(_type);
 }
 
-json::value::value(const json::element _type/* = json::element::null&*/)
+json::value::value(const json::element _type/* = json::element::null*/)
 {
   m_type = m_data.init(_type);
 }
@@ -189,7 +194,7 @@ json::value::value(const value& _obj)
 // Move constructor
 json::value::value(value&& _obj) noexcept
 {
-  m_type = m_data.init_move(std::move(_obj.m_data), _obj.m_type);
+  m_type = m_data.init(std::move(_obj.m_data), _obj.m_type);
   _obj.m_type = json::element::null;
 }
 
@@ -311,6 +316,13 @@ json::value& json::value::operator=(const int _val)
   return operator=(static_cast<int64_t>(_val));
 }
 
+bool json::value::has_index(const size_t _index) const
+{
+  if ( ! is_array() )
+    throw sid::exception(__func__ + std::string("() can be used only for array type"));
+  return ( _index < m_data._arr.size() );
+}
+
 bool json::value::has_key(const std::string& _key) const
 {
   if ( ! is_object() )
@@ -360,18 +372,18 @@ long double json::value::get_double() const
   throw sid::exception(__func__ + std::string("() can be used only for number type"));
 }
 
-std::string json::value::get_str() const
-{
-  if ( is_string() )
-    return m_data._str;
-  throw sid::exception(__func__ + std::string("() can be used only for string type"));
-}
-
 bool json::value::get_bool() const
 {
   if ( is_bool() )
     return m_data._bval;
   throw sid::exception(__func__ + std::string("() can be used only for boolean type"));
+}
+
+std::string json::value::get_str() const
+{
+  if ( is_string() )
+    return m_data._str;
+  throw sid::exception(__func__ + std::string("() can be used only for string type"));
 }
 
 std::string json::value::as_str() const
@@ -542,7 +554,16 @@ void json::value::p_write(std::ostream& _out, json::format _format, const pretty
     _out << this->as_str();
 }
 
-const json::value& json::value::operator[](size_t _index) const
+const json::value& json::value::operator[](const size_t _index) const
+{
+  if ( ! is_array() )
+    throw sid::exception(__func__ + std::string(": can be used only for array type"));
+  if ( _index >= m_data._arr.size() )
+    throw sid::exception(__func__ + std::string(": index(") + sid::to_str(_index) + ") out of range(" + sid::to_str(m_data._arr.size()) + ")");
+  return m_data._arr[_index];
+}
+
+json::value& json::value::operator[](const size_t _index)
 {
   if ( ! is_array() )
     throw sid::exception(__func__ + std::string(": can be used only for array type"));
@@ -610,7 +631,7 @@ json::value::union_data::union_data(const union_data& _obj, const json::element 
 
 json::value::union_data::union_data(union_data&& _obj, const json::element _type) noexcept
 {
-  init_move(std::move(_obj), _type);
+  init(std::move(_obj), _type);
 }
 
 json::value::union_data::~union_data()
@@ -733,7 +754,8 @@ json::element json::value::union_data::init(const object& _val, const bool _new/
   return json::element::object;
 }
 
-json::element json::value::union_data::init_move(union_data&& _obj, json::element _type) noexcept
+//! Move initializer routine
+json::element json::value::union_data::init(union_data&& _obj, json::element _type) noexcept
 {
   switch ( _type )
   {
@@ -743,7 +765,6 @@ json::element json::value::union_data::init_move(union_data&& _obj, json::elemen
   case json::element::_unsigned:       _u64  = _obj._u64;  break;
   case json::element::_double:         _dbl  = _obj._dbl;  break;
   case json::element::boolean:         _bval = _obj._bval; break;
-    //case json::element::array:           _arr  = _obj._arr;  break;
   case json::element::array:           new (&_arr) array(_obj._arr); break;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
   case json::element::object:          new (&_map) object(_obj._map); break;
@@ -791,23 +812,81 @@ ________________________________________________________________________________
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+struct time_calc
+{
+  struct timespec t_start, t_end;
+
+  time_calc() { clear(); }
+  void clear()
+  {
+    ::memset(&t_start, 0, sizeof(t_start));
+    ::memset(&t_end, 0, sizeof(t_end));
+  }
+  void start() { t_start = p_capture(); }
+  void stop() { t_end = p_capture(); }
+
+  uint64_t diff_secs() const { return diff_millisecs() / 1000; }
+  uint64_t diff_millisecs() const { return diff_microsecs() / 1000; }
+  uint64_t diff_microsecs() const
+  {
+    if ( t_end.tv_sec > t_start.tv_sec || (t_end.tv_sec == t_start.tv_sec && t_end.tv_nsec >= t_start.tv_nsec) )
+    {
+      uint64_t s = (t_end.tv_sec - t_start.tv_sec) * 1000000;
+      uint64_t x = t_end.tv_nsec / 1000;
+      uint64_t y = t_start.tv_nsec / 1000;
+      if ( x < y )
+      {
+	--s;
+	x += 1000000;
+      }
+      s += x;
+      return s;
+    }
+    return 0;
+  }
+  
+private:
+  struct timespec p_capture() const
+  {
+    struct timespec ts = {0};
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+    return ts;
+  }
+};
+
 bool json::parser::parse(const std::string& _value)
 {
-  m_jroot.clear();
-  m_stats.clear();
+  time_calc tc;
 
-  m_input = _value;
-  m_p = m_input.c_str();
-  REMOVE_LEADING_SPACES(m_p);
-  char ch = *m_p;
-  if ( ch == '{' )
-    parse_object(m_jroot);
-  else if ( ch == '[' )
-    parse_array(m_jroot);
-  else if ( ch != '\0' )
-    throw sid::exception(std::string("Invalid character [") + ch + "] at position " + loc_str() + ". Expecting { or [");
-  else
-    throw sid::exception(std::string("End of data reached at position ") + loc_str() + ". Expecting { or [");
+  try
+  {
+    tc.start();
+
+    m_jroot.clear();
+    m_stats.clear();
+
+    m_input = _value;
+    m_p = m_input.c_str();
+    REMOVE_LEADING_SPACES(m_p);
+    char ch = *m_p;
+    if ( ch == '{' )
+      parse_object(m_jroot);
+    else if ( ch == '[' )
+      parse_array(m_jroot);
+    else if ( ch != '\0' )
+      throw sid::exception(std::string("Invalid character [") + ch + "] at position " + loc_str() + ". Expecting { or [");
+    else
+      throw sid::exception(std::string("End of data reached at position ") + loc_str() + ". Expecting { or [");
+
+    tc.stop();
+    m_stats.time_ms = tc.diff_millisecs();
+  }
+  catch (...)
+  {
+    tc.stop();
+    m_stats.time_ms = tc.diff_millisecs();
+    throw;
+  }
 
   //cout << "Object allocations: " << sid::get_sep(gobjects_alloc) << endl;
   // return the top-level json
