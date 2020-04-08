@@ -145,6 +145,23 @@ std::string json::parser_stats::to_str() const
   return out.str();
 }
 
+std::string sid::to_str(const json::element& _type)
+{
+  std::string out;
+  switch ( _type )
+  {
+  case json::element::null:      out = "null";     break;
+  case json::element::string:    out = "string";   break;
+  case json::element::_signed:   out = "signed";   break;
+  case json::element::_unsigned: out = "unsigned"; break;
+  case json::element::_double:   out = "double";   break;
+  case json::element::boolean:   out = "boolean";  break;
+  case json::element::array:     out = "array";    break;
+  case json::element::object:    out = "object";   break;
+  }
+  return out;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // Implementation of json::value
@@ -658,17 +675,17 @@ json::element json::value::union_data::init(const json::element _type/* = json::
 {
   switch ( _type )
   {
-  case json::element::null:            break;
-  case json::element::string:          new (&_str) string; break;
+  case json::element::null:      break;
+  case json::element::string:    new (&_str) string; break;
   case json::element::_signed:   _i64 = 0; break;
   case json::element::_unsigned: _u64 = 0; break;
   case json::element::_double:   _dbl = 0; break;
-  case json::element::boolean:         _bval = false; break;
-  case json::element::array:           new (&_arr) array; break;
+  case json::element::boolean:   _bval = false; break;
+  case json::element::array:     new (&_arr) array; break;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
-  case json::element::object:          new (&_map) object; break;
+  case json::element::object:    new (&_map) object; break;
 #else
-  case json::element::object:          _map = new object; ++gobjects_alloc; break;
+  case json::element::object:    _map = new object; ++gobjects_alloc; break;
 #endif
   }
   return _type;
@@ -678,14 +695,14 @@ json::element json::value::union_data::init(const union_data& _obj, const bool _
 {
   switch ( _type )
   {
-  case json::element::null:            break;
-  case json::element::string:          init(_obj._str); break;
+  case json::element::null:      break;
+  case json::element::string:    init(_obj._str);  break;
   case json::element::_signed:   init(_obj._i64);  break;
   case json::element::_unsigned: init(_obj._u64);  break;
   case json::element::_double:   init(_obj._dbl);  break;
-  case json::element::boolean:         init(_obj._bval); break;
-  case json::element::array:           init(_obj._arr); break;
-  case json::element::object:          init(_obj.map(), _new); break;
+  case json::element::boolean:   init(_obj._bval); break;
+  case json::element::array:     init(_obj._arr);  break;
+  case json::element::object:    init(_obj.map(), _new); break;
   }
   return _type;
 }
@@ -1133,6 +1150,7 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
     char ch = *m_p;
     if ( ch < '0' || ch > '9' )
       throw sid::exception("Missing integer digit at position" + loc_str());
+
     if ( ch == '0' )
     {
       ch = *(++m_p);
@@ -1168,17 +1186,18 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
 	throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for exponent at position " + loc_str());
       num.hasExponent = true;
     }
-    REMOVE_LEADING_SPACES(m_p);
-    ch = *m_p;
-    const char chContainer = (m_containerStack.top() == json::element::object)? '}' : ']' ;
-    if ( ch != ',' && ch != '\0' && ch != chContainer )
-      throw sid::exception("Invalid character " + std::string(1, ch) + " Expected , or " + std::string(1, chContainer) + " at position " + loc_str());
 
     isNegative = num.integer.negative;
     isDouble = ( num.hasFraction || num.hasExponent );
   }
 
-  std::string numStr(p_start, m_p-p_start);
+  const char* p_end = m_p;
+  REMOVE_LEADING_SPACES(m_p);
+  char ch = *m_p;
+  if ( ch != ',' && ch != '\0' && ch != chContainer )
+    throw sid::exception("Invalid character " + std::string(1, ch) + " Expected , or " + std::string(1, chContainer) + " at position " + loc_str());
+
+  std::string numStr(p_start, p_end-p_start);
   if ( isDouble )
   {
     long double dbl = sid::to_num<long double>(numStr);

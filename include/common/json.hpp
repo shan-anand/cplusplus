@@ -59,6 +59,12 @@ namespace json {
 
 //! json element type
 enum class element : uint8_t { null, object, array, string, boolean, _signed, _unsigned, _double };
+} // namespace json
+
+// to_str in the sid namespace
+std::string to_str(const json::element& _type);
+
+namespace json {
 
 //! json formatter
 enum class format : uint8_t { compact, pretty };
