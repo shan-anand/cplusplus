@@ -65,122 +65,122 @@ io_buffer io_buffer::clone() const
   return out;
 }
 
-uint8_t io_buffer::get_8(const size_t byte) const
+uint8_t io_buffer::get_8(const size_t _byte) const
 {
-  return p_get_8(this->rd_data(byte));
+  return p_get_8(this->rd_data(_byte));
 }
-uint16_t io_buffer::get_16(const size_t byte) const
+uint16_t io_buffer::get_16(const size_t _byte) const
 {
-  return p_get_16(this->rd_data(byte));
-}
-
-uint32_t io_buffer::get_24(const size_t byte) const
-{
-  return p_get_24(this->rd_data(byte));
+  return p_get_16(this->rd_data(_byte));
 }
 
-uint32_t io_buffer::get_32(const size_t byte) const
+uint32_t io_buffer::get_24(const size_t _byte) const
 {
-  return p_get_32(this->rd_data(byte));
+  return p_get_24(this->rd_data(_byte));
 }
 
-uint64_t io_buffer::get_48(const size_t byte) const
+uint32_t io_buffer::get_32(const size_t _byte) const
 {
-  return p_get_48(this->rd_data(byte));
+  return p_get_32(this->rd_data(_byte));
 }
 
-uint64_t io_buffer::get_64(const size_t byte) const
+uint64_t io_buffer::get_48(const size_t _byte) const
 {
-  return p_get_64(this->rd_data(byte));
+  return p_get_48(this->rd_data(_byte));
 }
 
-std::string io_buffer::get_string(const size_t byte, const size_t n) const
+uint64_t io_buffer::get_64(const size_t _byte) const
 {
-  return std::string(reinterpret_cast<const char*>(this->rd_data(byte)), n);
+  return p_get_64(this->rd_data(_byte));
 }
 
-bool io_buffer::get_bool(const size_t byte, const uint8_t bitPos) const
+std::string io_buffer::get_string(const size_t _byte, const size_t _n) const
 {
-  return ( get_8(byte, bitPos, 1) != 0 );
+  return std::string(reinterpret_cast<const char*>(this->rd_data(_byte)), _n);
 }
 
-uint8_t io_buffer::get_8(const size_t byte, const uint8_t bitStart, const uint8_t nBits) const
+bool io_buffer::get_bool(const size_t _byte, const uint8_t _bitPos) const
 {
-  if ( (bitStart + nBits) > 8 )
+  return ( get_8(_byte, _bitPos, 1) != 0 );
+}
+
+uint8_t io_buffer::get_8(const size_t _byte, const uint8_t _bitStart, const uint8_t _nBits) const
+{
+  if ( (_bitStart + _nBits) > 8 )
     throw sid::exception("bitStart + nBits cannot be more than 8");
 
-  uint8_t v = get_8(byte);
-  v <<= (8-(bitStart + nBits));
-  v >>= (8-nBits);
+  uint8_t v = get_8(_byte);
+  v <<= (8-(_bitStart + _nBits));
+  v >>= (8-_nBits);
   return v;
 }
 
 /**
  * @brief Implementation of set_x() functions
  */
-bool io_buffer::set_8(const size_t byte, const uint8_t v)
+bool io_buffer::set_8(const size_t _byte, const uint8_t _v)
 {
-  return p_set_8(this->wr_data(byte), v);
+  return p_set_8(this->wr_data(_byte), _v);
 }
 
-bool io_buffer::set_16(const size_t byte, const uint16_t v)
+bool io_buffer::set_16(const size_t _byte, const uint16_t _v)
 {
-  return p_set_16(this->wr_data(byte), v);
+  return p_set_16(this->wr_data(_byte), _v);
 }
 
-bool io_buffer::set_24(const size_t byte, const uint32_t v)
+bool io_buffer::set_24(const size_t _byte, const uint32_t _v)
 {
-  return p_set_24(this->wr_data(byte), v);
+  return p_set_24(this->wr_data(_byte), _v);
 }
 
-bool io_buffer::set_32(const size_t byte, const uint32_t v)
+bool io_buffer::set_32(const size_t _byte, const uint32_t _v)
 {
-  return p_set_32(this->wr_data(byte), v);
+  return p_set_32(this->wr_data(_byte), _v);
 }
 
-bool io_buffer::set_48(const size_t byte, const uint64_t v)
+bool io_buffer::set_48(const size_t _byte, const uint64_t _v)
 {
-  return p_set_48(this->wr_data(byte), v);
+  return p_set_48(this->wr_data(_byte), _v);
 }
 
-bool io_buffer::set_64(const size_t byte, const uint64_t v)
+bool io_buffer::set_64(const size_t _byte, const uint64_t _v)
 {
-  return p_set_64(this->wr_data(byte), v);
+  return p_set_64(this->wr_data(_byte), _v);
 }
 
-bool io_buffer::set_string(const size_t byte, const std::string& v)
+bool io_buffer::set_string(const size_t _byte, const std::string& _v)
 {
-  memcpy(this->wr_data(byte), v.c_str(), v.length());
+  ::memcpy(this->wr_data(_byte), _v.c_str(), _v.length());
   return true;
 }
 
-bool io_buffer::set_string(const size_t byte, const char* v, size_t nBytes)
+bool io_buffer::set_string(const size_t _byte, const char* _v, size_t _nBytes)
 {
-  if ( nBytes == std::string::npos )
-    nBytes = v? strlen(v) : 0;
-  if ( nBytes > 0 )
+  if ( _nBytes == std::string::npos )
+    _nBytes = _v? ::strlen(_v) : 0;
+  if ( _nBytes > 0 )
   {
-    if ( v )
-      memcpy(this->wr_data(byte), v, nBytes);
+    if ( _v )
+      ::memcpy(this->wr_data(_byte), _v, _nBytes);
     else
-      memset(this->wr_data(byte), 0, nBytes);
+      ::memset(this->wr_data(_byte), 0, _nBytes);
   }
   return true;
 }
 
-bool io_buffer::set_bool(const size_t byte, const uint8_t bitPos, bool v)
+bool io_buffer::set_bool(const size_t _byte, const uint8_t _bitPos, bool _v)
 {
-  return set_8(byte, bitPos, 1, (v? 1 : 0));
+  return set_8(_byte, _bitPos, 1, (_v? 1 : 0));
 }
 
-bool io_buffer::set_8(const size_t byte, const uint8_t bitStart, const uint8_t nBits, uint8_t v)
+bool io_buffer::set_8(const size_t _byte, const uint8_t _bitStart, const uint8_t _nBits, uint8_t _v)
 {
-  if ( (bitStart + nBits) > 8 )
+  if ( (_bitStart + _nBits) > 8 )
     throw sid::exception("bitStart + nBits cannot be more than 8");
 
-  v <<= (8-nBits);
-  v >>= (8-(bitStart + nBits));
-  *this->wr_data(byte) |= v;
+  _v <<= (8-_nBits);
+  _v >>= (8-(_bitStart + _nBits));
+  *this->wr_data(_byte) |= _v;
   return true;
 }
 
@@ -188,101 +188,101 @@ bool io_buffer::set_8(const size_t byte, const uint8_t bitStart, const uint8_t n
 //
 // Implementation of private functions in sid::io_buffer
 //
-uint8_t io_buffer::p_get_8(const uchar8_p p) const
+uint8_t io_buffer::p_get_8(const uchar8_p _p) const
 {
-  return *((uint8_t*)p);
+  return *((uint8_t*)_p);
 }
 
-uint16_t io_buffer::p_get_16(const uchar8_p p) const
+uint16_t io_buffer::p_get_16(const uchar8_p _p) const
 {
-  return ntohs(*((uint16_t*)p));
+  return ntohs(*((uint16_t*)_p));
 }
 
-uint32_t io_buffer::p_get_24(const uchar8_p p) const
+uint32_t io_buffer::p_get_24(const uchar8_p _p) const
 {
 #if defined(_IS_LITTLE_ENDIAN_)
-  return (((uint32_t) p_get_8(p)) << 16) | p_get_16(p+1);
+  return (((uint32_t) p_get_8(_p)) << 16) | p_get_16(_p+1);
 #elif defined(_IS_BIG_ENDIAN_)
-  return (((uint32_t) p_get_16(p+1)) << 8) | p_get_8(p);
+  return (((uint32_t) p_get_16(_p+1)) << 8) | p_get_8(_p);
 #endif
 }
 
-uint32_t io_buffer::p_get_32(const uchar8_p p) const
+uint32_t io_buffer::p_get_32(const uchar8_p _p) const
 {
-  return ntohl(*((uint32_t*)p));
+  return ntohl(*((uint32_t*)_p));
 }
 
-uint64_t io_buffer::p_get_48(const uchar8_p p) const
+uint64_t io_buffer::p_get_48(const uchar8_p _p) const
 {
 #if defined(_IS_LITTLE_ENDIAN_)
-  return (((uint64_t) p_get_16(p)) << 32) | p_get_32(p+2);
+  return (((uint64_t) p_get_16(_p)) << 32) | p_get_32(_p+2);
 #elif defined(_IS_BIG_ENDIAN_)
-  return (((uint64_t) p_get_32(p+2)) << 16) | p_get_16(p);
+  return (((uint64_t) p_get_32(_p+2)) << 16) | p_get_16(_p);
 #endif
 }
 
-uint64_t io_buffer::p_get_64(const uchar8_p p) const
+uint64_t io_buffer::p_get_64(const uchar8_p _p) const
 {
 #if defined(_IS_LITTLE_ENDIAN_)
-  return (((uint64_t) p_get_32(p)) << 32) | p_get_32(p+4);
+  return (((uint64_t) p_get_32(_p)) << 32) | p_get_32(_p+4);
 #elif defined(_IS_BIG_ENDIAN_)
-  return (((uint64_t) p_get_32(p+4)) << 32) | p_get_32(p);
+  return (((uint64_t) p_get_32(_p+4)) << 32) | p_get_32(_p);
 #endif
 }
 
-bool io_buffer::p_set_8(uchar8_p p, const uint8_t v)
+bool io_buffer::p_set_8(uchar8_p _p, const uint8_t _v)
 {
-  *p = v;
+  *_p = _v;
   return true;
 }
 
-bool io_buffer::p_set_16(uchar8_p p, const uint16_t v)
+bool io_buffer::p_set_16(uchar8_p _p, const uint16_t _v)
 {
-  *((uint16_t*)p) = htons(v);
+  *((uint16_t*)_p) = ::htons(_v);
   return true;
 }
 
-bool io_buffer::p_set_24(uchar8_p p, const uint32_t v)
+bool io_buffer::p_set_24(uchar8_p _p, const uint32_t _v)
 {
 #if defined(_IS_LITTLE_ENDIAN_)
-  p_set_8(p, (uint8_t) ((v >> 16) & 0xFF));
-  p_set_16(p+1, (uint16_t) (v & 0xFFFF));
+  p_set_8(_p, (uint8_t) ((_v >> 16) & 0xFF));
+  p_set_16(_p+1, (uint16_t) (_v & 0xFFFF));
   return true;
 #elif defined(_IS_BIG_ENDIAN_)
-  p_set_16(p, (uint16_t) (v & 0xFFFF));
-  p_set_8(p+2(uint8_t) ((v >> 16) & 0xFF));
-  return true;
-#endif
-}
-
-bool io_buffer::p_set_32(uchar8_p p, const uint32_t v)
-{
-  *((uint32_t*)p) = htonl(v);
-  return true;
-}
-
-bool io_buffer::p_set_48(uchar8_p p, const uint64_t v)
-{
-#if defined(_IS_LITTLE_ENDIAN_)
-  p_set_16(p, (uint16_t) ((v >> 32) & 0xFFFF));
-  p_set_32(p+2, (uint32_t) (v & 0xFFFFFFFF));
-  return true;
-#elif defined(_IS_BIG_ENDIAN_)
-  p_set_32(p, (uint32_t) (v & 0xFFFFFFFF));
-  p_set_16(p+4, (uint16_t) ((v >> 32) & 0xFFFF));
+  p_set_16(_p, (uint16_t) (_v & 0xFFFF));
+  p_set_8(_p+2(uint8_t) ((_v >> 16) & 0xFF));
   return true;
 #endif
 }
 
-bool io_buffer::p_set_64(uchar8_p p, const uint64_t v)
+bool io_buffer::p_set_32(uchar8_p _p, const uint32_t _v)
+{
+  *((uint32_t*)_p) = ::htonl(_v);
+  return true;
+}
+
+bool io_buffer::p_set_48(uchar8_p _p, const uint64_t _v)
 {
 #if defined(_IS_LITTLE_ENDIAN_)
-  p_set_32(p, (uint32_t) ((v >> 32) & 0xFFFFFFFF));
-  p_set_32(p+4, (uint32_t) (v & 0xFFFFFFFF));
+  p_set_16(_p, (uint16_t) ((_v >> 32) & 0xFFFF));
+  p_set_32(_p+2, (uint32_t) (_v & 0xFFFFFFFF));
   return true;
 #elif defined(_IS_BIG_ENDIAN_)
-  p_set_32(p, (uint32_t) (v & 0xFFFFFFFF));
-  p_set_32(p+4(uint32_t) ((v >> 32) & 0xFFFFFFFF));
+  p_set_32(_p, (uint32_t) (_v & 0xFFFFFFFF));
+  p_set_16(_p+4, (uint16_t) ((_v >> 32) & 0xFFFF));
+  return true;
+#endif
+}
+
+bool io_buffer::p_set_64(uchar8_p _p, const uint64_t _v)
+{
+#if defined(_IS_LITTLE_ENDIAN_)
+  p_set_32(_p, (uint32_t) ((_v >> 32) & 0xFFFFFFFF));
+  p_set_32(_p+4, (uint32_t) (_v & 0xFFFFFFFF));
+  return true;
+#elif defined(_IS_BIG_ENDIAN_)
+  p_set_32(_p, (uint32_t) (_v & 0xFFFFFFFF));
+  p_set_32(_p+4(uint32_t) ((_v >> 32) & 0xFFFFFFFF));
   return true;
 #endif
 }

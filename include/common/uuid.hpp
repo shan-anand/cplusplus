@@ -41,6 +41,7 @@ LICENSE: END
 
 #include <uuid/uuid.h>
 #include <string>
+#include "common/exception.hpp"
 
 namespace sid {
 
@@ -92,6 +93,10 @@ public:
 
   //! Converts the object to the string according to the case specified as parameter
   std::string to_str(const uuid::case_type& _eCaseType) const;
+
+  //! Static functions to generate a new uuid object
+  static uuid create();
+  static uuid create(const uuid::type& _eType);
 
 private:
   uuid_t m_data;

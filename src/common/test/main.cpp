@@ -8,6 +8,7 @@
 #include "common/uuid.hpp"
 #include "common/json.hpp"
 #include "common/convert.hpp"
+#include "common/uuid.hpp"
 
 using namespace std;
 using namespace sid;
@@ -88,6 +89,7 @@ std::string to_type()
 
 int main(int argc, char* argv[])
 {
+  ::srand(::time(nullptr));
   try
   {
     //json::value j1 = "string";
@@ -149,17 +151,20 @@ int main(int argc, char* argv[])
 	jarray.append(-200);
 	jarray.append(300);
 	jarray.append(-400);
-	//jtest["array2"] = json::value(json::element::array);
-	//jtest["object2"] = json::value(json::element::object);
-	/*
+	jtest["empty_array"] = json::value(json::element::array);
+	jtest["empty_object"] = json::value(json::element::object);
+	json::value& jaoa = jtest["array_of_arrays"] = json::value(json::element::array);
 	json::value& jmetadata = jperson["metadata"];
 	for ( size_t j = 0; j < (i%5)+1; j++ )
 	{
+	  json::value& ja = jaoa.append();
+	  ja.append() = uuid::create().to_str();
+	  ja.append() = sid::to_str(::rand());
+
 	  json::value& jentry = jmetadata.append();
 	  jentry["key"] = "key-" + sid::to_str(j);
 	  jentry["value"] = "value-" + sid::to_str(j);
 	}
-	*/
       }
       cout << jroot.to_str(json::format::pretty) << endl;
       return 0;

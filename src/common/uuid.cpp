@@ -153,3 +153,21 @@ std::string uuid::to_str(const uuid::case_type& _eCaseType) const
   return std::string(szuuid);
 }
 
+/*static*/
+uuid uuid::create()
+{
+  uuid out;
+  if ( ! out.generate() )
+    throw sid::exception("Cannot create uuid object");
+  return out;
+}
+
+/*static*/
+uuid uuid::create(const uuid::type& _eType)
+{
+  uuid out;
+  if ( ! out.generate(_eType) )
+    throw sid::exception("Cannot create uuid object");
+  return out;
+}
+
