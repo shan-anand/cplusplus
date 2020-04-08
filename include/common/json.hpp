@@ -39,19 +39,19 @@ LICENSE: END
 #include "exception.hpp"
 #include "smart_ptr.hpp"
 
-// #define SID_JSON_MAP_OPTIMIZE_FOR_SPEED
-#define SID_JSON_MAP_OPTIMIZE_FOR_SIZE
+// #define SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY
+// #define SID_JSON_MAP_OPTIMIZE_FOR_SIZE
 
 // Cannot be optimized for both speed and size
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED) && defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
-#error "json libray can be optimed only for speed (SID_JSON_MAP_OPTIMIZE_FOR_SPEED) or for size (SID_JSON_MAP_OPTIMIZE_FOR_SIZE), but not both"
-#elif defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
-#pragma message "Compiler flag set to optimize json for speed"
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY) && defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
+#error "json libray can be optimized only for consistency (SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY) or for size (SID_JSON_MAP_OPTIMIZE_FOR_SIZE), but not both"
+#elif defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
+#pragma message "Compiler flag set to optimize json for consistency"
 #elif defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
 #pragma message "Compiler flag set to optimize json for size"
-#else // if nothing is set, default it to optimize for speed
-#pragma message "Setting json to optimize for speed"
-#define SID_JSON_MAP_OPTIMIZE_FOR_SPEED
+#else // if nothing is set, default it to optimize for size
+#pragma message "Setting json to optimize for size"
+#define SID_JSON_MAP_OPTIMIZE_FOR_SIZE
 #endif
 
 namespace sid {
@@ -219,7 +219,7 @@ private:
     bool        _bval;
     std::string _str;
     array       _arr;
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
     object      _map;
 #else
     object*     _map;
@@ -252,7 +252,7 @@ private:
     json::element init(union_data&& _obj, json::element _type) noexcept;
 
     union_data& operator=(const union_data& _obj) { *this = std::move(_obj); return *this; }
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
     const object& map() const { return _map; }
     object& map() { return _map; }
 #else

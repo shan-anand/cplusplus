@@ -250,7 +250,7 @@ void json::value::clear()
 
 json::value& json::value::operator=(const value& _obj)
 {
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
   const bool is_new = true;
 #else
   const bool is_new = ( m_type != _obj.m_type || m_type != json::element::object );
@@ -644,7 +644,7 @@ json::element json::value::union_data::clear(const json::element _type)
   {
   case json::element::string: _str.~string(); break;
   case json::element::array:  _arr.~array(); break;
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
   case json::element::object: _map.~object(); break;    
 #else
   case json::element::object: delete _map; _map = nullptr; break;
@@ -665,7 +665,7 @@ json::element json::value::union_data::init(const json::element _type/* = json::
   case json::element::_double:   _dbl = 0; break;
   case json::element::boolean:         _bval = false; break;
   case json::element::array:           new (&_arr) array; break;
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
   case json::element::object:          new (&_map) object; break;
 #else
   case json::element::object:          _map = new object; ++gobjects_alloc; break;
@@ -740,7 +740,7 @@ json::element json::value::union_data::init(const array& _val)
 
 json::element json::value::union_data::init(const object& _val, const bool _new/* = true*/)
 {
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
   new (&_map) object(_val);
 #else
   if ( _new )
@@ -760,18 +760,27 @@ json::element json::value::union_data::init(union_data&& _obj, json::element _ty
   switch ( _type )
   {
   case json::element::null:            break;
-  case json::element::string:          _str  = _obj._str;  break;
+  case json::element::string:          new (&_str) string(_obj._str); break;
   case json::element::_signed:         _i64  = _obj._i64;  break;
   case json::element::_unsigned:       _u64  = _obj._u64;  break;
   case json::element::_double:         _dbl  = _obj._dbl;  break;
   case json::element::boolean:         _bval = _obj._bval; break;
   case json::element::array:           new (&_arr) array(_obj._arr); break;
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SPEED)
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
   case json::element::object:          new (&_map) object(_obj._map); break;
 #else
   case json::element::object:          _map  = _obj._map;  break;
 #endif
   }
+  // We've made a copy of the string and array objects.
+  // So, we need to clear them from _obj
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
+    _obj.clear(_type);
+#else
+  // object uses a pointer. We don't want to clear the object type alone
+  if ( _type != json::element::object )
+    _obj.clear(_type);
+#endif
   return _type;
 }
 
