@@ -206,7 +206,7 @@ int main(int argc, char* argv[])
     parser_test(jroot.to_str());
     //json::pretty_formatter formatter(' ', 0);
     //parser_test(jroot.to_str(formatter));
-    parser_test("[\t\n{  \n \t }\n\t]");
+    //parser_test("[\t\n{  \n \t }\n\t]");
   }
   catch (const std::string& err)
   {

@@ -849,7 +849,7 @@ private:
   struct timespec p_capture() const
   {
     struct timespec ts = {0};
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+    clock_gettime(CLOCK_REALTIME, &ts); // CLOCK_PROCESS_CPUTIME_ID
     return ts;
   }
 };
