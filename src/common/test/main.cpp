@@ -122,12 +122,35 @@ int main(int argc, char* argv[])
       //jroot = std::move(json::value::get(jsonStr, stats));
       json::value::parse(jroot, stats, jsonStr);
       cout << stats.to_str() << endl;
+      //cout << jroot.to_str(json::format::pretty) << endl;
       //json::value j1 = jroot;
       //cout << stats.to_str() << endl;
+      //cout << "*** Before clear() " << endl;
+      //jroot.clear();
+      //cout << "*** After clear() " << endl;
       return 0;
     }
     else
     {
+      json::value& jname = jroot["name"];
+      jname["id"] = 1;
+      jname["first"] = "Shan";
+      jname["last"] = "Anand";
+      json::value jmeta = json::element::object;
+      jmeta["storage_group_id"] = "1";
+      jmeta["policy_id"] = nullptr;
+      jmeta["written_size"] = 32423423;
+      jroot["meta"] = jmeta.to_str();
+      std::string jsonStr = jroot.to_str(json::format::pretty);
+      cout << jsonStr << endl;
+
+      cout << "=====================================================" << endl;
+      json::value jsecond;
+      json::value::parse(jsecond, jsonStr);
+      jsonStr = jsecond.to_str(json::format::pretty);
+      cout << jsonStr << endl;
+      
+      return 0;
       for ( size_t i = 0; i < 600000; i++ )
       {
 	json::value& jperson = jroot.append();

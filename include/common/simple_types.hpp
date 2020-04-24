@@ -5,9 +5,6 @@
 
 namespace sid {
 
-//! New type definition for byte
-using byte = unsigned char;
-
 //! basic_cred data structure
 struct basic_cred
 {

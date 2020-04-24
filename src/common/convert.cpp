@@ -318,7 +318,7 @@ bool sid::to_bool(const std::string& _input, const match_case _matchCase)
       found = ( _input == entry );
       break;
     case match_case::any:
-      found = ( strcasecmp(_input.c_str(), entry) == 0 );
+      found = ( ::strcasecmp(_input.c_str(), entry) == 0 );
       break;
     case match_case::lower:
       found = ( _input == sid::to_lower(entry) );
@@ -328,7 +328,7 @@ bool sid::to_bool(const std::string& _input, const match_case _matchCase)
       break;
     case match_case::camel:
       // Convert the entry to camel case
-      found = ( toupper(entry[0]) == _input[0] && strcmp(&entry[1], _input.c_str()+1) == 0 );
+      found = ( ::toupper(entry[0]) == _input[0] && ::strcmp(&entry[1], _input.c_str()+1) == 0 );
       break;
     }
     if ( found ) return (i == 0);
@@ -457,7 +457,7 @@ std::string sid::base64::encode(const std::string& _input)
 std::string sid::base64::encode(const char* _input, size_t _inputLen)
 {
   if ( _input && _inputLen == std::string::npos )
-    _inputLen = strlen(_input);
+    _inputLen = ::strlen(_input);
   std::string csInput(_input, _inputLen);
   return encode(csInput);
 }
@@ -505,7 +505,7 @@ std::string sid::base64::decode(const std::string& _input)
 std::string sid::base64::decode(const char* _input, size_t _inputLen)
 {
   if ( _input && _inputLen == std::string::npos )
-    _inputLen = strlen(_input);
+    _inputLen = ::strlen(_input);
   std::string csInput(_input, _inputLen);
   return decode(csInput);
 }
@@ -737,7 +737,7 @@ int sid::get_char_no_return_silent(const char* _validChars)
   termios ors, nrs;
 
   // get current settings
-  tcgetattr(fileno(stdin), &ors);
+  ::tcgetattr(fileno(stdin), &ors);
   // make a copy of the current settings
   nrs = ors;
   // turn off the echo flag
@@ -747,19 +747,19 @@ int sid::get_char_no_return_silent(const char* _validChars)
 
   // disable ECHO and do the read
   //tcsetattr(fileno(stdin), TCSAFLUSH, &nrs);
-  tcflush(fileno(stdin), TCIFLUSH);
-  tcsetattr(fileno(stdin), TCSANOW, &nrs);
-  int validCharsLength = ( _validChars != nullptr )? strlen(_validChars):0;
+  ::tcflush(fileno(stdin), TCIFLUSH);
+  ::tcsetattr(fileno(stdin), TCSANOW, &nrs);
+  int validCharsLength = ( _validChars != nullptr )? ::strlen(_validChars):0;
   while ( true )
   {
-    ch = getchar();
-    if (validCharsLength == 0) break;
-    if (strchr(_validChars, ch) != nullptr) break;
+    ch = ::getchar();
+    if ( validCharsLength == 0 ) break;
+    if ( ::strchr(_validChars, ch) != nullptr ) break;
   }
 
   //re-enable echo by applying old settings
   //tcsetattr(fileno(stdin), TCSAFLUSH, &ors);
-  tcsetattr(fileno(stdin), TCSANOW, &ors);
+  ::tcsetattr(fileno(stdin), TCSANOW, &ors);
 
   return ch;
 }
@@ -778,12 +778,12 @@ int sid::get_char()
 int sid::get_char(const char* _validChars)
 {
   int ch;
-  int validCharsLength = ( _validChars != nullptr )? strlen(_validChars):0;
+  int validCharsLength = ( _validChars != nullptr )? ::strlen(_validChars):0;
   while ( true )
   {
     ch = get_char();
     if ( validCharsLength == 0 ) break;
-    if ( ch != 0 && strchr(_validChars, ch) != nullptr ) break;
+    if ( ch != 0 && ::strchr(_validChars, ch) != nullptr ) break;
   }
   return ch;
 }
@@ -791,13 +791,13 @@ int sid::get_char(const char* _validChars)
 int sid::get_char(const std::string& _message, const char* _validChars)
 {
   int ch;
-  int validCharsLength = ( _validChars != nullptr )? strlen(_validChars):0;
+  int validCharsLength = ( _validChars != nullptr )? ::strlen(_validChars):0;
   while ( true )
   {
     cout << _message;
     ch = get_char();
     if ( validCharsLength == 0 ) break;
-    if ( ch != 0 && strchr(_validChars, ch) != nullptr ) break;
+    if ( ch != 0 && ::strchr(_validChars, ch) != nullptr ) break;
   }
   return ch;
 }
@@ -809,18 +809,18 @@ int sid::get_char_silent()
   termios ors, nrs;
 
   // get current settings
-  tcgetattr(fileno(stdin), &ors);
+  ::tcgetattr(fileno(stdin), &ors);
   // make a copy of the current settings
   nrs = ors;
   // turn off the echo flag
   nrs.c_lflag = ~ECHO;
 
   // disable ECHO and do the read
-  tcsetattr(fileno(stdin), TCSAFLUSH, &nrs);
+  ::tcsetattr(fileno(stdin), TCSAFLUSH, &nrs);
   ch = get_char();
 
   //re-enable echo by applying old settings
-  tcsetattr(fileno(stdin), TCSAFLUSH, &ors);
+  ::tcsetattr(fileno(stdin), TCSAFLUSH, &ors);
 
   return ch;
 }
@@ -832,7 +832,7 @@ std::string sid::get_string(int _maxLength)
   // a maxLength of -1 is valid and means any length of input
   if ( _maxLength < -1 )
     return output;
-  for ( i = 0; (ch = getchar()) != '\n'; i++ )
+  for ( i = 0; (ch = ::getchar()) != '\n'; i++ )
   {
     if ( ch == KEY_UP ) { output.clear(); break; }
     if ( ch == EOF || ch == CONTROL('d') || ch == CONTROL('D') )
@@ -855,18 +855,18 @@ std::string sid::get_string_silent(int _maxLength)
   termios ors, nrs;
 
   // get current settings
-  tcgetattr(fileno(stdin), &ors);
+  ::tcgetattr(fileno(stdin), &ors);
   // make a copy of the current settings
   nrs = ors;
   // turn off the echo flag
   nrs.c_lflag = ~ECHO;
 
   // disable ECHO and do the read
-  tcsetattr(fileno(stdin), TCSAFLUSH, &nrs);
+  ::tcsetattr(fileno(stdin), TCSAFLUSH, &nrs);
   output = get_string(_maxLength);
 
   //re-enable echo by applying old settings
-  tcsetattr(fileno(stdin), TCSAFLUSH, &ors);
+  ::tcsetattr(fileno(stdin), TCSAFLUSH, &ors);
 
   return output;
 }
@@ -924,20 +924,20 @@ static bool s_to_size(
 
     char suffix[3] = {0};
     char ch1 = csVal[csVal.length()-1];
-    if ( !isdigit(ch1) )
+    if ( ! ::isdigit(ch1) )
     {
       int i = 0;
-      char ch2 = (csVal.length() > 1)? csVal[csVal.length()-2] : ' ';
-      if ( !isdigit(ch2) && ch2 != ' ' ) suffix[i++] = ch2;
+      char ch2 = ( csVal.length() > 1 )? csVal[csVal.length()-2] : ' ';
+      if ( ! ::isdigit(ch2) && ch2 != ' ' ) suffix[i++] = ch2;
       suffix[i++] = ch1;
       suffix[i] = '\0';
 
       factor = 0;
       for ( size_t i = 0; i < sizeof(g_size_unit_map)/sizeof(g_size_unit_map[0]); i++ )
       {
-        if ( strcmp(suffix, g_size_unit_map[i].name) == 0 || suffix[0] == g_size_unit_map[i].name[0] )
+        if ( ::strcmp(suffix, g_size_unit_map[i].name) == 0 || suffix[0] == g_size_unit_map[i].name[0] )
         {
-          factor = static_cast<uint64_t>(pow(1024, i));
+          factor = static_cast<uint64_t>(::pow(1024, i));
           break;
         }
         // Check only till this unit
@@ -956,7 +956,7 @@ static bool s_to_size(
         throw sid::exception(std::string("Invalid unit [") + suffix + std::string("]. Must be ") + validUnits);
       }
 
-      size_t suffixLen = strlen(suffix);
+      size_t suffixLen = ::strlen(suffix);
       csVal = csVal.substr(0, csVal.length()-suffixLen);
     }
 

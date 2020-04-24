@@ -42,6 +42,7 @@ LICENSE: END
 
 #include <string>
 #include <common/exception.hpp>
+#include <common/optional.hpp>
 #include <common/smart_ptr.hpp>
 
 namespace sid {
@@ -51,7 +52,7 @@ class device;
 using device_ptr = smart_ptr<device>;
 
 //! SCSI device types
-enum class device_type : uint8_t { invalid, generic, iscsi };
+enum class device_type : uint8_t { invalid, gscsi, iscsi };
 
 /**
  * @struct device_info
@@ -76,12 +77,28 @@ public:
   virtual device_type type() const = 0;
 
   virtual std::string id() const = 0;
-  virtual bool read_capacity(scsi::capacity16& _capacity) = 0;
-  virtual bool read(scsi::read16& _read16) = 0;
-  virtual bool write(scsi::write16& _write16) = 0;
-  virtual bool test_unit_ready() = 0;
+  bool read_capacity(/*out*/ scsi::capacity16& _capacity16);
+  virtual bool read(/*in/out*/ scsi::read16& _read16) = 0;
+  virtual bool write(/*in*/ const scsi::write16& _write16) = 0;
+  virtual bool test_unit_ready(/*out*/ scsi::sense& _sense) = 0;
 
   virtual bool inquiry(scsi::inquiry::basic* _inquiry) = 0;
+
+public:
+  scsi::capacity capacity(bool _force = false);
+  std::string wwn(bool _force = false);
+  const sid::exception& error() const { return m_error; }
+
+protected:
+  sid::exception m_error;
+
+  virtual bool v_read_capacity(/*out*/ scsi::capacity16& _capacity16) = 0;
+  virtual bool v_read(/*in/out*/ scsi::read16& _read16) = 0;
+  virtual bool v_write(/*in*/ const scsi::write16& _write16) = 0;
+
+private:
+  scsi::capacity m_capacity;
+  std::string    m_wwn;
 };
 
 } // namespace scsi

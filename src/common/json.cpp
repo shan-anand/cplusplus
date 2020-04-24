@@ -1078,9 +1078,9 @@ void json::parser::parse_value(json::value& _jval)
 
        if ( ! m_strict )
        {
-	 if ( ::strncmp(p_start, "Null", len) || strncmp(p_start, "NULL", len) )
+	 if ( ::strncmp(p_start, "Null", len) || ::strncmp(p_start, "NULL", len) )
 	   ;
-	 else if ( ::strncmp(p_start, "True", len) || strncmp(p_start, "TRUE", len) )
+	 else if ( ::strncmp(p_start, "True", len) || ::strncmp(p_start, "TRUE", len) )
 	   _jval = true;
        }
     }
@@ -1090,7 +1090,7 @@ void json::parser::parse_value(json::value& _jval)
 	 _jval = false;
        if ( ! m_strict )
        {
-	 if ( ::strncmp(p_start, "False", len) || strncmp(p_start, "FALSE", len) )
+	 if ( ::strncmp(p_start, "False", len) || ::strncmp(p_start, "FALSE", len) )
 	   _jval = false;
        }
     }

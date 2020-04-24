@@ -71,13 +71,15 @@ ifdef DEST_FILE
 OUT_FILE=$(OUT_DIR)/$(DEST_FILE)
 endif
 OBJECT_FILES = $(SOURCE_FILES:%.cpp=$(OUT_DIR)/%.o)
+#OBJECT_DIRS = $(bash -c "dirname $(OBJECT_FILES) | sort -u")
+OBJECT_DIRS = $(sort $(dir $(OBJECT_FILES)))
 
 default: all
 
 # create object files directory
 dircreate:
 ifdef DEST_FILE
-	mkdir -p $(OUT_DIR) 2>/dev/null
+	mkdir -p $(OBJECT_DIRS) 2>/dev/null
 endif
 
 # rules

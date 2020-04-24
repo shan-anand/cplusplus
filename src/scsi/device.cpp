@@ -53,16 +53,51 @@ device::device()
   //m_verbose = Verbose::None;
 }
 
-/*
-scsi::capacity16 device::capacity(bool force/ * = false* /)
+scsi::capacity device::capacity(bool _force/*= false*/)
 {
-  if ( m_capacity.empty() || force )
+  // If _force flag is set, clear the current capacity object
+  if ( _force )
+    m_capacity.clear();
+
+  // If the capacity object is not set, get it afresh
+  if ( m_capacity.empty() )
   {
-    scsi::Capacity16_t capacity16;
-    if ( !this->read_capacity(capacity16) )
+    scsi::capacity16 capacity16;
+    if ( ! this->read_capacity(capacity16) )
       throw this->error();
-    m_capacity = capacity16();
+
+    m_capacity.num_blocks = capacity16.num_blocks;
+    m_capacity.block_size = capacity16.block_size;
   }
   return m_capacity;
 }
-*/
+
+
+std::string device::wwn(bool _force/*= false*/)
+{
+  // If _force flag is set, clear the current wwn object
+  if ( _force )
+    m_wwn.clear();
+
+  // If the wwn object is not set, get it afresh
+  if ( m_wwn.empty() )
+  {
+    scsi::inquiry::unit_serial_number usn;
+    if ( ! this->inquiry(&usn) )
+      throw this->error();
+    m_wwn = usn.serial_number;
+  }
+  return m_wwn;
+}
+
+bool device::read_capacity(/*out*/ scsi::capacity16& _capacity16)
+{
+  m_capacity.clear();
+  if ( this->v_read_capacity(_capacity16) )
+    throw this->error();
+
+  m_capacity.num_blocks = _capacity16.num_blocks;
+  m_capacity.block_size = _capacity16.block_size;
+  return true;
+}
+

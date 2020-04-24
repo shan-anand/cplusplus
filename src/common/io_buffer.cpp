@@ -61,7 +61,7 @@ io_buffer io_buffer::clone() const
 {
   io_buffer out(this->length());
   out.assign(this->data(), this->length());
-  //memcpy(out.wr_data(), this->data(), this->length());
+  //::memcpy(out.wr_data(), this->data(), this->length());
   return out;
 }
 

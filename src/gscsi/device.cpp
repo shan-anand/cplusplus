@@ -218,7 +218,7 @@ bool Device_t::set_warnings_strm(const std::string& filePath)
   {
     this->clear_warnings_strm();
 
-    m_fpstream = fopen(filePath.c_str(), "w");
+    m_fpstream = ::fopen(filePath.c_str(), "w");
     if ( !m_fpstream )
       throw std::string("Unable to open file ") + filePath;
 
@@ -245,7 +245,7 @@ bool Device_t::set_warnings_strm(int fd)
   {
     this->clear_warnings_strm();
 
-    m_fpstream = fdopen(dup(fd), "w");
+    m_fpstream = ::fdopen(dup(fd), "w");
     if ( !m_fpstream )
       throw std::string("Unable to open fd ") + local::toString(fd);
 
@@ -268,7 +268,7 @@ bool Device_t::clear_warnings_strm()
 {
   if ( m_fpstream )
   {
-    fclose(m_fpstream);
+    ::fclose(m_fpstream);
     m_fpstream = nullptr;
     //sg_set_warnings_strm(m_fpstream);
   }
@@ -285,7 +285,7 @@ bool Device_t::p_open(const std::string& devicePath)
     this->p_close();
 
     struct stat s = {0};
-    if ( stat(devicePath.c_str(), &s) )
+    if ( ::stat(devicePath.c_str(), &s) )
       throw std::string("The device ") + devicePath + " does not exist, Error: " + local::toString(errno);
     /*
       st_mode flags
