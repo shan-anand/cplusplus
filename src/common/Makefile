@@ -3,6 +3,7 @@ POST_SUBDIRS = test
 
 SOURCE_FILES = \
 	convert.cpp \
+	regex.cpp \
 	hash.cpp \
 	io_buffer.cpp \
 	uuid.cpp \
