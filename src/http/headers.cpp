@@ -307,3 +307,61 @@ http::header_connection headers::connection(bool* _pisFound/* = nullptr*/) const
   }
   return res;
 }
+
+//! Get "Content-Range" header
+http::content_range headers::content_range(bool* _pisFound/* = nullptr*/) const
+{
+  http::content_range res;
+  std::string value;
+  if ( _pisFound ) *_pisFound = false;
+
+  auto get_num = [&](const std::string& str)->sid::optional<uint64_t>
+    {
+      sid::optional<uint64_t> ret;
+      if ( str != "*" && sid::to_num(str, ret()) )
+        ret.set();
+      return ret;
+    };
+
+  bool isFound = this->exists("Content-Range", &value);
+  if ( isFound )
+  {
+    do
+    {
+      // Parse the content range
+      size_t pos = 0;
+      std::string tempStr;
+      tempStr = value;
+      pos = tempStr.find(' ');
+      if ( pos != std::string::npos )
+      {
+        res.unit = tempStr.substr(0, pos);
+        tempStr = tempStr.substr(pos+1);
+      }
+      pos = tempStr.find('/');
+      if ( pos == std::string::npos )
+      {
+        isFound = false;
+        break;
+      }
+      res.length = get_num(tempStr.substr(pos+1));
+      tempStr = tempStr.substr(0, pos);
+      if ( tempStr == "*" )
+        ; // got everything
+      else
+      {
+        pos = tempStr.find('-');
+        if ( pos == std::string::npos )
+        {
+          isFound = false;
+          break;
+        }
+        res.range.start = get_num(tempStr.substr(0, pos));
+        res.range.end = get_num(tempStr.substr(pos+1));
+      }
+    }
+    while ( false );
+  }
+  if ( _pisFound ) *_pisFound = isFound;
+  return res;
+}

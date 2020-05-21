@@ -190,7 +190,7 @@ size_t cookies::add(http::response& _response) const
   for ( const http::cookie& cookie: *this )
   {
     value = cookie.to_str(false);
-    _response.headers.add(key, value);
+    _response.headers(key, value);
     ++count;
   }
 
@@ -232,7 +232,7 @@ size_t cookies::add(http::request& _request, const http::connection_ptr _conn) c
   }
 
   if ( ! values.empty() )
-    _request.headers.add(key, values);
+    _request.headers(key, values);
 
   return count;
 }

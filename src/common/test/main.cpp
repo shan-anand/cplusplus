@@ -149,8 +149,8 @@ int main(int argc, char* argv[])
       json::value::parse(jsecond, jsonStr);
       jsonStr = jsecond.to_str(json::format::pretty);
       cout << jsonStr << endl;
-      
       return 0;
+
       for ( size_t i = 0; i < 600000; i++ )
       {
 	json::value& jperson = jroot.append();

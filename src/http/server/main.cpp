@@ -40,6 +40,7 @@ bool s_set_non_blocking(bool _isEnable)
 }
 
 using ProcessThreadMap = std::map<uint64_t, std::thread>;
+using ConnectionMap = std::map<uint64_t, http::connection_ptr>;
 
 struct Global
 {
@@ -47,13 +48,14 @@ struct Global
   bool                  exit;
   std::atomic<uint64_t> totalProcessed;
   ProcessThreadMap      processMap;
+  ConnectionMap         connectionMap;
 
   http::connection_type type() const { return m_type; }
   void set_type(http::connection_type _type) { m_type = _type; }
   uint16_t port() const { return m_port > 0? m_port : m_type == http::connection_type::http? 5080 : 5443; }
   void set_port(uint16_t _port) { m_port = _port; }
 
-  Global() : scriptName(), totalProcessed(0), processMap(), m_type(http::connection_type::http), m_port(0) {}
+  Global() : scriptName(), totalProcessed(0), processMap(), connectionMap(), m_type(http::connection_type::http), m_port(0) {}
 
 private:
   http::connection_type m_type;
@@ -61,9 +63,9 @@ private:
 };
 
 static Global global;
-static void parseCommandLine(const std::vector<std::string>& args);
+static void parseCommandLine(const std::vector<std::string>& _args);
 
-void exit_handler(int signal)
+void exit_handler(int _signal)
 {
   cout << "Graceful shutdown" << endl;
   global.exit = true;
@@ -71,7 +73,7 @@ void exit_handler(int signal)
   return;
 }
 
-int main(int argc, char* argv[])
+int main(int _argc, char* _argv[])
 {
   ::signal(SIGINT, exit_handler);
   ::signal(SIGQUIT, exit_handler);
@@ -80,11 +82,11 @@ int main(int argc, char* argv[])
   try
   {
     //sid::hash::init();
-    global.scriptName = argv[0];
+    global.scriptName = _argv[0];
 
     std::vector<std::string> args;
-    for ( int i = 1; i < argc; i++ )
-      args.push_back(argv[i]);
+    for ( int i = 1; i < _argc; i++ )
+      args.push_back(_argv[i]);
 
     parseCommandLine(args);
 
@@ -161,15 +163,18 @@ void input_thread()
   global.exit = true;
 }
 
-void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
+void process_client(http::connection_ptr _conn, const uint64_t _currentProcessId)
 {
   try
   {
-    if ( global.exit )
-      throw sid::exception("Exiting process " + sid::to_str(currentProcessId) + " before reading request");
+    // Remove the connection object from the connection map as the first step
+    global.connectionMap.erase(global.connectionMap.find(_currentProcessId));
+
+  if ( global.exit )
+      throw sid::exception("Exiting process " + sid::to_str(_currentProcessId) + " before reading request");
 
     http::request request;
-    if ( ! request.recv(conn) )
+    if ( ! request.recv(_conn) )
       throw sid::exception("Failed to receive request: " + request.error);
 
     cout << "============================================" << endl;
@@ -215,7 +220,7 @@ void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
     }
 
     if ( global.exit )
-      throw sid::exception("Exiting process " + sid::to_str(currentProcessId) + " before sending response");
+      throw sid::exception("Exiting process " + sid::to_str(_currentProcessId) + " before sending response");
 
     if ( request.headers.exists("x-sid-server-kill") )
       kill(getpid(), SIGKILL);
@@ -227,11 +232,11 @@ void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
     response.headers("Date", http::date_to_str(::time(nullptr)));
     response.headers("Content-Type", "text/xml");
     response.headers.add("X-Server", "Anand's Server");
-    response.content.set_data("<ProcessCount>" + sid::to_str(currentProcessId) + "</ProcessCount>");
+    response.content.set_data("<ProcessCount>" + sid::to_str(_currentProcessId) + "</ProcessCount>");
     response.headers("Content-Length", sid::to_str(response.content.length()));
 
     // Send the response
-    if ( ! response.send(conn) )
+    if ( ! response.send(_conn) )
       throw sid::exception(response.error);
     cout << response.content.to_str() << endl;
   }
@@ -243,7 +248,7 @@ void process_client(http::connection_ptr conn, const uint64_t currentProcessId)
   {
     cerr << "process_callback: An unhandled exception occurred" << endl;
   }
-  global.processMap.erase(global.processMap.find(currentProcessId));
+  global.processMap.erase(global.processMap.find(_currentProcessId));
 }
 
 void server_thread()
@@ -255,10 +260,20 @@ void server_thread()
     http::FNProcessCallback process_callback = [](http::connection_ptr conn)
       {
 	const uint64_t currentProcessId = ++global.totalProcessed;
-	// start a new thread
-	global.processMap[currentProcessId] = std::thread([=](){process_client(conn, currentProcessId);});
-	global.processMap[currentProcessId].detach();
-	//process_client(conn, currentProcessId);
+	try
+	{
+	  // Add the connection object to the connection map
+	  global.connectionMap[currentProcessId] = conn;
+	  // start a new thread
+	  global.processMap[currentProcessId] = std::thread([=](){process_client(conn, currentProcessId);});
+	  global.processMap[currentProcessId].detach();
+	  //process_client(conn, currentProcessId);
+	}
+	catch (...)
+	{
+	  // Remove the connection object from the connection map
+	  global.connectionMap.erase(global.connectionMap.find(currentProcessId));
+	}
       };
 
     /*
@@ -363,7 +378,7 @@ bool makeArgs(const std::string& csArgs, Args& args)
   return true;
 }
 
-void parseCommandLine(const std::vector<std::string>& args)
+void parseCommandLine(const std::vector<std::string>& _args)
 {
   struct Param
   {
@@ -381,10 +396,10 @@ void parseCommandLine(const std::vector<std::string>& args)
     void clear() { type.clear(global.type()); port.clear(global.port()); }
   } cmd;
 
-  for ( size_t i = 0; i < args.size(); i++ )
+  for ( size_t i = 0; i < _args.size(); i++ )
   {
     Param param;
-    std::string arg = args[i];
+    std::string arg = _args[i];
 
     param.id = i;
     size_t pos = arg.find('=');

@@ -53,7 +53,7 @@ class server;
 // A lambda function to process every client accepted
 using FNProcessCallback = std::function<void(connection_ptr _conn)>;
 
-// A lambda function for redirect callback
+// A lambda function for exit callback
 using FNExitCallback = std::function<bool()>;
 
 //! A smart pointer to the server object.
