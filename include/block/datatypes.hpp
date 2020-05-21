@@ -55,16 +55,18 @@ namespace block {
 //! block device types
 struct device_type
 {
+  //! Datatype definitions
   enum id : uint8_t { invalid = 0, scsi_disk, iscsi, nvme };
 
 private:
+  //! Member variables
   device_type::id m_id;
 
 public:
   // Constructors
-  device_type() : m_id(device_type::invalid) {}
+  device_type(const device_type::id& _id = device_type::invalid)
+    : m_id(_id) {}
   device_type(const device_type&) = default;
-  device_type(const device_type::id& _id) : m_id(_id) {}
 
   //! Overloaded operators
   device_type& operator=(const device_type&) = default;
@@ -81,92 +83,146 @@ public:
   bool is_nvme() const { return (m_id == device_type::nvme); }
 };
 
+//! block data state
 struct data_state
 {
-  enum id : uint8_t { modified, removed, lost };
+  //! Datatype definitions
+  enum id : uint8_t { set, reset };
 
 private:
+  //! Member variables
   data_state::id m_id;
 
 public:
-  // Constructors
-  data_state() : m_id(data_state::modified) {}
-  data_state(const data_state&) = default;
-  data_state(const data_state::id& _id) : m_id(_id) {}
+  //! Constructors
+  data_state(const data_state::id& _id = data_state::set)
+    : m_id(_id) {}
 
   //! Overloaded operators
   data_state& operator=(const data_state&) = default;
   data_state& operator=(const data_state::id& _id) { m_id = _id; return *this; }
 
-  void clear() { m_id = data_state::modified; }
-
+  //! Member functions
+  void clear() { m_id = data_state::set; }
   const data_state::id& id() const { return m_id; }
   std::string name() const;
 };
 
+//! data region in bytes
 struct byte_region
 {
-  uint64_t offset, length;
-  byte_region(const uint64_t _offset = 0, const uint64_t _length = 0 )
-    : offset(_offset), length(_length)
-    {}
+  //! Member variables
+  uint64_t offset; //! Offset in bytes
+  uint64_t length; //! Length in bytes
+
+  //! Constructor
+  byte_region(const uint64_t _offset = 0, const uint64_t _length = 0)
+    : offset(_offset), length(_length) {}
+
+  //! Member functions
   void clear() { offset = length = 0; }
   bool empty() { return (length == 0); }
 };
 using byte_regions = std::vector<byte_region>;
 
+//! data unit in bytes (region + state)
 struct byte_unit : public byte_region
 {
+  //! Datatype definitions
   using super = byte_region;
+
+  //! Member variables
   data_state state;
-  byte_unit() : byte_region(), state() {}
-  byte_unit(const byte_region& _region) : byte_region(_region), state() {}
-  byte_unit(const data_state& _state) : byte_region(), state(_state) {}
-  byte_unit(const byte_region& _region, const data_state& _state) : byte_region(_region), state(_state) {}
-  void clear() { super::clear(); state = data_state::modified; }
+
+  //! Constructors
+  byte_unit(const byte_region& _region = byte_region(), const data_state& _state = data_state())
+    : byte_region(_region), state(_state) {}
+  byte_unit(const uint64_t _offset, const uint64_t _length, const data_state& _state = data_state())
+    : byte_region(_offset, _length), state(_state) {}
+  byte_unit(const data_state& _state)
+    : byte_region(), state(_state) {}
+
+  //! Member functions
+  void clear() { super::clear(); state.clear(); }
   std::string to_str() const;
 };
 
+//! A vector of data units in bytes (region + state)
 struct byte_units : std::vector<byte_unit>
 {
+  //! Datatype definitions
   using super = std::vector<byte_unit>;
+
+  //! Member functions
   std::string to_str() const;
   uint64_t length() const;
 };
 
+//! data region in blocks
 struct block_region
 {
-  uint64_t lba, blocks;
+  //! Member variables
+  uint64_t lba;    //! Offset in blocks (Logical block address)
+  uint64_t blocks; //! Number of blocks
+
+  //! Constructor
   block_region(const uint64_t& _lba = 0, const uint64_t& _blocks = 0 )
-    : lba(_lba), blocks(_blocks)
-    {}
+    : lba(_lba), blocks(_blocks) {}
+
+  //! Member functions
   void clear() { lba = blocks = 0; }
   bool empty() { return (blocks == 0); }
 };
-using block_regions = std::vector<block_region>;
 
+//! data unit in blocks (region + state)
 struct block_unit : public block_region
 {
+  //! Datatype definitions
   using super = block_region;
+
+  //! Member variables
   data_state state;
-  block_unit(const data_state& _state = data_state::modified) : block_region(), state(_state) {}
-  block_unit(const block_region& _region, const data_state& _state = data_state::modified) : block_region(_region), state(_state) {}
-  void clear() { super::clear(); state = data_state::modified; }
+
+  //! Constructors
+  block_unit(const block_region& _region = block_region(), const data_state& _state = data_state())
+    : block_region(_region), state(_state) {}
+  block_unit(const uint64_t _lba, const uint64_t _blocks, const data_state& _state = data_state())
+    : block_region(_lba, _blocks), state(_state) {}
+  block_unit(const data_state& _state)
+    : block_region(), state(_state) {}
+
+  //! Member functions
+  void clear() { super::clear(); state.clear(); }
   std::string to_str() const;
+};
+using byte_units = std::vector<byte_unit>;
+
+//! A vector of data units in blocks (region + state)
+struct block_units : std::vector<block_unit>
+{
+  //! Datatype definitions
+  using super = std::vector<byte_unit>;
+
+  //! Member functions
+  uint64_t blocks() const;
 };
 
 //! common capacity structure
 struct capacity
 {
-  uint64_t num_blocks; //! Number of blocks
-  uint64_t block_size; //! Block size in bytes
+  //! Member variables
+  uint64_t blocks;      //! Number of blocks
+  uint64_t block_size;  //! Block size in bytes
 
+  //! Constructor
+  capacity(const uint64_t _blocks = 0, const uint64_t _block_size = 0)
+    : blocks(_blocks), block_size(_block_size) {}
+
+  //! Member functions
   //! Return the capacity in bytes
-  uint64_t num_bytes() const { return num_blocks * block_size; }
-
-  capacity();
-  void clear();
-  bool empty() const { return (num_blocks == 0 && block_size == 0); }
+  uint64_t bytes() const { return (blocks * block_size); }
+  void clear() { blocks = block_size = 0; }
+  bool empty() const { return (blocks == 0 && block_size == 0); }
 };
 
 } // namespace block
