@@ -1,7 +1,7 @@
 /*
 LICENSE: BEGIN
 ===============================================================================
-@author Shanmuga (Anand) Gunasekaran
+@author Shan Anand
 @email anand.gs@gmail.com
 @source https://github.com/shan-anand
 @brief Exception object thrown by all the functions in the project

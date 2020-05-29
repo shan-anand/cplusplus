@@ -1,7 +1,7 @@
 /*
 LICENSE: BEGIN
 ===============================================================================
-@author Shanmuga (Anand) Gunasekaran
+@author Shan Anand
 @email anand.gs@gmail.com
 @source https://github.com/shan-anand
 @brief Template class for having optional parameters
