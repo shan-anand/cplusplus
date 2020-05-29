@@ -68,8 +68,12 @@ struct device_info
 class device : public smart_ref
 {
 public:
-  device();
-  static device_ptr create(device_info* _deviceInfo);
+  // Do not allow copy operation
+  device(const device&) = delete;
+  device& operator=(const device&) = delete;
+
+  //! Create new block device object
+  static device_ptr create(const device_info& _deviceInfo);
 
   device_ptr to_block_device_ptr() const { return dynamic_cast<device*>(const_cast<device*>(this)); }
 
@@ -78,6 +82,17 @@ public:
   virtual std::string id() const = 0;
   virtual block::capacity capacity(bool _force = false) = 0;
   virtual std::string wwn(bool _force = false) = 0;
+
+  //! Get exception
+  const sid::exception& exception() const { return m_ex; }
+  //! Set exception
+  sid::exception& exception() { return m_ex; }
+
+private:
+  sid::exception m_ex;
+
+protected:
+  device();
 };
 
 } // namespace block

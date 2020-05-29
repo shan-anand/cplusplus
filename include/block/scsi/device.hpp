@@ -53,6 +53,15 @@ class device;
 using device_ptr = smart_ptr<device>;
 
 /**
+ * @struct device_info
+ * @brief Place holder for connection interface for SCSI device
+ */
+struct device_info : public block::device_info
+{
+  using super = block::device_info;
+};
+
+/**
  * @struct device
  * @brief SCSI device interface definition
  */
@@ -60,10 +69,9 @@ class device : public block::device
 {
 public:
   using super = block::device;
-  device();
 
   //! Create new device object
-  static device_ptr create(block::device_info* _deviceInfo);
+  static device_ptr create(const device_info& _deviceInfo);
 
   device_ptr to_scsi_device_ptr() const { return dynamic_cast<device*>(const_cast<device*>(this)); }
 
@@ -72,11 +80,14 @@ public:
   std::string wwn(bool _force = false) override;
 
   //! Virtual functions to be overwritten in the derived classes
-  virtual bool test_unit_ready(scsi::sense& _sense) = 0;
-  virtual bool read_capacity(scsi::capacity16& _capacity) = 0;
-  virtual bool read(scsi::read16& _read16) = 0;
-  virtual bool write(scsi::write16& _write16) = 0;
-  virtual bool inquiry(scsi::inquiry::basic* _inquiry) = 0;
+  virtual bool test_unit_ready(sense& _sense) = 0;
+  virtual bool read_capacity(capacity16& _capacity) = 0;
+  virtual bool read(read16& _read16) = 0;
+  virtual bool write(write16& _write16) = 0;
+  virtual bool inquiry(inquiry::basic* _inquiry) = 0;
+
+protected:
+  device();
 };
 
 } // namespace scsi

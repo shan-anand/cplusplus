@@ -34,7 +34,7 @@ LICENSE: END
 
 /**
  * @file  datatypes.hpp
- * @brief Definition of scsi datatypes
+ * @brief Definition of SCSI datatypes
  */
 
 #ifndef _SID_SCSI_DATATYPES_H_
@@ -264,6 +264,9 @@ struct standard : public basic
   standard();
   void clear();
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
+
+private:
+  void p_clear();
 };
 
 struct basic_vpd : public basic
@@ -278,8 +281,11 @@ struct basic_vpd : public basic
 
 protected:
   basic_vpd(const uint8_t _code_page);
-  basic_vpd(const scsi::code_page& _code_page) : basic_vpd(static_cast<uint8_t>(_code_page)) {}
+  basic_vpd(const scsi::code_page& _code_page);
   bool p_set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr);
+
+private:
+  void p_clear();
 };
 
 struct supported_vpd_pages : public basic_vpd
@@ -294,6 +300,9 @@ struct supported_vpd_pages : public basic_vpd
   supported_vpd_pages();
   void clear() override;
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
+
+private:
+  void p_clear();
 };
 
 struct unit_serial_number : public basic_vpd
@@ -314,6 +323,9 @@ struct unit_serial_number : public basic_vpd
   unit_serial_number();
   void clear() override;
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
+
+private:
+  void p_clear();
 };
 
 struct device_designator
@@ -338,6 +350,9 @@ struct device_identification : public basic_vpd
   device_identification();
   void clear() override;
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
+
+private:
+  void p_clear();
 };
 
 struct block_limits : public basic_vpd
@@ -349,6 +364,9 @@ struct block_limits : public basic_vpd
   block_limits();
   void clear() override;
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
+
+private:
+  void p_clear();
 };
 
 struct block_device_characteristics : public basic_vpd
@@ -360,6 +378,9 @@ struct block_device_characteristics : public basic_vpd
   block_device_characteristics();
   void clear();
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
+
+private:
+  void p_clear();
 };
 
 struct logical_block_provisioning : public basic_vpd
@@ -371,6 +392,9 @@ struct logical_block_provisioning : public basic_vpd
   logical_block_provisioning();
   void clear();
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
+
+private:
+  void p_clear();
 };
 
 struct custom_vpd : public basic_vpd
@@ -384,33 +408,12 @@ struct custom_vpd : public basic_vpd
   custom_vpd(const uint8_t _code_page);
   void clear();
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
+
+private:
+  void p_clear();
 };
 
-} // namespace Inquiry
-
-/**
- * @struct data_block
- * @brief Data to be read or written at the given offset/blocks
- */
-struct data_block
-{
-  uint64_t  lba;      //! Logical Block Address to start IO operation
-  uint32_t  blocks;   //! Numbers of blocks to read/write
-
-  data_block(const uint64_t& lba_p = 0, const uint32_t& blocks_p = 0) : lba(lba_p), blocks(blocks_p) {}
-  void clear() { lba = blocks = 0; }
-  bool empty() const { return (lba == 0 && blocks == 0); }
-  uint64_t bytes(const uint32_t& block_size) const { return (this->blocks * block_size); }
-};
-
-struct data_blocks : public std::vector<data_block>
-{
-  using super = std::vector<data_block>;
-  //! Returns the sum of total number of blocks in the vector
-  uint64_t blocks() const;
-  //! Returns the sum of total number of bytes in the vector
-  uint64_t bytes(const uint32_t& block_size) const;
-};
+} // namespace inquiry
 
 } // namespace scsi
 } // namespace block

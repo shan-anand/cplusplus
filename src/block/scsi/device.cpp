@@ -46,8 +46,42 @@ using namespace sid::block::scsi;
 //
 // device
 //
+
+//! Create new SCSI device object
+/*static*/
+device_ptr device::create(const device_info& _deviceInfo)
+{
+  return dynamic_cast<device*>(_deviceInfo.create().ptr());
+}
+
 device::device()
 {
   //m_verbose = Verbose::None;
 }
 
+block::capacity device::capacity(bool _force/* = false*/)
+{
+  block::capacity cap;
+  {
+    scsi::capacity16 cap16;
+    if ( ! this->read_capacity(cap16) )
+      throw this->exception();
+    // Set the return value
+    cap.blocks = cap16.num_blocks;
+    cap.block_size = cap16.block_size;
+  }
+  return cap;
+}
+
+std::string device::wwn(bool _force/* = false*/)
+{
+  std::string wwnStr;
+  {
+    scsi::inquiry::unit_serial_number usn;
+    if ( ! this->inquiry(&usn) )
+      throw this->exception();
+    // Set the return value
+    wwnStr = usn.serial_number;
+  }
+  return wwnStr;
+}

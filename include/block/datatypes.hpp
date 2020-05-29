@@ -40,16 +40,10 @@ LICENSE: END
 #ifndef _SID_BLOCK_DATATYPES_H_
 #define _SID_BLOCK_DATATYPES_H_
 
+#include <string>
+#include <vector>
+
 namespace sid {
-
-namespace block {
-struct data_region;
-struct data_unit;
-}
-
-namespace byte {
-}
-
 namespace block {
 
 //! block device types
@@ -195,7 +189,6 @@ struct block_unit : public block_region
   void clear() { super::clear(); state.clear(); }
   std::string to_str() const;
 };
-using byte_units = std::vector<byte_unit>;
 
 //! A vector of data units in blocks (region + state)
 struct block_units : std::vector<block_unit>

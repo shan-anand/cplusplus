@@ -41,6 +41,7 @@ LICENSE: END
 #define _SID_ISCSI_DATATYPES_H_
 
 #include "../datatypes.hpp"
+#include <common/smart_ptr.hpp>
 #include <common/io_buffer.hpp>
 
 //

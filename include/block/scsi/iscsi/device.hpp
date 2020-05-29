@@ -58,9 +58,9 @@ using device_ptr = smart_ptr<device>;
  * @struct device_info
  * @brief Connection interface for ISCSI device
  */
-struct device_info : public block::device_info
+struct device_info : public scsi::device_info
 {
-  using super = block::device_info;
+  using super = scsi::device_info;
 
   //! Member variables
   std::string portal; //! ISCSI device portal
@@ -85,7 +85,10 @@ class device : public scsi::device
 {
 public:
   using super = scsi::device;
-  device();
+
+  // Do not allow copy operation
+  device(const device&) = delete;
+  device& operator=(const device&) = delete;
 
   //! Create new IScsi device object
   static device_ptr create(const device_info& _deviceInfo);
@@ -110,6 +113,9 @@ public:
 
 private:
   device_info m_info;
+
+private:
+  device();
 };
 
   //  if ( scsi_device->type() == block::device_type::iscsi )

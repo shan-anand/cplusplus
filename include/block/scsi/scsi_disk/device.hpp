@@ -56,9 +56,9 @@ using device_ptr = smart_ptr<device>;
  * @struct device_info
  * @brief Connection interface for SCSI disk device
  */
-struct device_info : public block::device_info
+struct device_info : public scsi::device_info
 {
-  using super = block::device_info;
+  using super = scsi::device_info;
 
   //! Member variables
   std::string path; //! Device path
@@ -80,7 +80,10 @@ class device : public scsi::device
 {
 public:
   using super = scsi::device;
-  device();
+
+  // Do not allow copy operation
+  device(const device&) = delete;
+  device& operator=(const device&) = delete;
 
   //! Create new SCSI-disk device object
   static device_ptr create(const device_info& _deviceInfo);
@@ -102,6 +105,9 @@ public:
 
 private:
   device_info m_info;
+
+private:
+  device();
 };
 
 } // namespace scsi_disk
