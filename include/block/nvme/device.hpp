@@ -56,14 +56,27 @@ using device_ptr = smart_ptr<device>;
  * @struct device_info
  * @brief Connection interface for NVME device
  */
-struct device_info
+struct device_info : public block::device_info
 {
-  block::device_type type() const override { return block::device_type::nvme; }
-  std::string id() const override;
+  //! Member variables
+  std::string path; //! Device path
 
-  std::string portal; //! NVME device portal
-  // chap and mchap
-  int lun; //! Current lun id used
+  device_info();
+
+  //=============================================================================
+  //! Override functions from block::device_info
+  block::device_type type() const final { return block::device_type::nvme; }
+  std::string id() const final;
+  void clear() final;
+  bool empty() const final;
+  // Set the device info object
+  void set(const std::string& _infoStr) final;
+  bool set(const std::string& _infoStr, std::string& csError) noexcept final;
+  // Get the device info as a string
+  std::string to_str() noexcept final;
+  //! Create a new block device object
+  block::device_ptr create() const final;
+  //=============================================================================
 };
   
 /**
@@ -74,11 +87,30 @@ class device : public block::device
 {
 public:
   using super = block::device;
-  device();
+
+  // Virtual destructor
+  virtual ~device();
+
+  // Do not allow copy operation
+  device(const device&) = delete;
+  device& operator=(const device&) = delete;
+
+  //! Create new NVMe-disk device object
   static device_ptr create(const device_info& _deviceInfo);
+
+  //=============================================================================
+  //! Override functions from block::device
+  block::device_type type() const final { return m_info.type(); }
+  std::string id() const final { return m_info.id(); }
+  block::capacity capacity(bool _force = false) override;
+  std::string wwn(bool _force = false) override;
+  //=============================================================================
 
 private:
   device_info m_info;
+
+private:
+  device();
 };
 
 } // namespace nvme

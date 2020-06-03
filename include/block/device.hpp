@@ -58,6 +58,14 @@ struct device_info
 {
   virtual device_type type() const = 0;
   virtual std::string id() const = 0;
+  virtual void clear() = 0;
+  virtual bool empty() const = 0;
+  // Set the device info object
+  virtual void set(const std::string& _infoStr) = 0;
+  virtual bool set(const std::string& _infoStr, std::string& csError) noexcept = 0;
+  // Get the device info as a string
+  virtual std::string to_str() noexcept = 0;
+  //! Create a new block device object
   virtual device_ptr create() const = 0;
 };
   
@@ -68,6 +76,9 @@ struct device_info
 class device : public smart_ref
 {
 public:
+  // Virtual destructor
+  virtual ~device();
+
   // Do not allow copy operation
   device(const device&) = delete;
   device& operator=(const device&) = delete;

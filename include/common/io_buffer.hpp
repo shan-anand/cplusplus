@@ -54,17 +54,19 @@ namespace sid {
  */
 struct io_buffer : public std::basic_string<uchar8_t>
 {
+  using super = std::basic_string<uchar8_t>;
+
   //! Default constructor
   io_buffer() : m_zero_pos(0) {}
   //! Constructor to create a buffer with a pre-allocated size, filled with zeros
-  io_buffer(size_t _n) : std::basic_string<uchar8_t>(_n, 0), m_zero_pos(0) {}
+  io_buffer(size_t _n) : super(_n, 0), m_zero_pos(0) {}
 
   //! Make a clone of the object (Deep copy)
   io_buffer clone() const;
 
-  void clear() { std::basic_string<uchar8_t>::clear(); m_zero_pos = 0; }
+  void clear() { super::clear(); m_zero_pos = 0; }
 
-  //! Set the current absolute position treated as 0
+  //! Get the current absolute position
   size_t get_zero_pos() const { return m_zero_pos; }
 
   //! Set the current absolute position, treated as 0 by rd_data() and wr_data() functions. Returns the old position.

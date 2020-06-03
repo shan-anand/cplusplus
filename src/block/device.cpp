@@ -58,3 +58,7 @@ device::device() : smart_ref()
 {
   //m_verbose = Verbose::None;
 }
+
+device::~device()
+{
+}

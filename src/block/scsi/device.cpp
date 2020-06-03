@@ -59,6 +59,10 @@ device::device()
   //m_verbose = Verbose::None;
 }
 
+device::~device()
+{
+}
+
 block::capacity device::capacity(bool _force/* = false*/)
 {
   block::capacity cap;

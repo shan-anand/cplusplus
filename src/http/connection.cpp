@@ -624,13 +624,13 @@ ssize_t http_connection::write(const void* _buffer, size_t _count)
       int retVal = ::write(m_socket, _buffer, _count);
       if ( retVal < 0 )
       {
-	if ( errno == EAGAIN || errno == EWOULDBLOCK )
-	{
-	  bContinue = true;
-	  //cout << "write: EWOULDBLOCK returned. Continuing the loop" << endl;
-	}
-	else if ( errno != 0 )
-	  throw sid::exception("Write failed with error: " + sid::to_errno_str());
+        if ( errno == EAGAIN || errno == EWOULDBLOCK )
+        {
+          bContinue = true;
+          //cout << "write: EWOULDBLOCK returned. Continuing the loop" << endl;
+        }
+        else if ( errno != 0 )
+          throw sid::exception("Write failed with error: " + sid::to_errno_str());
       }
       return retVal;
     };
@@ -647,13 +647,13 @@ ssize_t http_connection::read(void* _buffer, size_t _count)
       int retVal = ::read(m_socket, _buffer, _count);
       if ( retVal < 0 )
       {
-	if ( errno == EAGAIN || errno == EWOULDBLOCK )
-	{
-	  bContinue = true;
-	  //cout << "read: EWOULDBLOCK returned. Continuing the loop" << endl;
-	}
-	else if ( errno != 0 )
-	  throw sid::exception("Read failed with error: " + sid::to_errno_str());
+        if ( errno == EAGAIN || errno == EWOULDBLOCK )
+        {
+          bContinue = true;
+          //cout << "read: EWOULDBLOCK returned. Continuing the loop" << endl;
+        }
+        else if ( errno != 0 )
+          throw sid::exception("Read failed with error: " + sid::to_errno_str());
       }
       return retVal;
     };

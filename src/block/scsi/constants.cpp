@@ -1742,9 +1742,9 @@ template <typename T> std::string to_str(const T& v, bool inHex = false)
     const char* p_last = nullptr;               \
     for ( const auto& entry : _MAP )            \
     {                                           \
-      if ( ! entry.name  ) p_last = entry.name; \
+      if ( entry.name ) p_last = entry.name;    \
       if ( _TYPE == entry.type )                \
-        { _out = p_last; break; }               \
+      { _out = p_last? p_last : ""; break; }    \
     }                                           \
     _out;                                       \
   })

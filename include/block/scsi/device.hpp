@@ -70,14 +70,19 @@ class device : public block::device
 public:
   using super = block::device;
 
+  // Virtual destructor
+  virtual ~device();
+
   //! Create new device object
   static device_ptr create(const device_info& _deviceInfo);
 
   device_ptr to_scsi_device_ptr() const { return dynamic_cast<device*>(const_cast<device*>(this)); }
 
+  //=============================================================================
   //! Override functions from block::device
   block::capacity capacity(bool _force = false) override;
   std::string wwn(bool _force = false) override;
+  //=============================================================================
 
   //! Virtual functions to be overwritten in the derived classes
   virtual bool test_unit_ready(sense& _sense) = 0;

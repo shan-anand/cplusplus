@@ -52,6 +52,10 @@ namespace scsi_disk {
 class device;
 using device_ptr = smart_ptr<device>;
 
+#define SCSI_DISK_OPEN_MODE_READ  0x01
+#define SCSI_DISK_OPEN_MODE_WRITE 0x02
+#define SCSI_DISK_OPEN_MODE_RW    (SCSI_DISK_OPEN_MODE_READ | SCSI_DISK_OPEN_MODE_WRITE)
+
 /**
  * @struct device_info
  * @brief Connection interface for SCSI disk device
@@ -60,13 +64,39 @@ struct device_info : public scsi::device_info
 {
   using super = scsi::device_info;
 
+  union open_mode
+  {
+    struct
+    {
+      int8_t read  : 1;
+      int8_t write : 1;
+    };
+    int8_t flags;
+    open_mode(const int _flags = SCSI_DISK_OPEN_MODE_RW) : flags(_flags) {}
+
+    bool empty() const { return !this->read && !this->write; }
+    bool is_read_only() const { return this->read && !this->write; }
+    bool is_write_only() const { return !this->read && this->write; }
+    bool is_rw() const { return this->read && this->write; }
+  };
+
   //! Member variables
   std::string path; //! Device path
+  open_mode   mode; //! Open mode
+
+  device_info();
 
   //=============================================================================
   //! Override functions from block::device_info
   block::device_type type() const final { return block::device_type::scsi_disk; }
-  std::string id() const final { return path; }
+  std::string id() const final;
+  void clear() final;
+  bool empty() const final;
+  // Set the device info object
+  void set(const std::string& _infoStr) final;
+  bool set(const std::string& _infoStr, std::string& csError) noexcept final;
+  // Get the device info as a string
+  std::string to_str() noexcept final;
   //! Create a new block device object
   block::device_ptr create() const final;
   //=============================================================================
@@ -80,6 +110,9 @@ class device : public scsi::device
 {
 public:
   using super = scsi::device;
+
+  // Virtual destructor
+  virtual ~device();
 
   // Do not allow copy operation
   device(const device&) = delete;
@@ -105,9 +138,13 @@ public:
 
 private:
   device_info m_info;
+  int         m_fd;
 
 private:
   device();
+  bool p_open();
+  void p_close();
+  bool p_set_non_blocking();
 };
 
 } // namespace scsi_disk

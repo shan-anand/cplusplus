@@ -38,12 +38,54 @@ LICENSE: END
  */
 
 #include <block/scsi/datatypes.hpp>
+#include <common/convert.hpp>
 #include <string.h>
 #include <sstream>
+#include <iostream>
 #include "local.h"
 
+using namespace std;
 using namespace sid;
 using namespace sid::block::scsi;
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// test_unit_ready
+//
+test_unit_ready::test_unit_ready()
+{
+  clear();
+}
+
+void test_unit_ready::clear()
+{
+  ::memset(this, 0, sizeof(test_unit_ready));
+}
+
+sid::io_buffer test_unit_ready::get() const
+{
+  sid::io_buffer ioBuffer(static_cdb_size());
+  return this->get(ioBuffer);
+}
+
+sid::io_buffer& test_unit_ready::get(sid::io_buffer& _ioBuffer) const
+{
+  if ( _ioBuffer.wr_length() < static_cdb_size() )
+    throw sid::exception(std::string("test_unit_ready::get: Buffer size smaller than required"));
+
+  // Fill the buffer with CDB data
+  _ioBuffer.set_8(0, this->opcode());
+  _ioBuffer.set_32(1, this->reserved);
+  _ioBuffer.set_8(5, this->control);
+
+  /*
+  cout << "    test_unit_ready cdb<" << _ioBuffer.rd_length()<< ">:";
+  for ( size_t i = _ioBuffer.get_zero_pos(); i < _ioBuffer.rd_length(); i++ )
+    cout << " " << setfill('0') << setw(2) << std::hex << ((int) _ioBuffer[i]);
+  cout << endl;
+  */
+  return _ioBuffer;
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -91,6 +133,33 @@ capacity16::capacity16()
 void capacity16::clear()
 {
   ::memset(this, 0, sizeof(capacity16));
+}
+
+sid::io_buffer capacity16::get() const
+{
+  sid::io_buffer ioBuffer(static_cdb_size());
+  return this->get(ioBuffer);
+}
+
+sid::io_buffer& capacity16::get(sid::io_buffer& _ioBuffer) const
+{
+  if ( _ioBuffer.wr_length() < static_cdb_size() )
+    throw sid::exception(std::string("capacity16::get: Buffer size smaller than required"));
+
+  const uint8_t service_action = 0x10;
+  const uint32_t allocation_length = READ_CAP16_REPLY_LEN;
+  // Fill the buffer with CDB data
+  _ioBuffer.set_8(0, this->opcode());
+  _ioBuffer.set_8(1, 0, 5, service_action);
+  _ioBuffer.set_32(10, allocation_length);
+
+  /*
+  cout << "    read-capacity cdb:";
+  for ( size_t i = _ioBuffer.get_zero_pos(); i < _ioBuffer.wr_length(); i++ )
+    cout << " " << setfill('0') << setw(2) << std::hex << ((int) _ioBuffer[i]);
+  cout << endl;
+  */
+  return _ioBuffer;
 }
 
 bool capacity16::set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* = nullptr*/)
@@ -176,9 +245,27 @@ std::string sense::to_str() const
   */
   out << " SENSE KEY:" <<  "(" << local::to_str<int>(static_cast<int>(this->key))
       << ") ASC/ASCQ:"  << "(" << local::to_str<int>(this->asc)
-      << "/" << local::to_str<int>(this->ascq) << ")";
+      << "/" << local::to_str<int>(this->ascq) << ") " << scsi::to_str(this->as);
 
   return out.str();
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// inquiry::cdb
+//
+inquiry::cdb::cdb(const bool _evpd/* = false*/, uint8_t _page_code/* = 0x00*/, uint8_t _reply_len/* = 0xFF*/) :
+  evpd(_evpd),
+  page_code(_page_code),
+  reply_len(_reply_len)
+{
+}
+
+void inquiry::cdb::clear()
+{
+  evpd = false;
+  page_code = 0x00;
+  reply_len = 0xFF;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -194,6 +281,27 @@ void inquiry::basic::clear()
 {
   qualifier = peripheral_qualifier::not_supported;
   device_type = peripheral_device_type::unknown;
+}
+
+sid::io_buffer inquiry::basic::get() const
+{
+  sid::io_buffer ioBuffer(cdb::static_size());
+  return this->get(ioBuffer);
+}
+
+sid::io_buffer& inquiry::basic::p_get(sid::io_buffer& _ioBuffer, const cdb& _cdb) const
+{
+  if ( _ioBuffer.wr_length() < static_cdb_size() )
+    throw sid::exception(std::string("inquiry: Buffer size smaller than required"));
+
+  // Fill the buffer with CDB data
+  _ioBuffer.set_8(0, _cdb.opcode());
+  _ioBuffer.set_8(1, (_cdb.evpd? 1 : 0));
+  _ioBuffer.set_8(2, _cdb.page_code);
+  _ioBuffer.set_8(3, 0); // reserved
+  _ioBuffer.set_8(4, _cdb.reply_len);
+  _ioBuffer.set_8(5, 0); // control field
+  return _ioBuffer;
 }
 
 bool inquiry::basic::p_set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* = nullptr*/)
@@ -236,6 +344,11 @@ void inquiry::standard::clear()
   p_clear();
 }
 
+sid::io_buffer& inquiry::standard::get(sid::io_buffer& _ioBuffer) const
+{
+  return p_get(_ioBuffer, inquiry::cdb(false, 0));
+}
+
 bool inquiry::standard::set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* = nullptr*/)
 {
   // Check for minimum data buffer size required to contain the command's data
@@ -270,7 +383,14 @@ bool inquiry::standard::set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* 
 //
 // inquiry::basic_vpd
 //
-inquiry::basic_vpd::basic_vpd(const uint8_t _code_page) : super()
+inquiry::basic_vpd::basic_vpd(const uint8_t _code_page) :
+  super(),
+  page_code(_code_page)
+{
+}
+
+inquiry::basic_vpd::basic_vpd(const scsi::code_page& _code_page) :
+  basic_vpd(static_cast<uint8_t>(_code_page))
 {
 }
 
@@ -283,6 +403,11 @@ void inquiry::basic_vpd::clear()
 {
   super::clear();
   p_clear();
+}
+
+sid::io_buffer& inquiry::basic_vpd::get(sid::io_buffer& _ioBuffer) const
+{
+  return p_get(_ioBuffer, inquiry::cdb(true, page_code));
 }
 
 bool inquiry::basic_vpd::p_set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* = nullptr*/)
@@ -348,7 +473,7 @@ bool inquiry::unit_serial_number::set(const sid::io_buffer& _ioBuffer, size_t* _
       return false;
     }
 
-    this->serial_number = _ioBuffer.get_string(4, this->page_length);
+    this->serial_number = sid::trim(_ioBuffer.get_string(4, this->page_length));
   }
 
   return true;

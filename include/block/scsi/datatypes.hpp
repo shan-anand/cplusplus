@@ -56,7 +56,8 @@ LICENSE: END
 // read Sense buffer length
 #define SENSE_BUFFER_REPLY_LEN       8
 // inquiry standard response length
-#define INQUIRY_STANDARD_REPLY_LEN  96
+//#define INQUIRY_STANDARD_REPLY_LEN  96
+#define INQUIRY_STANDARD_REPLY_LEN  0xFF
 
 #define IMPLEMENT_CLASS_EX(CLASS)                 \
 struct CLASS##_ex : public CLASS                  \
@@ -71,6 +72,20 @@ namespace sid {
 namespace block {
 namespace scsi {
 
+struct test_unit_ready
+{ 
+  static size_t static_cdb_size() { return 6; }
+  // CDB (Command Descriptor Block) members
+  uint8_t opcode() const { return 0x00; } //! [Byte 0:(0-7)]
+  uint32_t reserved;                      //! [Bytes 1 - 4]
+  uint8_t  control;                       //! [Byte 5]
+
+  test_unit_ready();
+  void clear();
+  sid::io_buffer get() const;
+  sid::io_buffer& get(sid::io_buffer& ioBuffer) const;
+};
+
 struct capacity10
 {
   uint32_t num_blocks; //! Number of blocks [Bytes 0-3] + 1
@@ -83,6 +98,11 @@ struct capacity10
 
 struct capacity16
 {
+  static size_t static_cdb_size() { return 16; }
+  // CDB (Command Descriptor Block) members
+  uint8_t opcode() const { return 0x9E; } //! [Byte 0:(0-7)]
+
+  // Response
   uint64_t num_blocks; //! Number of blocks [Bytes 0 - 7] + 1
   uint32_t block_size; //! Block length in bytes [Bytes 8 - 11]
 
@@ -104,7 +124,11 @@ struct capacity16
 
   capacity16();
   void clear();
+  uint64_t bytes() const { return num_blocks * block_size; }
+
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr);
+  sid::io_buffer get() const;
+  sid::io_buffer& get(sid::io_buffer& ioBuffer) const;
 };
 
 struct sense
@@ -191,25 +215,48 @@ IMPLEMENT_CLASS_EX(write16);
 namespace inquiry
 {
 
-code_page get_code_page(const uint8_t _page_code) { return (scsi::code_page) _page_code; }
+//code_page get_code_page(const uint8_t _page_code) { return (scsi::code_page) _page_code; }
+
+struct cdb
+{
+  static size_t static_size() { return 6; }
+  uint8_t opcode() const { return 0x12; } //! [Byte 0:(0-7)]
+  bool    evpd;              //! [Byte 1:(0-7)]
+  uint8_t page_code;         //! [Byte 2:(0-7)]
+  // reserved                //! [Byte 3:(0-7)]
+  uint8_t reply_len;         //! [Byte 4:(0-7)]
+  // control                 //! [Byte 5:(0-7)]
+
+  cdb(const bool _evpd = false, uint8_t _page_code = 0x00, uint8_t _reply_len = 0xFF);
+  void clear();
+};
 
 struct basic
 {
+  static size_t static_cdb_size() { return 6; }
+  // CDB (Command Descriptor Block) members
+  uint8_t opcode() const { return 0x12; } //! [Byte 0:(0-7)]
+
   // == Byte 0 == ////////////////////////////////////////////////////////////////////////////
   peripheral_qualifier   qualifier;      //! Peripheral qualifier [Byte 0:(5-7)]
   peripheral_device_type device_type;    //! Device type [Byte 0:(0-4)]
 
+  sid::io_buffer get() const;
+
   virtual void clear();
   virtual bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) = 0;
+  virtual sid::io_buffer& get(sid::io_buffer& _ioBuffer) const = 0;
 
 protected:
   basic();
+  sid::io_buffer& p_get(sid::io_buffer& _ioBuffer, const cdb& _cdb) const;
   bool p_set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr);
 };
 
 struct standard : public basic
 {
   using super = basic;
+
   // == Byte 1 == ////////////////////////////////////////////////////////////////////////////
   uint8_t  rmb;                          //! removable medium bit [Byte 1:(7)]
                                          //! Device type modifier [Byte 1:(0-6)]
@@ -264,6 +311,7 @@ struct standard : public basic
   standard();
   void clear();
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
+  sid::io_buffer& get(sid::io_buffer& _ioBuffer) const override;
 
 private:
   void p_clear();
@@ -278,6 +326,8 @@ struct basic_vpd : public basic
   virtual scsi::code_page get_code_page() const = 0;
   void clear() override;
   virtual bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) = 0;
+
+  sid::io_buffer& get(sid::io_buffer& _ioBuffer) const override;
 
 protected:
   basic_vpd(const uint8_t _code_page);

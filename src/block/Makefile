@@ -1,4 +1,5 @@
 LIB_PROJ = sid_block
+POST_SUBDIRS = client
 
 SOURCE_FILES = \
 	datatypes.cpp \

@@ -62,16 +62,35 @@ struct device_info : public scsi::device_info
 {
   using super = scsi::device_info;
 
+  struct target
+  {
+    std::string iqn;
+    target() {}
+    target(const std::string& _iqn) : iqn(_iqn) {}
+    void clear() { iqn.clear(); }
+  };
+  using dev_targets = std::vector<target>;
+
   //! Member variables
-  std::string portal; //! ISCSI device portal
-  basic_cred  chap;   //! Chap credentials (if required)
-  basic_cred  mchap;  //! Mutual chap credentials (if required)
-  int         lun;    //! Current lun id used (used only for normal login if provided)
+  std::string portal;   //! ISCSI device portal
+  basic_cred  chap;     //! Chap credentials (if required)
+  basic_cred  mchap;    //! Mutual chap credentials (if required)
+  int         lun;      //! Current lun id used (used only for normal login if provided)
+  dev_targets targets;  //! Target IQNs
+
+  device_info();
 
   //=============================================================================
   //! Override functions from block::device_info
   block::device_type type() const final { return block::device_type::iscsi; }
-  std::string id() const final { return sid::to_str(lun); }
+  std::string id() const final;
+  void clear() final;
+  bool empty() const final;
+  // Set the device info object
+  void set(const std::string& _infoStr) final;
+  bool set(const std::string& _infoStr, std::string& csError) noexcept final;
+  // Get the device info as a string
+  std::string to_str() noexcept final;
   //! Create a new IScsi device object
   block::device_ptr create() const final;
   //=============================================================================
@@ -85,6 +104,9 @@ class device : public scsi::device
 {
 public:
   using super = scsi::device;
+
+  // Virtual destructor
+  virtual ~device();
 
   // Do not allow copy operation
   device(const device&) = delete;

@@ -9,6 +9,8 @@
 #include "common/json.hpp"
 #include "common/convert.hpp"
 #include "common/uuid.hpp"
+#include "common/regex.hpp"
+#include "common/simple_types.hpp"
 
 using namespace std;
 using namespace sid;
@@ -87,11 +89,148 @@ std::string to_type()
   return "unknown";
 };
 
+void regex_test1(const std::string& _infoStr)
+{
+  try
+  {
+    if ( ::strncmp(_infoStr.c_str(), "iscsi://", 8) != 0 )
+      throw sid::exception("Invalid syntax");
+
+    auto get_cred = [&](const std::string& key, const std::string& in)->basic_cred
+      {
+        basic_cred cred;
+        std::string inEx = in;
+        if ( in.empty() )
+          ; // No chap credentials are given. It's ok. Don't throw an exception
+        else if ( in[0] != '#' )
+        {
+          // <USERNAME>:<PASSWORD>
+          if ( ! cred.set(in, ':') )
+            throw sid::exception(key + ": Invalid syntax");
+        }
+        else if ( in.length() > 1 && in[1] != '#' )
+        {
+          // #BASE64(<USERNAME>:<PASSWORD>)
+          inEx = in.substr(1);
+          inEx = sid::base64::decode(inEx);
+          if ( ! cred.set(inEx, ':') )
+            throw sid::exception(key + ": Invalid syntax");
+        }
+        else
+        {
+          // ##BASE64(<USERNAME>):BASE64(<PASSWORD>)
+          inEx = in.substr(2);
+          if ( ! cred.set(in, ':') )
+            throw sid::exception(key + ": Invalid syntax");
+          cred.userName = sid::base64::decode(cred.userName);
+          cred.password = sid::base64::decode(cred.password);
+        }
+        return cred;
+      };
+
+    auto get_lun = [&](const std::string& key, const std::string& in)->int
+      {
+        int lun = 0;
+        if ( !sid::to_num(in, lun) )
+          throw sid::exception(key + ": Invalid value");
+        if ( lun < 0 )
+          throw sid::exception(key + " cannot be negative");
+        return lun;
+      };
+
+    std::vector<std::string> outVec;
+    sid::split(outVec, _infoStr.substr(8), '/', SPLIT_TRIM);
+    cout << "Portal: " << outVec[0] << endl;
+    std::string key, value;
+    basic_cred chap, mchap;
+    int lun = -1;
+    std::set<std::string> keys;
+    for ( size_t i = 1; i < outVec.size(); i++ )
+    {
+      const std::string& s = outVec[i];
+      if ( s.empty() || s[0] != '@' )
+        throw sid::exception("Invalid syntax at position " + sid::to_str(i));
+      size_t pos = s.find('=');
+      if ( pos == std::string::npos )
+        throw sid::exception("Invalid syntax: " + s);
+      key = s.substr(0, pos);
+      if ( key != "@iqn" && keys.find(key) != keys.end() )
+        throw sid::exception(key + " cannot be repeated");
+      keys.insert(key);
+      value = s.substr(pos+1);
+      if ( key == "@iqn" )
+        cout << "IQN: " << value << endl;
+      else if ( key == "@lun" )
+        lun = get_lun(key, value);
+      else if ( key == "@chap" )
+        chap = get_cred(key, value);
+      else if ( key == "@mchap" )
+        mchap = get_cred(key, value);
+      else
+        throw sid::exception("Invalid key " + key);
+    }
+  }
+  catch (const sid::exception& e)
+  {
+    cout << e.what() << endl;
+  }
+  catch (const std::string& s)
+  {
+    cout << s << endl;
+  }
+  catch (...)
+  {
+    cout << __func__ << ": Unhandled exception" << endl;
+  }
+}
+
+void regex_test(const std::string& _infoStr)
+{
+  try
+  {
+    sid::regex regEx("^iscsi://([^/]+)(/@((iqn)|(lun)|(chap)|(mchap))=([^/]*))*$");
+    /*
+      1) Portal
+      2) -- All additional @key=value pairs
+      3) -- Param key
+      4) iqn
+      5) lun
+      6) chap
+      7) mchap
+      8) value
+    */
+    sid::regex::result out;
+    if ( !regEx.exec(_infoStr.c_str(), /*out*/ out) )
+      throw sid::exception(std::string("Invalid device info [") + _infoStr + "]: " + regEx.error());
+
+    for ( size_t i = 0; i < out.size(); i++ )
+      cout << i << ") " << out[i] << endl;
+  }
+  catch (const sid::exception& e)
+  {
+    cout << e.what() << endl;
+  }
+  catch (const std::string& s)
+  {
+    cout << s << endl;
+  }
+  catch (...)
+  {
+    cout << __func__ << ": Unhandled exception" << endl;
+  }
+}
+
 int main(int argc, char* argv[])
 {
   ::srand(::time(nullptr));
   try
   {
+    if ( argc < 2 )
+      throw std::string("Need atleast one argument");
+
+    regex_test1(argv[1]);
+    return 0;
+
     //json::value j1 = "string";
     //json::value j2 = j1;
     //return 0;
