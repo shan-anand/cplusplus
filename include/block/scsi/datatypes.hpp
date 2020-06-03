@@ -77,13 +77,14 @@ struct test_unit_ready
   static size_t static_cdb_size() { return 6; }
   // CDB (Command Descriptor Block) members
   uint8_t opcode() const { return 0x00; } //! [Byte 0:(0-7)]
-  uint32_t reserved;                      //! [Bytes 1 - 4]
-  uint8_t  control;                       //! [Byte 5]
+  // uint32_t reserved;                   //! [Bytes 1 - 4]
+  // uint8_t  control;                    //! [Byte 5]
 
   test_unit_ready();
   void clear();
-  sid::io_buffer get() const;
-  sid::io_buffer& get(sid::io_buffer& ioBuffer) const;
+
+  sid::io_buffer get_cdb() const;
+  void set_cdb(sid::io_buffer& _ioBuffer, size_t _pos = 0) const;
 };
 
 struct capacity10
@@ -126,9 +127,10 @@ struct capacity16
   void clear();
   uint64_t bytes() const { return num_blocks * block_size; }
 
+  sid::io_buffer get_cdb() const;
+  void set_cdb(sid::io_buffer& ioBuffer, size_t _pos = 0) const;
+
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr);
-  sid::io_buffer get() const;
-  sid::io_buffer& get(sid::io_buffer& ioBuffer) const;
 };
 
 struct sense
@@ -159,6 +161,7 @@ struct sense
  */
 struct read16
 {
+  static size_t static_cdb_size() { return 16; }
   // CDB (Command Descriptor Block) members
   uint8_t opcode() const { return 0x88; } //! [Byte 0:(0-7)]
   uint8_t        rd_protect;        //! [Byte 1:(5-7)]
@@ -178,7 +181,7 @@ struct read16
 
   read16();
   void clear();
-  sid::io_buffer get() const;
+  sid::io_buffer get_cdb() const;
 };
 
 IMPLEMENT_CLASS_EX(read16);
@@ -189,6 +192,7 @@ IMPLEMENT_CLASS_EX(read16);
  */
 struct write16
 {
+  static size_t static_cdb_size() { return 16; }
   // CDB (Command Descriptor Block) members
   uint8_t opcode() const { return 0x8A; } //! [Byte 0:(0-7)]
   uint8_t        wr_protect;        //! [Byte 1:(5-7)]
@@ -207,7 +211,7 @@ struct write16
 
   write16();
   void clear();
-  sid::io_buffer get() const;
+  sid::io_buffer get_cdb() const;
 };
 
 IMPLEMENT_CLASS_EX(write16);
@@ -217,9 +221,10 @@ namespace inquiry
 
 //code_page get_code_page(const uint8_t _page_code) { return (scsi::code_page) _page_code; }
 
+// Inquiry cdb
 struct cdb
 {
-  static size_t static_size() { return 6; }
+  static size_t static_cdb_size() { return 6; }
   uint8_t opcode() const { return 0x12; } //! [Byte 0:(0-7)]
   bool    evpd;              //! [Byte 1:(0-7)]
   uint8_t page_code;         //! [Byte 2:(0-7)]
@@ -241,15 +246,15 @@ struct basic
   peripheral_qualifier   qualifier;      //! Peripheral qualifier [Byte 0:(5-7)]
   peripheral_device_type device_type;    //! Device type [Byte 0:(0-4)]
 
-  sid::io_buffer get() const;
+  sid::io_buffer get_cdb() const;
 
   virtual void clear();
   virtual bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) = 0;
-  virtual sid::io_buffer& get(sid::io_buffer& _ioBuffer) const = 0;
+  virtual void set_cdb(sid::io_buffer& _ioBuffer, size_t _pos = 0) const = 0;
 
 protected:
   basic();
-  sid::io_buffer& p_get(sid::io_buffer& _ioBuffer, const cdb& _cdb) const;
+  void p_set_cdb(sid::io_buffer& _ioBuffer, size_t _pos, const cdb& _cdb) const;
   bool p_set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr);
 };
 
@@ -311,7 +316,7 @@ struct standard : public basic
   standard();
   void clear();
   bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) override;
-  sid::io_buffer& get(sid::io_buffer& _ioBuffer) const override;
+  void set_cdb(sid::io_buffer& _ioBuffer, size_t _pos = 0) const override;
 
 private:
   void p_clear();
@@ -325,9 +330,9 @@ struct basic_vpd : public basic
 
   virtual scsi::code_page get_code_page() const = 0;
   void clear() override;
-  virtual bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) = 0;
+  //virtual bool set(const sid::io_buffer& _ioBuffer, size_t* _reqSize = nullptr) = 0;
 
-  sid::io_buffer& get(sid::io_buffer& _ioBuffer) const override;
+  void set_cdb(sid::io_buffer& _ioBuffer, size_t _pos = 0) const override;
 
 protected:
   basic_vpd(const uint8_t _code_page);

@@ -65,6 +65,25 @@ static atomic_int pack_id_count;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
+// Definition of local::sg_io_hdr
+//
+namespace local
+{
+struct sg_io_hdr : public ::sg_io_hdr
+{
+  sid::io_buffer io_request;
+  sid::io_buffer io_response;
+  sid::io_buffer io_sense;
+
+  sg_io_hdr();
+  void clear();
+  block::scsi::sense sense() const;
+  int exec(const char* _fnName, int _fd, bool _use_ioctl);
+};
+} // namespace local
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//
 // device_info
 //
 device_info::device_info()
@@ -264,87 +283,6 @@ bool device::p_set_non_blocking()
   return ( ::fcntl(m_fd, F_SETFL, flags) == 0 );
 }
 
-/*
-//std::map<int, cb_scsi_object> io_buffer_map;
-struct cb_scsi_object
-{
-  sid::io_buffer  buffer;
-  scsi_object_ptr object;
-};
-
-void cb_test_unit_ready(const int pack_id)
-{
-  const cb_scsi_object& cb = cmd_map.at(pack_id);
-  cb.object->set(buffer);
-}
-*/
-
-int local_exec(const char* _fnName, bool _use_ioctl, int fd, sg_io_hdr& _io_hdr, block::scsi::sense& _sense)
-{
-  int retVal = 0;
-
-  try
-  {
-    sid::io_buffer ioBufferSense(SENSE_BUFFER_REPLY_LEN_MAX);
-    _io_hdr.sbp = ioBufferSense.wr_data();
-    _io_hdr.mx_sb_len = ioBufferSense.wr_length();
-
-    auto print_bytes = [&](const char* _prefix, const uint8_t* _p, int _len)->void
-      {
-        cout << _fnName << " " << (_prefix? _prefix:"") << " <" << _len << ">:";
-        if ( _p )
-        {
-          for ( int i = 0; i < _len; i++ )
-            cout << " " << std::setfill('0') << std::setw(2) << std::hex << ((int) _p[i]);
-          cout << std::dec << endl;
-        }
-        else
-        {
-          cout << " NULL" << endl;
-        }
-      };
-
-    // Print the CDB
-    print_bytes("CDB", _io_hdr.cmdp, static_cast<int>(_io_hdr.cmd_len));
-
-    if ( _use_ioctl )
-    {
-      retVal = ::ioctl(fd, SG_IO, &_io_hdr);
-      if ( retVal < 0 )
-        throw sid::exception(sid::to_errno_str(errno, "ioctl(SG_IO) failed with retVal(" + sid::to_str(retVal) + ")"));
-    }
-    else
-    {
-      retVal = ::write(fd, &_io_hdr, sizeof(_io_hdr));
-      if ( retVal < 0 )
-        throw sid::exception(sid::to_errno_str(errno, "write() failed with retVal(" + sid::to_str(retVal) + ")"));
-      //cout << "Written: " << retVal << endl;
-
-      memset(&_io_hdr, 0, sizeof(_io_hdr));
-      retVal = ::read(fd, &_io_hdr, sizeof(_io_hdr));
-      if ( retVal < 0 )
-        throw sid::exception(sid::to_errno_str(errno, "read() failed with retVal(" + sid::to_str(retVal) + ")"));
-    }
-
-    // Set the return sense
-    _sense.set(ioBufferSense);
-
-    cout << (_use_ioctl? "ioctl()" : "read()") << ": retVal: " << retVal << ", ID: " << std::dec << _io_hdr.pack_id << " " << _sense.to_str() << endl;
-
-    // Print the RESPONSE
-    //print_bytes("RESPONSE", (uint8_t*) _io_hdr.dxferp, static_cast<int>(_io_hdr.dxfer_len));
-  }
-  catch (...)
-  {
-    _io_hdr.sbp = nullptr;
-    _io_hdr.mx_sb_len = 0;
-    // re-throw the exception
-    throw;
-  }
-
-  return retVal;
-}
-
 bool device::test_unit_ready(scsi::sense& _sense)
 {
   bool isSuccess = false;
@@ -352,22 +290,18 @@ bool device::test_unit_ready(scsi::sense& _sense)
   try
   {
     scsi::test_unit_ready tur;
-    sid::io_buffer request = tur.get();
-    sg_io_hdr io_hdr = {0};
+    local::sg_io_hdr io_hdr;
 
-    memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
-    io_hdr.interface_id = 'S';
-    io_hdr.cmdp = request.rd_data();
-    io_hdr.cmd_len = request.rd_length();
+    io_hdr.io_request = tur.get_cdb();
     io_hdr.dxfer_direction = SG_DXFER_NONE;
-    io_hdr.timeout = 0;//DEF_TIMEOUT;
     io_hdr.pack_id = ++pack_id_count;
-    io_hdr.usr_ptr = nullptr;
+    //io_hdr.usr_ptr = nullptr;
 
-    local_exec(__func__, true, m_fd, io_hdr, _sense);
+    io_hdr.exec(__func__, m_fd, true);
+    _sense = io_hdr.sense();
 
     if ( io_hdr.status != 0 )
-      throw sid::exception(std::string("scsi command test_unit_ready failed with status ") + sid::to_str((int)io_hdr.status));
+      throw sid::exception("Failed with status " + sid::to_str((int)io_hdr.status));
 
     isSuccess = true;
   }
@@ -391,28 +325,20 @@ bool device::read_capacity(scsi::capacity16& _capacity)
 
   try
   {
-    sid::io_buffer request = _capacity.get();
-    sid::io_buffer response(READ_CAP16_REPLY_LEN);
-    sg_io_hdr io_hdr = {0};
+    local::sg_io_hdr io_hdr;
 
-    memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
-    io_hdr.interface_id = 'S';
-    io_hdr.cmdp = request.rd_data();
-    io_hdr.cmd_len = request.rd_length();
+    io_hdr.io_request = _capacity.get_cdb();
+    io_hdr.io_response = sid::io_buffer(READ_CAP16_REPLY_LEN);
     io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
-    io_hdr.dxferp = (void *) response.wr_data();
-    io_hdr.dxfer_len = response.wr_length();
-    io_hdr.timeout = 0;//DEF_TIMEOUT;
     io_hdr.pack_id = ++pack_id_count;
-    io_hdr.usr_ptr = nullptr;
+    //io_hdr.usr_ptr = nullptr;
 
-    scsi::sense sense;
-    local_exec(__func__, true, m_fd, io_hdr, sense);
+    io_hdr.exec(__func__, m_fd, true);
 
     if ( io_hdr.status != 0 )
-      throw sid::exception(std::string("Failed with status ") + sid::to_str((int)io_hdr.status));
+      throw sid::exception("Failed with status " + sid::to_str((int)io_hdr.status));
 
-    _capacity.set(response);
+    _capacity.set(io_hdr.io_response);
 
     isSuccess = true;
   }
@@ -480,28 +406,20 @@ bool device::inquiry(scsi::inquiry::basic* _inquiry)
 
   try
   {
-    sid::io_buffer request = _inquiry->get();
-    sid::io_buffer response(INQUIRY_STANDARD_REPLY_LEN);
-    sg_io_hdr io_hdr = {0};
+    local::sg_io_hdr io_hdr;
 
-    memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
-    io_hdr.interface_id = 'S';
-    io_hdr.cmdp = request.rd_data();
-    io_hdr.cmd_len = request.rd_length();
+    io_hdr.io_request = _inquiry->get_cdb();
+    io_hdr.io_response = sid::io_buffer(INQUIRY_STANDARD_REPLY_LEN);
     io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
-    io_hdr.dxferp = (void *) response.wr_data();
-    io_hdr.dxfer_len = response.wr_length();
-    io_hdr.timeout = 0;//DEF_TIMEOUT;
     io_hdr.pack_id = ++pack_id_count;
-    io_hdr.usr_ptr = nullptr;
+    //io_hdr.usr_ptr = nullptr;
 
-    scsi::sense sense;
-    local_exec(__func__, true, m_fd, io_hdr, sense);
+    io_hdr.exec(__func__, m_fd, true);
 
     if ( io_hdr.status != 0 )
       throw sid::exception(std::string("Failed with status ") + sid::to_str((int)io_hdr.status));
 
-    _inquiry->set(response);
+    _inquiry->set(io_hdr.io_response);
 
     isSuccess = true;
   }
@@ -517,4 +435,110 @@ bool device::inquiry(scsi::inquiry::basic* _inquiry)
   }
 
   return isSuccess;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Implementation of local::sg_io_hdr
+//
+local::sg_io_hdr::sg_io_hdr()
+{
+  clear();
+}
+void local::sg_io_hdr::clear()
+{
+  memset(dynamic_cast<::sg_io_hdr*>(this), 0, sizeof(::sg_io_hdr));
+  this->interface_id = 'S';
+  if ( io_sense.empty() )
+    io_sense.reserve(SENSE_BUFFER_REPLY_LEN_MAX);
+}
+
+block::scsi::sense local::sg_io_hdr::sense() const
+{
+  block::scsi::sense s;
+  if ( ! io_sense.empty() )
+    s.set(io_sense);
+  return s;
+}
+
+int local::sg_io_hdr::exec(const char* _fnName, int _fd, bool _use_ioctl)
+{
+  int retVal = 0;
+
+  auto print_bytes = [&](const char* _prefix, const uint8_t* _p, int _len)->void
+    {
+      cout << _fnName << " " << (_prefix? _prefix:"") << " <" << _len << ">:";
+      if ( _p )
+      {
+        for ( int i = 0; i < _len; i++ )
+          cout << " " << std::setfill('0') << std::setw(2) << std::hex << ((int) _p[i]);
+        cout << std::dec << endl;
+      }
+      else
+      {
+        cout << " NULL" << endl;
+      }
+    };
+
+  try
+  {
+    // Request CDB
+    this->cmdp = this->io_request.rd_data();
+    this->cmd_len = this->io_request.rd_length();
+    // Response buffer (if exists)
+    if ( this->io_response.capacity() > 0 )
+    {
+      this->dxferp = (void *) this->io_response.wr_data();
+      this->dxfer_len = this->io_response.wr_length();
+    }
+    // Sense buffer output
+    if ( this->io_sense.capacity() > 0 )
+    {
+      this->sbp = this->io_sense.wr_data();
+      this->mx_sb_len = this->io_sense.wr_length();
+    }
+    if ( this->timeout == 0 )
+      this->timeout = 0;//DEF_TIMEOUT;
+
+    // Print the CDB
+    //print_bytes("CDB", this->cmdp, static_cast<int>(this->cmd_len));
+
+    if ( _use_ioctl )
+    {
+      retVal = ::ioctl(_fd, SG_IO, dynamic_cast<::sg_io_hdr*>(this));
+      if ( retVal < 0 )
+        throw sid::exception(sid::to_errno_str(errno,
+          "ioctl(SG_IO) failed with retVal(" + sid::to_str(retVal) + ")"));
+    }
+    else
+    {
+      retVal = ::write(_fd, dynamic_cast<::sg_io_hdr*>(this), sizeof(::sg_io_hdr));
+      if ( retVal < 0 )
+        throw sid::exception(sid::to_errno_str(errno,
+          "write() failed with retVal(" + sid::to_str(retVal) + ")"));
+      //cout << "Written: " << retVal << endl;
+
+      memset(dynamic_cast<::sg_io_hdr*>(this), 0, sizeof(::sg_io_hdr));
+      retVal = ::read(_fd, dynamic_cast<::sg_io_hdr*>(this), sizeof(::sg_io_hdr));
+      if ( retVal < 0 )
+        throw sid::exception(sid::to_errno_str(errno,
+          "read() failed with retVal(" + sid::to_str(retVal) + ")"));
+    }
+
+    /*
+    cout << (_use_ioctl? "ioctl()" : "read()") << ": retVal: " << retVal
+         << ", ID: " << std::dec << this->pack_id
+         << " " << this->sense().to_str() << endl;
+    */
+
+    // Print the RESPONSE
+    //print_bytes("RESPONSE", (uint8_t*) this->dxferp, static_cast<int>(this->dxfer_len));
+  }
+  catch (...)
+  {
+    // re-throw the exception
+    throw;
+  }
+
+  return retVal;
 }

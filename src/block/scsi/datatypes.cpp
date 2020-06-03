@@ -42,11 +42,48 @@ LICENSE: END
 #include <string.h>
 #include <sstream>
 #include <iostream>
+#include <functional>
 #include "local.h"
 
 using namespace std;
 using namespace sid;
 using namespace sid::block::scsi;
+
+namespace local
+{
+  using FnSetBufferCallback = std::function<void()>;
+  void set_buffer(
+    const char*                _cmdName,
+    sid::io_buffer&            _ioBuffer,
+    size_t                      _pos,
+    local::FnSetBufferCallback& _fn_cb);
+}
+
+void local::set_buffer(
+  const char*                 _cmdName,
+  sid::io_buffer&             _ioBuffer,
+  size_t                      _pos,
+  local::FnSetBufferCallback& _fn_cb)
+{
+  bool isSuccess = false;
+  sid::exception e;
+  size_t old_pos = _ioBuffer.get_zero_pos();
+
+  try
+  {
+    _ioBuffer.set_zero_pos(_pos);
+    _fn_cb();
+    isSuccess = true;
+  }
+  catch (const sid::exception& _e) { e = _e; }
+  catch (...)
+  { e = sid::exception(std::string(_cmdName? _cmdName:"") + "::set_cdb: Unhandled exception"); }
+
+  _ioBuffer.set_zero_pos(old_pos);
+
+  if ( ! isSuccess )
+    throw e;
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -62,29 +99,27 @@ void test_unit_ready::clear()
   ::memset(this, 0, sizeof(test_unit_ready));
 }
 
-sid::io_buffer test_unit_ready::get() const
+void test_unit_ready::set_cdb(sid::io_buffer& _ioBuffer, size_t _pos/* = 0*/) const
 {
-  sid::io_buffer ioBuffer(static_cdb_size());
-  return this->get(ioBuffer);
+  local::FnSetBufferCallback callback = [&]()
+    {
+      if ( _ioBuffer.wr_length() < static_cdb_size() )
+        throw sid::exception(std::string("test_unit_ready::set_cdb: Buffer size smaller than required"));
+
+      // Fill the buffer with CDB data
+      _ioBuffer.set_8(0, this->opcode());
+      _ioBuffer.set_32(1, 0); // reserved
+      _ioBuffer.set_8(5, 0);  // control
+    };
+
+  local::set_buffer("test_unit_ready", _ioBuffer, _pos, callback);
 }
 
-sid::io_buffer& test_unit_ready::get(sid::io_buffer& _ioBuffer) const
+sid::io_buffer test_unit_ready::get_cdb() const
 {
-  if ( _ioBuffer.wr_length() < static_cdb_size() )
-    throw sid::exception(std::string("test_unit_ready::get: Buffer size smaller than required"));
-
-  // Fill the buffer with CDB data
-  _ioBuffer.set_8(0, this->opcode());
-  _ioBuffer.set_32(1, this->reserved);
-  _ioBuffer.set_8(5, this->control);
-
-  /*
-  cout << "    test_unit_ready cdb<" << _ioBuffer.rd_length()<< ">:";
-  for ( size_t i = _ioBuffer.get_zero_pos(); i < _ioBuffer.rd_length(); i++ )
-    cout << " " << setfill('0') << setw(2) << std::hex << ((int) _ioBuffer[i]);
-  cout << endl;
-  */
-  return _ioBuffer;
+  sid::io_buffer ioBuffer(static_cdb_size());
+  this->set_cdb(ioBuffer);
+  return ioBuffer;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -135,31 +170,29 @@ void capacity16::clear()
   ::memset(this, 0, sizeof(capacity16));
 }
 
-sid::io_buffer capacity16::get() const
+sid::io_buffer capacity16::get_cdb() const
 {
   sid::io_buffer ioBuffer(static_cdb_size());
-  return this->get(ioBuffer);
+  this->set_cdb(ioBuffer);
+  return ioBuffer;
 }
 
-sid::io_buffer& capacity16::get(sid::io_buffer& _ioBuffer) const
+void capacity16::set_cdb(sid::io_buffer& _ioBuffer, size_t _pos/* = 0*/) const
 {
-  if ( _ioBuffer.wr_length() < static_cdb_size() )
-    throw sid::exception(std::string("capacity16::get: Buffer size smaller than required"));
+  local::FnSetBufferCallback callback = [&]()
+    {
+      if ( _ioBuffer.wr_length() < static_cdb_size() )
+        throw sid::exception(std::string("capacity16::get: Buffer size smaller than required"));
 
-  const uint8_t service_action = 0x10;
-  const uint32_t allocation_length = READ_CAP16_REPLY_LEN;
-  // Fill the buffer with CDB data
-  _ioBuffer.set_8(0, this->opcode());
-  _ioBuffer.set_8(1, 0, 5, service_action);
-  _ioBuffer.set_32(10, allocation_length);
+      const uint8_t service_action = 0x10;
+      const uint32_t allocation_length = READ_CAP16_REPLY_LEN;
+      // Fill the buffer with CDB data
+      _ioBuffer.set_8(0, this->opcode());
+      _ioBuffer.set_8(1, 0, 5, service_action);
+      _ioBuffer.set_32(10, allocation_length);
+    };
 
-  /*
-  cout << "    read-capacity cdb:";
-  for ( size_t i = _ioBuffer.get_zero_pos(); i < _ioBuffer.wr_length(); i++ )
-    cout << " " << setfill('0') << setw(2) << std::hex << ((int) _ioBuffer[i]);
-  cout << endl;
-  */
-  return _ioBuffer;
+  local::set_buffer("capacity16", _ioBuffer, _pos, callback);
 }
 
 bool capacity16::set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* = nullptr*/)
@@ -235,8 +268,10 @@ std::string sense::to_str() const
   std::ostringstream out;
 
   /*
-  out << " SENSE KEY:" << scsi_sense_key_str(this->key) << "(" << local::to_str<int>(this->key, Base::HexaDecimal)
-      << ") scsi::ascq:" << scsi_sense_ascq_str(this->ascq) << "(" << local::to_str<int>(this->ascq, Base::HexaDecimal, false, 4) << ")";
+  out << " SENSE KEY:" << scsi_sense_key_str(this->key) << "("
+      << local::to_str<int>(this->key, Base::HexaDecimal)
+      << ") scsi::ascq:" << scsi_sense_ascq_str(this->ascq)
+      << "(" << local::to_str<int>(this->ascq, Base::HexaDecimal, false, 4) << ")";
   */
   /*
   out << " SENSE KEY:" <<  "(" << local::to_str<int>(this->key, Base::HexaDecimal)
@@ -254,7 +289,11 @@ std::string sense::to_str() const
 //
 // inquiry::cdb
 //
-inquiry::cdb::cdb(const bool _evpd/* = false*/, uint8_t _page_code/* = 0x00*/, uint8_t _reply_len/* = 0xFF*/) :
+inquiry::cdb::cdb(
+  const bool _evpd/* = false*/,
+  uint8_t _page_code/* = 0x00*/,
+  uint8_t _reply_len/* = 0xFF*/
+  ) :
   evpd(_evpd),
   page_code(_page_code),
   reply_len(_reply_len)
@@ -283,25 +322,30 @@ void inquiry::basic::clear()
   device_type = peripheral_device_type::unknown;
 }
 
-sid::io_buffer inquiry::basic::get() const
+sid::io_buffer inquiry::basic::get_cdb() const
 {
-  sid::io_buffer ioBuffer(cdb::static_size());
-  return this->get(ioBuffer);
+  sid::io_buffer ioBuffer(cdb::static_cdb_size());
+  this->set_cdb(ioBuffer);
+  return ioBuffer;
 }
 
-sid::io_buffer& inquiry::basic::p_get(sid::io_buffer& _ioBuffer, const cdb& _cdb) const
+void inquiry::basic::p_set_cdb(sid::io_buffer& _ioBuffer, size_t _pos, const cdb& _cdb) const
 {
-  if ( _ioBuffer.wr_length() < static_cdb_size() )
-    throw sid::exception(std::string("inquiry: Buffer size smaller than required"));
+  local::FnSetBufferCallback callback = [&]()
+    {
+      if ( _ioBuffer.wr_length() < static_cdb_size() )
+        throw sid::exception(std::string("inquiry: Buffer size smaller than required"));
 
-  // Fill the buffer with CDB data
-  _ioBuffer.set_8(0, _cdb.opcode());
-  _ioBuffer.set_8(1, (_cdb.evpd? 1 : 0));
-  _ioBuffer.set_8(2, _cdb.page_code);
-  _ioBuffer.set_8(3, 0); // reserved
-  _ioBuffer.set_8(4, _cdb.reply_len);
-  _ioBuffer.set_8(5, 0); // control field
-  return _ioBuffer;
+      // Fill the buffer with CDB data
+      _ioBuffer.set_8(0, _cdb.opcode());
+      _ioBuffer.set_8(1, (_cdb.evpd? 1 : 0));
+      _ioBuffer.set_8(2, _cdb.page_code);
+      _ioBuffer.set_8(3, 0); // reserved
+      _ioBuffer.set_8(4, _cdb.reply_len);
+      _ioBuffer.set_8(5, 0); // control field
+    };
+
+  local::set_buffer("inquiry", _ioBuffer, _pos, callback);
 }
 
 bool inquiry::basic::p_set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* = nullptr*/)
@@ -344,9 +388,9 @@ void inquiry::standard::clear()
   p_clear();
 }
 
-sid::io_buffer& inquiry::standard::get(sid::io_buffer& _ioBuffer) const
+void inquiry::standard::set_cdb(sid::io_buffer& _ioBuffer, size_t _pos/* = 0*/) const
 {
-  return p_get(_ioBuffer, inquiry::cdb(false, 0));
+  return p_set_cdb(_ioBuffer, _pos, inquiry::cdb(false, 0));
 }
 
 bool inquiry::standard::set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* = nullptr*/)
@@ -405,9 +449,9 @@ void inquiry::basic_vpd::clear()
   p_clear();
 }
 
-sid::io_buffer& inquiry::basic_vpd::get(sid::io_buffer& _ioBuffer) const
+void inquiry::basic_vpd::set_cdb(sid::io_buffer& _ioBuffer, size_t _pos/* = 0*/) const
 {
-  return p_get(_ioBuffer, inquiry::cdb(true, page_code));
+  return p_set_cdb(_ioBuffer, _pos, inquiry::cdb(true, page_code));
 }
 
 bool inquiry::basic_vpd::p_set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* = nullptr*/)
@@ -515,7 +559,8 @@ bool inquiry::supported_vpd_pages::set(const sid::io_buffer& _ioBuffer, size_t* 
 
   // Set member variables
   this->page_length = _ioBuffer.get_8(3);
-  const size_t needed = ( this->page_length > _ioBuffer.rd_length() )? (this->page_length - _ioBuffer.rd_length()) : 0;
+  const size_t needed = ( this->page_length > _ioBuffer.rd_length() )?
+    (this->page_length - _ioBuffer.rd_length()) : 0;
   if ( needed == 0 )
   {
     const size_t n = this->page_length + 3;
@@ -548,7 +593,10 @@ void inquiry::device_identification::clear()
   p_clear();
 }
 
-bool inquiry::device_identification::set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* = nullptr*/)
+bool inquiry::device_identification::set(
+  const sid::io_buffer& _ioBuffer,
+  size_t*               _reqSize/* = nullptr*/
+  )
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( _ioBuffer.rd_length() < 2 )
@@ -620,7 +668,10 @@ void inquiry::block_device_characteristics::clear()
   p_clear();
 }
 
-bool inquiry::block_device_characteristics::set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* = nullptr*/)
+bool inquiry::block_device_characteristics::set(
+  const sid::io_buffer& _ioBuffer,
+  size_t*               _reqSize/* = nullptr*/
+  )
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( _ioBuffer.rd_length() < 2 )
@@ -656,7 +707,10 @@ void inquiry::logical_block_provisioning::clear()
   p_clear();
 }
 
-bool inquiry::logical_block_provisioning::set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/* = nullptr*/)
+bool inquiry::logical_block_provisioning::set(
+  const sid::io_buffer& _ioBuffer,
+  size_t*               _reqSize/* = nullptr*/
+  )
 {
   // Check for minimum data buffer size required to contain the command's data
   if ( _ioBuffer.rd_length() < 2 )
@@ -721,9 +775,9 @@ void read16::clear()
   this->data = d;
 }
 
-sid::io_buffer read16::get() const
+sid::io_buffer read16::get_cdb() const
 {
-  sid::io_buffer ioBuffer(16);
+  sid::io_buffer ioBuffer(static_cdb_size());
 
   // Fill the buffer with CDB data
   ioBuffer.set_8(0, this->opcode());
@@ -763,9 +817,9 @@ void write16::clear()
   this->data = d;
 }
 
-sid::io_buffer write16::get() const
+sid::io_buffer write16::get_cdb() const
 {
-  sid::io_buffer ioBuffer(16);
+  sid::io_buffer ioBuffer(static_cdb_size());
 
   // Fill the buffer with CDB data
   ioBuffer.set_8(0, this->opcode());
