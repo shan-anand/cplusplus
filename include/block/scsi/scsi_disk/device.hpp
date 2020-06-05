@@ -145,6 +145,9 @@ private:
   bool p_open();
   void p_close();
   bool p_set_non_blocking();
+
+  void p_read(scsi::read16& _read16);
+  void p_write(scsi::write16& _write16);
 };
 
 } // namespace scsi_disk

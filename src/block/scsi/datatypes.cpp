@@ -278,9 +278,10 @@ std::string sense::to_str() const
       << ") ASC/ASCQ:"  << "(" << local::to_str<int>(this->asc, Base::HexaDecimal, false, 2)
       << "/" << local::to_str<int>(this->ascq, Base::HexaDecimal, false, 2) << ")";
   */
-  out << " SENSE KEY:" <<  "(" << local::to_str<int>(static_cast<int>(this->key))
-      << ") ASC/ASCQ:"  << "(" << local::to_str<int>(this->asc)
-      << "/" << local::to_str<int>(this->ascq) << ") " << scsi::to_str(this->as);
+  out << " SENSE KEY:" <<  "(" << std::hex << static_cast<int>(this->key)
+      << ") ASC/ASCQ:"  << "(" << std::hex << static_cast<int>(this->asc)
+      << "/" << std::hex << static_cast<int>(this->ascq) << ") "
+      << std::hex << static_cast<int>(this->as);
 
   return out.str();
 }

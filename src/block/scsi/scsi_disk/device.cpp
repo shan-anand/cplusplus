@@ -52,7 +52,6 @@ LICENSE: END
 #include <fcntl.h>
 
 #include <scsi/sg.h>
-#include <scsi/sg_lib.h>
 
 using namespace std;
 using namespace sid;
@@ -63,7 +62,7 @@ using namespace sid::block::scsi_disk;
 
 static atomic_int pack_id_count;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////
 //
 // Definition of local::sg_io_hdr
 //
@@ -71,9 +70,9 @@ namespace local
 {
 struct sg_io_hdr : public ::sg_io_hdr
 {
-  sid::io_buffer io_request;
-  sid::io_buffer io_response;
-  sid::io_buffer io_sense;
+  sid::io_buffer io_cdb;     //! CDB request. Ignored if "cmdp" and "cmd_len" are set
+  sid::io_buffer io_xfer;    //! Data transfer. Ignored if "dxferp" and "dxfer_len" are set
+  sid::io_buffer io_sense;   //! Response sense. Ignored if "sbp" and "mx_sb_len" are set
 
   sg_io_hdr();
   void clear();
@@ -114,7 +113,8 @@ void device_info::set(const std::string& _infoStr)
     sid::regex regEx("^(sg:/)?(/.+)$");
     sid::regex::result out;
     if ( !regEx.exec(_infoStr.c_str(), /*out*/ out) )
-      throw sid::exception(std::string("Invalid device info [") + _infoStr + "]: " + regEx.error());
+      throw sid::exception(std::string("Invalid device info [") + _infoStr + "]: "
+                           + regEx.error());
 
     this->path = out[2];
   }
@@ -124,7 +124,8 @@ void device_info::set(const std::string& _infoStr)
   }
   catch (...)
   {
-    throw sid::exception(std::string("An unhandled exception occurred in device_info::") + __func__);
+    throw sid::exception(std::string("An unhandled exception occurred in device_info::")
+                         + __func__);
   }
 }
 
@@ -292,7 +293,7 @@ bool device::test_unit_ready(scsi::sense& _sense)
     scsi::test_unit_ready tur;
     local::sg_io_hdr io_hdr;
 
-    io_hdr.io_request = tur.get_cdb();
+    io_hdr.io_cdb = tur.get_cdb();
     io_hdr.dxfer_direction = SG_DXFER_NONE;
     io_hdr.pack_id = ++pack_id_count;
     //io_hdr.usr_ptr = nullptr;
@@ -327,8 +328,8 @@ bool device::read_capacity(scsi::capacity16& _capacity)
   {
     local::sg_io_hdr io_hdr;
 
-    io_hdr.io_request = _capacity.get_cdb();
-    io_hdr.io_response = sid::io_buffer(READ_CAP16_REPLY_LEN);
+    io_hdr.io_cdb = _capacity.get_cdb();
+    io_hdr.io_xfer = sid::io_buffer(READ_CAP16_REPLY_LEN);
     io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
     io_hdr.pack_id = ++pack_id_count;
     //io_hdr.usr_ptr = nullptr;
@@ -338,7 +339,7 @@ bool device::read_capacity(scsi::capacity16& _capacity)
     if ( io_hdr.status != 0 )
       throw sid::exception("Failed with status " + sid::to_str((int)io_hdr.status));
 
-    _capacity.set(io_hdr.io_response);
+    _capacity.set(io_hdr.io_xfer);
 
     isSuccess = true;
   }
@@ -362,6 +363,28 @@ bool device::read(scsi::read16& _read16)
 
   try
   {
+    if ( m_fd < 0 )
+      throw sid::exception("No device is open");
+
+    if ( this->capacity().block_size == 0 )
+      throw sid::exception("Block size is not set");
+
+    const uint32_t minDataBlock = SCSI_DEFAULT_IO_BYTE_SIZE / this->capacity().block_size;
+    uint32_t remainingDataBlocks = _read16.transfer_length;
+    scsi::read16 read16 = _read16;
+    for ( read16.transfer_length = 0; remainingDataBlocks != 0;
+          remainingDataBlocks -= read16.transfer_length )
+    {
+      read16.lba += read16.transfer_length;
+      read16.data += (read16.transfer_length * this->capacity().block_size);
+      read16.transfer_length = (remainingDataBlocks > minDataBlock)?
+        minDataBlock : remainingDataBlocks;
+
+      // Read the data
+      p_read(read16);
+      read16.data_size_read += read16.data_size_read;
+    }
+
     isSuccess = true;
   }
   catch (const sid::exception& e)
@@ -378,26 +401,98 @@ bool device::read(scsi::read16& _read16)
   return isSuccess;
 }
 
+void device::p_read(scsi::read16& _read16)
+{
+  try
+  {
+    local::sg_io_hdr io_hdr;
+
+    io_hdr.io_cdb = _read16.get_cdb();
+    if ( _read16.transfer_length == 0 )
+        io_hdr.dxfer_direction = SG_DXFER_NONE;
+    else
+    {
+      io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
+      io_hdr.dxfer_len = _read16.transfer_length * this->capacity().block_size;
+      io_hdr.dxferp = (void *) _read16.data;
+      //io_hdr.flags |= 0x02;
+    }
+    io_hdr.pack_id = ++pack_id_count;
+    io_hdr.timeout = DEF_TIMEOUT;
+    //io_hdr.usr_ptr = nullptr;
+
+    io_hdr.exec(__func__, m_fd, true);
+
+    if ( io_hdr.status != 0 )
+      throw sid::exception("Failed with status " + sid::to_str((int)io_hdr.status));
+
+    // Set the amount of data written
+    _read16.data_size_read = io_hdr.dxfer_len - io_hdr.resid;
+  }
+  catch (const sid::exception&) { throw; }
+  catch (...) { throw sid::exception(std::string(__func__) + ": Unknown exception"); }
+}
+
 bool device::write(scsi::write16& _write16)
 {
   bool isSuccess = false;
 
   try
   {
+    if ( m_fd < 0 )
+      throw sid::exception("No device is open");
+
+    if ( this->capacity().block_size == 0 )
+      throw sid::exception("Block size is not set");
+
+    p_write(_write16);
+
     isSuccess = true;
   }
   catch (const sid::exception& e)
   {
     this->exception() = sid::exception(e.code(), std::string(__func__)
-                                       + "(" + this->id()+ "): " + e.message());
+                                       + "(" + this->id() + "): " + e.message());
   }
   catch (...)
   {
     this->exception() = sid::exception(-1, std::string(__func__)
-                                       + "(" + this->id()+ "): Unknown exception");
+                                       + "(" + this->id() + "): Unknown exception");
   }
 
   return isSuccess;
+}
+
+void device::p_write(scsi::write16& _write16)
+{
+  try
+  {
+    local::sg_io_hdr io_hdr;
+
+    io_hdr.io_cdb = _write16.get_cdb();
+    if ( _write16.transfer_length == 0 )
+        io_hdr.dxfer_direction = SG_DXFER_NONE;
+    else
+    {
+      io_hdr.dxfer_direction = SG_DXFER_TO_DEV;
+      io_hdr.dxfer_len = _write16.transfer_length * this->capacity().block_size;
+      io_hdr.dxferp = (void *) _write16.data;
+      //io_hdr.flags |= 0x02;
+    }
+    io_hdr.pack_id = ++pack_id_count;
+    io_hdr.timeout = DEF_TIMEOUT;
+    //io_hdr.usr_ptr = nullptr;
+
+    io_hdr.exec(__func__, m_fd, true);
+
+    if ( io_hdr.status != 0 )
+      throw sid::exception("Failed with status " + sid::to_str((int)io_hdr.status));
+
+    // Set the amount of data written
+    _write16.data_size_written = io_hdr.dxfer_len - io_hdr.resid;
+  }
+  catch (const sid::exception&) { throw; }
+  catch (...) { throw sid::exception(std::string(__func__) + ": Unknown exception"); }
 }
 
 bool device::inquiry(scsi::inquiry::basic* _inquiry)
@@ -408,8 +503,8 @@ bool device::inquiry(scsi::inquiry::basic* _inquiry)
   {
     local::sg_io_hdr io_hdr;
 
-    io_hdr.io_request = _inquiry->get_cdb();
-    io_hdr.io_response = sid::io_buffer(INQUIRY_STANDARD_REPLY_LEN);
+    io_hdr.io_cdb = _inquiry->get_cdb();
+    io_hdr.io_xfer = sid::io_buffer(INQUIRY_STANDARD_REPLY_LEN);
     io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
     io_hdr.pack_id = ++pack_id_count;
     //io_hdr.usr_ptr = nullptr;
@@ -417,9 +512,10 @@ bool device::inquiry(scsi::inquiry::basic* _inquiry)
     io_hdr.exec(__func__, m_fd, true);
 
     if ( io_hdr.status != 0 )
-      throw sid::exception(std::string("Failed with status ") + sid::to_str((int)io_hdr.status));
+      throw sid::exception(std::string("Failed with status ")
+                           + sid::to_str((int)io_hdr.status));
 
-    _inquiry->set(io_hdr.io_response);
+    _inquiry->set(io_hdr.io_xfer);
 
     isSuccess = true;
   }
@@ -445,6 +541,7 @@ local::sg_io_hdr::sg_io_hdr()
 {
   clear();
 }
+
 void local::sg_io_hdr::clear()
 {
   memset(dynamic_cast<::sg_io_hdr*>(this), 0, sizeof(::sg_io_hdr));
@@ -483,16 +580,19 @@ int local::sg_io_hdr::exec(const char* _fnName, int _fd, bool _use_ioctl)
   try
   {
     // Request CDB
-    this->cmdp = this->io_request.rd_data();
-    this->cmd_len = this->io_request.rd_length();
-    // Response buffer (if exists)
-    if ( this->io_response.capacity() > 0 )
+    if ( this->cmdp == nullptr )
     {
-      this->dxferp = (void *) this->io_response.wr_data();
-      this->dxfer_len = this->io_response.wr_length();
+      this->cmdp = this->io_cdb.rd_data();
+      this->cmd_len = this->io_cdb.rd_length();
+    }
+    // Response buffer (if exists)
+    if ( this->dxferp == nullptr && this->io_xfer.capacity() > 0 )
+    {
+      this->dxferp = (void *) this->io_xfer.wr_data();
+      this->dxfer_len = this->io_xfer.wr_length();
     }
     // Sense buffer output
-    if ( this->io_sense.capacity() > 0 )
+    if ( this->sbp == nullptr && this->io_sense.capacity() > 0 )
     {
       this->sbp = this->io_sense.wr_data();
       this->mx_sb_len = this->io_sense.wr_length();

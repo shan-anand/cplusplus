@@ -33,16 +33,16 @@ int main(int argc, char* argv[])
 
     {
       scsi::capacity16 capacity;
-      if ( !dev->read_capacity(capacity) )
+      if ( ! dev->read_capacity(capacity) )
         throw dev->exception();
-      cout << "Capacity: " << std::dec << capacity.bytes() << endl;
+      cout << "Capacity...: " << std::dec << capacity.bytes() << endl;
     }
 
     {
       scsi::inquiry::unit_serial_number usn;
-      if ( !dev->inquiry(&usn) )
+      if ( ! dev->inquiry(&usn) )
         throw dev->exception();
-      cout << "USN: " << usn.serial_number << endl;
+      cout << "USN........: " << usn.serial_number << endl;
     }
 
     dev.clear();

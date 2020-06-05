@@ -47,7 +47,7 @@ LICENSE: END
 #include "constants.hpp"
 #include <common/io_buffer.hpp>
 
-#define SCSI_DEFAULT_IO_SIZE        (128*1024)
+#define SCSI_DEFAULT_IO_BYTE_SIZE    (128*1024)
 
 // read capacity 10 response length
 #define READ_CAP10_REPLY_LEN         8
@@ -242,6 +242,7 @@ struct basic
   // CDB (Command Descriptor Block) members
   uint8_t opcode() const { return 0x12; } //! [Byte 0:(0-7)]
 
+  // Response
   // == Byte 0 == ////////////////////////////////////////////////////////////////////////////
   peripheral_qualifier   qualifier;      //! Peripheral qualifier [Byte 0:(5-7)]
   peripheral_device_type device_type;    //! Device type [Byte 0:(0-4)]
@@ -262,6 +263,7 @@ struct standard : public basic
 {
   using super = basic;
 
+  // Response
   // == Byte 1 == ////////////////////////////////////////////////////////////////////////////
   uint8_t  rmb;                          //! removable medium bit [Byte 1:(7)]
                                          //! Device type modifier [Byte 1:(0-6)]
@@ -325,6 +327,8 @@ private:
 struct basic_vpd : public basic
 {
   using super = basic;
+
+  // Response
   // == Byte 1 == ////////////////////////////////////////////////////////////////////////////
   uint8_t page_code;                     //! Page code [Byte 1:(0-7)]
 
@@ -349,6 +353,7 @@ struct supported_vpd_pages : public basic_vpd
   static scsi::code_page code_page() { return scsi::code_page::supported_vpd_pages; }
   scsi::code_page get_code_page() const override { return code_page(); }
 
+  // Response
   uint8_t           page_length;  //! Number of pages (n-3) [Byte 3:(0-7)]
   std::set<uint8_t> pages;        //! Supported Pages [Bytes 4-n]
 
@@ -366,6 +371,7 @@ struct unit_serial_number : public basic_vpd
   static scsi::code_page code_page() { return scsi::code_page::unit_serial_number; }
   scsi::code_page get_code_page() const override { return code_page(); }
 
+  // Response
   // == Byte 2 == ////////////////////////////////////////////////////////////////////////////
   // Reserved                            //! Reserved [Byte 2:(0-7)]
 
@@ -400,6 +406,8 @@ struct device_identification : public basic_vpd
   using super = basic_vpd;
   static scsi::code_page code_page() { return scsi::code_page::device_identification; }
   scsi::code_page get_code_page() const override { return code_page(); }
+
+  // Response
   device_designators designators;
 
   device_identification();
@@ -458,6 +466,7 @@ struct custom_vpd : public basic_vpd
   static scsi::code_page code_page() { return scsi::code_page::custom_vpd; }
   scsi::code_page get_code_page() const override { return code_page(); }
 
+  // Response
   sid::io_buffer data; //! Raw data, to be processed by the caller
 
   custom_vpd(const uint8_t _code_page);
