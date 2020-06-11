@@ -50,6 +50,7 @@ LICENSE: END
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <aio.h>
 
 #include <scsi/sg.h>
 
@@ -205,6 +206,7 @@ device_ptr device::create(const device_info& _deviceInfo)
 device::device()
 {
   m_fd = -1;
+  m_devMode = 0;
   //m_verbose = Verbose::None;
 }
 
@@ -213,12 +215,23 @@ device::~device()
   p_close();
 }
 
+bool device::is_char_device() const
+{
+  return ((m_devMode & S_IFCHR) == S_IFCHR);
+}
+
+bool device::is_block_device() const
+{
+  return ((m_devMode & S_IFBLK) == S_IFBLK);
+}
+
 void device::p_close()
 {
   if ( m_fd != -1 )
   {
     ::close(m_fd);
     m_fd = -1;
+    m_devMode = 0;
   }
 }
 
@@ -257,7 +270,9 @@ bool device::p_open()
     if ( m_fd == -1 )
       throw sid::exception("Failed to open device. " + sid::to_errno_str(errno));
 
-    p_set_non_blocking();
+    m_devMode = s.st_mode;
+
+    //p_set_non_blocking();
 
     isSuccess = true;
   }
@@ -369,6 +384,7 @@ bool device::read(scsi::read16& _read16)
     if ( this->capacity().block_size == 0 )
       throw sid::exception("Block size is not set");
 
+    std::vector<::aiocb> aio_vec;
     const uint32_t minDataBlock = SCSI_DEFAULT_IO_BYTE_SIZE / this->capacity().block_size;
     uint32_t remainingDataBlocks = _read16.transfer_length;
     scsi::read16 read16 = _read16;
@@ -380,9 +396,46 @@ bool device::read(scsi::read16& _read16)
       read16.transfer_length = (remainingDataBlocks > minDataBlock)?
         minDataBlock : remainingDataBlocks;
 
-      // Read the data
-      p_read(read16);
-      read16.data_size_read += read16.data_size_read;
+      if ( !this->is_block_device() )
+      {
+        // Read the data
+        p_read(read16);
+        _read16.data_size_read += read16.data_size_read;
+      }
+      else
+      {
+        ::aiocb aio;
+        memset(&aio, 0, sizeof(::aiocb));
+        {
+          aio.aio_fildes = m_fd;
+          aio.aio_offset = read16.lba * this->capacity().block_size;
+          aio.aio_buf = read16.data;
+          aio.aio_nbytes = read16.transfer_length * this->capacity().block_size;
+          aio.aio_sigevent.sigev_notify = SIGEV_NONE;
+        }
+        aio_vec.push_back(aio);
+      }
+    }
+
+    // If aio_vec is set, perform asynchronous IO
+    if ( !aio_vec.empty() )
+    {
+      ::aiocb** aio_list = (::aiocb**) ::calloc(aio_vec.size()+1, sizeof(::aiocb*));
+      for ( size_t i = 0; i < aio_vec.size(); i++ )
+        aio_list[i] = (aio_vec.data() + i);
+      int retVal = ::lio_listio(LIO_WAIT, aio_list, aio_vec.size(), nullptr);
+      if ( retVal != 0 )
+        throw sid::exception(sid::to_errno_str(errno,
+          "lio_listio() failed with retVal(" + sid::to_str(retVal) + ")"));
+      for ( ::aiocb& aio : aio_vec )
+      {
+        if ( 0 == ::aio_error(&aio) )
+        {
+         ssize_t bytesRead = ::aio_return(&aio);
+         if ( bytesRead >= 0 )
+           _read16.data_size_read += bytesRead;
+        }
+      }
     }
 
     isSuccess = true;
@@ -405,29 +458,46 @@ void device::p_read(scsi::read16& _read16)
 {
   try
   {
-    local::sg_io_hdr io_hdr;
+    if ( this->is_block_device() )
+    {
+      // This is a block device. We can perform ::read() call directly
+      //   1. Set the offet to the place where we want to read the data from
+      ::lseek(m_fd, SEEK_SET, _read16.lba*this->capacity().block_size);
+      //   2. Read the data at the set position
+      int retVal = ::read(m_fd, _read16.data, _read16.transfer_length * this->capacity().block_size);
+      if ( retVal < 0 )
+        throw sid::exception(sid::to_errno_str(errno,
+          "read() failed with retVal(" + sid::to_str(retVal) + ")"));
 
-    io_hdr.io_cdb = _read16.get_cdb();
-    if ( _read16.transfer_length == 0 )
-        io_hdr.dxfer_direction = SG_DXFER_NONE;
+      // Set the amount of data read
+      _read16.data_size_read = retVal;
+    }
     else
     {
-      io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
-      io_hdr.dxfer_len = _read16.transfer_length * this->capacity().block_size;
-      io_hdr.dxferp = (void *) _read16.data;
-      //io_hdr.flags |= 0x02;
+      local::sg_io_hdr io_hdr;
+
+      io_hdr.io_cdb = _read16.get_cdb();
+      if ( _read16.transfer_length == 0 )
+        io_hdr.dxfer_direction = SG_DXFER_NONE;
+      else
+      {
+        io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
+        io_hdr.dxfer_len = _read16.transfer_length * this->capacity().block_size;
+        io_hdr.dxferp = (void *) _read16.data;
+        //io_hdr.flags |= 0x02;
+      }
+      io_hdr.pack_id = ++pack_id_count;
+      io_hdr.timeout = DEF_TIMEOUT;
+      //io_hdr.usr_ptr = nullptr;
+
+      io_hdr.exec(__func__, m_fd, true);
+
+      if ( io_hdr.status != 0 )
+        throw sid::exception("Failed with status " + sid::to_str((int)io_hdr.status));
+
+      // Set the amount of data read
+      _read16.data_size_read = io_hdr.dxfer_len - io_hdr.resid;
     }
-    io_hdr.pack_id = ++pack_id_count;
-    io_hdr.timeout = DEF_TIMEOUT;
-    //io_hdr.usr_ptr = nullptr;
-
-    io_hdr.exec(__func__, m_fd, true);
-
-    if ( io_hdr.status != 0 )
-      throw sid::exception("Failed with status " + sid::to_str((int)io_hdr.status));
-
-    // Set the amount of data written
-    _read16.data_size_read = io_hdr.dxfer_len - io_hdr.resid;
   }
   catch (const sid::exception&) { throw; }
   catch (...) { throw sid::exception(std::string(__func__) + ": Unknown exception"); }

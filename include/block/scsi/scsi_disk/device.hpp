@@ -136,17 +136,27 @@ public:
   bool inquiry(scsi::inquiry::basic* _inquiry) override;
   //=============================================================================
 
-private:
-  device_info m_info;
-  int         m_fd;
+  bool is_char_device() const;
+  bool is_block_device() const;
 
 private:
+  device_info m_info;    //! Device information associated with the current device connection
+  int         m_fd;      //! File descriptor of the device
+  uint32_t    m_devMode; //! read/write mode associated with the device
+
+private:
+  //! Private constructor
   device();
+  //! Open the device
   bool p_open();
+  //! Close the device
   void p_close();
+  //! Set non-blocking mode
   bool p_set_non_blocking();
 
+  //! Block read using SCSI READ16
   void p_read(scsi::read16& _read16);
+  //! Block write using SCSI WRITE16
   void p_write(scsi::write16& _write16);
 };
 
