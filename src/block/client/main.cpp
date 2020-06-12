@@ -5,6 +5,7 @@
 #include <sstream>
 #include <fstream>
 #include <block/block.hpp>
+#include <common/hash.hpp>
 
 #include "main.h"
 #include <cstring>
@@ -13,6 +14,9 @@
 using namespace sid;
 using namespace sid::block;
 using namespace std;
+
+void call_using_block(block::device_ptr dev);
+void call_using_scsi(scsi_disk::device_ptr dev);
 
 int main(int argc, char* argv[])
 {
@@ -25,39 +29,10 @@ int main(int argc, char* argv[])
     info.path = argv[1];
 
     scsi_disk::device_ptr dev = scsi_disk::device::create(info);
-    {
-      scsi::sense sense;
-      if ( ! dev->test_unit_ready(sense) )
-        throw dev->exception();
-    }
 
-    uint32_t blockSize = 0;
-    {
-      scsi::capacity16 capacity;
-      if ( ! dev->read_capacity(capacity) )
-        throw dev->exception();
-      cout << "Capacity...: " << std::dec << capacity.bytes() << endl;
-      blockSize = capacity.block_size;
-    }
+    call_using_block(dev->to_block_device_ptr());
+    //call_using_scsi(dev);
 
-    {
-      scsi::inquiry::unit_serial_number usn;
-      if ( ! dev->inquiry(&usn) )
-        throw dev->exception();
-      cout << "USN........: " << usn.serial_number << endl;
-    }
-
-    if ( blockSize > 0 )
-    {
-      sid::io_buffer ioBuffer(5*1024*10240);
-      scsi::read16 read16;
-      read16.lba = 0;
-      read16.data = ioBuffer.wr_data();
-      read16.transfer_length = ioBuffer.wr_length() / blockSize;
-      if ( ! dev->read(read16) )
-        throw dev->exception();
-      cout << "Size Read..: " << read16.data_size_read << endl;
-    }
     dev.clear();
   }
   catch (const sid::exception& e)
@@ -70,4 +45,83 @@ int main(int argc, char* argv[])
   }
 
   return 0;
+}
+
+void call_using_block(block::device_ptr dev)
+{
+  // tests for unit ready
+  if ( !dev->ready() )
+    throw dev->exception();
+
+  // gets the device capacity information
+  const block::capacity capacity = dev->capacity();
+  cout << "Device Capacity...: " << std::dec << capacity.bytes() << endl;
+
+  // gets the wwn associated with the device
+  const std::string wwn = dev->wwn();
+  cout << "Device USN........: " << wwn << endl;
+
+  {
+    sid::io_buffer ioBuffer(10*1024*1024);
+    uint64_t totalSize = 0;
+    block::io_read io_read;
+    sid::hash::md5 md5;
+    for ( size_t i = 0; i < 1; i++ )
+    {
+      io_read.bytes_read = 0;
+      io_read.offset = totalSize;
+      io_read.length = ioBuffer.wr_length();
+      io_read.buffer = ioBuffer.wr_data();
+      if ( ! dev->read(io_read) )
+        throw dev->exception();
+      cout << "@" << totalSize << ": " << md5.get_hash(ioBuffer.wr_data(), io_read.bytes_read).to_hex_str() << endl;
+      totalSize += io_read.bytes_read;
+    }
+    cout << "Device Size Read..: " << totalSize << endl;
+  }
+}
+
+void call_using_scsi(scsi_disk::device_ptr dev)
+{
+  {
+    scsi::sense sense;
+    if ( ! dev->test_unit_ready(sense) )
+      throw dev->exception();
+  }
+
+  uint32_t blockSize = 0;
+  {
+    scsi::capacity16 capacity16;
+    if ( ! dev->read_capacity(capacity16) )
+      throw dev->exception();
+    cout << "ScsiDisk Capacity...: " << std::dec << capacity16.bytes() << endl;
+    blockSize = capacity16.block_size;
+  }
+
+  {
+    scsi::inquiry::unit_serial_number usn;
+    if ( ! dev->inquiry(&usn) )
+      throw dev->exception();
+    cout << "ScsiDisk USN........: " << usn.serial_number << endl;
+  }
+
+  if ( blockSize > 0 )
+  {
+    sid::io_buffer ioBuffer(10*1024*1024);
+    uint64_t totalSize = 0;
+    scsi::read16 read16;
+    sid::hash::md5 md5;
+    for ( size_t i = 0; i < 1; i++ )
+    {
+      read16.data_size_read = 0;
+      read16.lba = totalSize / blockSize;
+      read16.data = ioBuffer.wr_data();
+      read16.transfer_length = ioBuffer.wr_length() / blockSize;
+      if ( ! dev->read(read16) )
+        throw dev->exception();
+      cout << "@" << totalSize << ": " << md5.get_hash(ioBuffer.wr_data(), read16.data_size_read).to_hex_str() << endl;
+      totalSize += read16.data_size_read;
+    }
+    cout << "ScsiDisk Size Read..: " << totalSize << endl;
+  }
 }

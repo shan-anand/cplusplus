@@ -42,6 +42,7 @@ LICENSE: END
 
 #include <string>
 #include <vector>
+#include <common/io_buffer.hpp>
 
 namespace sid {
 namespace block {
@@ -116,6 +117,7 @@ struct byte_region
   //! Member functions
   void clear() { offset = length = 0; }
   bool empty() { return (length == 0); }
+  void validate(const uint32_t _blockSize) const;
 };
 using byte_regions = std::vector<byte_region>;
 
@@ -216,6 +218,57 @@ struct capacity
   uint64_t bytes() const { return (blocks * block_size); }
   void clear() { blocks = block_size = 0; }
   bool empty() const { return (blocks == 0 && block_size == 0); }
+};
+
+//! structure for read()
+struct io_read : public byte_region
+{
+  //! Datatype definitions
+  using super = byte_region;
+
+  uchar8_t* buffer;     //! IO buffer
+  uint64_t  bytes_read; //! bytes read (filled by read() call)
+
+  //! Constructor
+  io_read(const uint64_t _offset = 0, const uint64_t _length = 0, uchar8_t* _buffer = nullptr) :
+    byte_region(_offset, _length), buffer(_buffer), bytes_read(0) {}
+
+  //! Member functions
+  void clear() { super::clear(); buffer = nullptr; bytes_read = 0; }
+  void validate(const uint32_t _blockSize) const;
+};
+
+//! A vector of io_read
+struct io_reads : public std::vector<io_read>
+{
+  //! Member functions
+  void validate(const uint32_t _blockSize) const;
+  uint64_t bytes_read() const;
+};
+
+//! structure for read()
+struct io_write : public byte_region
+{
+  //! Datatype definitions
+  using super = byte_region;
+
+  const uchar8_t* buffer;        //! IO buffer
+  uint64_t        bytes_written; //! bytes written (filled by write() call)
+
+  //! Constructor
+  io_write(const uint64_t _offset = 0, const uint64_t _length = 0, const uchar8_t* _buffer = nullptr) :
+    byte_region(_offset, _length), buffer(_buffer), bytes_written(0) {}
+
+  //! Member functions
+  void clear() { super::clear(); buffer = nullptr; bytes_written = 0; }
+  void validate(const uint32_t _blockSize) const;
+};
+
+//! A vector of io_write
+struct io_writes : public std::vector<io_write>
+{
+  //! Member functions
+  void validate(const uint32_t _blockSize) const;
 };
 
 } // namespace block

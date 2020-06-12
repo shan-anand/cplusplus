@@ -63,6 +63,12 @@ device::~device()
 {
 }
 
+bool device::ready()
+{
+  scsi::sense sense;
+  return this->test_unit_ready(sense);
+}
+
 block::capacity device::capacity(bool _force/* = false*/)
 {
   block::capacity cap;
@@ -88,4 +94,16 @@ std::string device::wwn(bool _force/* = false*/)
     wwnStr = usn.serial_number;
   }
   return wwnStr;
+}
+
+bool device::read(io_reads& _io_reads)
+{
+  this->exception() = sid::exception("block::read() not implemented");
+  return false;
+}
+
+bool device::write(io_writes& _io_writes)
+{
+  this->exception() = sid::exception("block::write() not implemented");
+  return false;
 }

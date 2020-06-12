@@ -167,6 +167,14 @@ device::~device()
 {
 }
 
+bool device::ready()
+{
+  this->exception() = sid::exception(std::string(__func__) +
+                                     "(" + this->id()+ "): Not implemented");
+
+  return false;
+}
+
 block::capacity device::capacity(bool _force/* = false*/)
 {
   block::capacity cap;
@@ -186,4 +194,14 @@ std::string device::wwn(bool _force/* = false*/)
     wwnStr.clear();
   }
   return wwnStr;
+}
+
+bool device::read(io_reads& _io_reads)
+{
+  return false;
+}
+
+bool device::write(io_writes& _io_writes)
+{
+  return false;
 }

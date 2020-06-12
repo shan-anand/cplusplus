@@ -102,8 +102,11 @@ public:
   //! Override functions from block::device
   block::device_type type() const final { return m_info.type(); }
   std::string id() const final { return m_info.id(); }
+  bool ready() override;
   block::capacity capacity(bool _force = false) override;
   std::string wwn(bool _force = false) override;
+  bool read(io_reads& _io_reads) override;
+  bool write(io_writes& _io_writes) override;
   //=============================================================================
 
 private:

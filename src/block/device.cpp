@@ -62,3 +62,17 @@ device::device() : smart_ref()
 device::~device()
 {
 }
+
+bool device::read(io_read& _io_read)
+{
+  io_reads io_reads;
+  io_reads.push_back(_io_read);
+  return this->read(io_reads);
+}
+
+bool device::write(io_write& _io_write)
+{
+  io_writes io_writes;
+  io_writes.push_back(_io_write);
+  return this->write(io_writes);
+}

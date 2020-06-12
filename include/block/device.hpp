@@ -91,8 +91,14 @@ public:
   //! Virtual functions to be overwritten in the derived classes
   virtual device_type type() const = 0;
   virtual std::string id() const = 0;
+  virtual bool ready() = 0;
   virtual block::capacity capacity(bool _force = false) = 0;
   virtual std::string wwn(bool _force = false) = 0;
+  virtual bool read(io_reads& _io_reads) = 0;
+  virtual bool write(io_writes& _io_writes) = 0;
+
+  bool read(io_read& _io_read);
+  bool write(io_write& _io_write);
 
   //! Get exception
   const sid::exception& exception() const { return m_ex; }
