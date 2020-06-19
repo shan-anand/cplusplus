@@ -317,7 +317,7 @@ bool device::read_capacity(scsi::capacity16& _capacity)
   return isSuccess;
 }
 
-bool device::read(scsi::read16& _read16)
+bool device::read(scsi::read16_vec& _read16_vec)
 {
   bool isSuccess = false;
 
@@ -337,7 +337,7 @@ bool device::read(scsi::read16& _read16)
   return isSuccess;
 }
 
-bool device::write(scsi::write16& _write16)
+bool device::write(scsi::write16_vec& _write16_vec)
 {
   bool isSuccess = false;
 

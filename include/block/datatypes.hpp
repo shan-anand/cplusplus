@@ -100,6 +100,7 @@ public:
   //! Member functions
   void clear() { m_id = data_state::set; }
   const data_state::id& id() const { return m_id; }
+  bool is_set() const { return m_id == data_state::set; }
   std::string name() const;
 };
 
@@ -132,11 +133,11 @@ struct byte_unit : public byte_region
 
   //! Constructors
   byte_unit(const byte_region& _region = byte_region(), const data_state& _state = data_state())
-    : byte_region(_region), state(_state) {}
+    : super(_region), state(_state) {}
   byte_unit(const uint64_t _offset, const uint64_t _length, const data_state& _state = data_state())
-    : byte_region(_offset, _length), state(_state) {}
+    : super(_offset, _length), state(_state) {}
   byte_unit(const data_state& _state)
-    : byte_region(), state(_state) {}
+    : super(), state(_state) {}
 
   //! Member functions
   void clear() { super::clear(); state.clear(); }
@@ -181,11 +182,11 @@ struct block_unit : public block_region
 
   //! Constructors
   block_unit(const block_region& _region = block_region(), const data_state& _state = data_state())
-    : block_region(_region), state(_state) {}
+    : super(_region), state(_state) {}
   block_unit(const uint64_t _lba, const uint64_t _blocks, const data_state& _state = data_state())
-    : block_region(_lba, _blocks), state(_state) {}
+    : super(_lba, _blocks), state(_state) {}
   block_unit(const data_state& _state)
-    : block_region(), state(_state) {}
+    : super(), state(_state) {}
 
   //! Member functions
   void clear() { super::clear(); state.clear(); }
@@ -220,54 +221,36 @@ struct capacity
   bool empty() const { return (blocks == 0 && block_size == 0); }
 };
 
-//! structure for read()
-struct io_read : public byte_region
+//! structure for read and write
+struct io_byte_unit : public byte_unit
 {
   //! Datatype definitions
-  using super = byte_region;
+  using super = byte_unit;
 
-  uchar8_t* buffer;     //! IO buffer
-  uint64_t  bytes_read; //! bytes read (filled by read() call)
+  uchar8_t* data;           //! (input) IO buffer
+  uint64_t  data_processed; //! (output) data size read/written in bytes
 
   //! Constructor
-  io_read(const uint64_t _offset = 0, const uint64_t _length = 0, uchar8_t* _buffer = nullptr) :
-    byte_region(_offset, _length), buffer(_buffer), bytes_read(0) {}
+  io_byte_unit(const byte_unit& _unit = byte_unit(), uchar8_t* _data = nullptr)
+    : super(_unit), data(_data), data_processed(0) {}
+  io_byte_unit(const uint64_t _offset, const uint64_t _length, uchar8_t* _data = nullptr)
+    : super(_offset, _length), data(_data), data_processed(0) {}
+  io_byte_unit(const uint64_t _offset, const uint64_t _length,
+          const data_state& _state, uchar8_t* _data = nullptr)
+    : super(_offset, _length, _state), data(_data), data_processed(0) {}
 
   //! Member functions
-  void clear() { super::clear(); buffer = nullptr; bytes_read = 0; }
+  void clear(bool _full = true) { super::clear(); data = nullptr; data_processed = 0; }
+  void clear_processed() { data_processed = 0; }
   void validate(const uint32_t _blockSize) const;
 };
 
 //! A vector of io_read
-struct io_reads : public std::vector<io_read>
+struct io_byte_units : public std::vector<io_byte_unit>
 {
   //! Member functions
-  void validate(const uint32_t _blockSize) const;
-  uint64_t bytes_read() const;
-};
-
-//! structure for read()
-struct io_write : public byte_region
-{
-  //! Datatype definitions
-  using super = byte_region;
-
-  const uchar8_t* buffer;        //! IO buffer
-  uint64_t        bytes_written; //! bytes written (filled by write() call)
-
-  //! Constructor
-  io_write(const uint64_t _offset = 0, const uint64_t _length = 0, const uchar8_t* _buffer = nullptr) :
-    byte_region(_offset, _length), buffer(_buffer), bytes_written(0) {}
-
-  //! Member functions
-  void clear() { super::clear(); buffer = nullptr; bytes_written = 0; }
-  void validate(const uint32_t _blockSize) const;
-};
-
-//! A vector of io_write
-struct io_writes : public std::vector<io_write>
-{
-  //! Member functions
+  uint64_t data_processed() const;
+  void clear_processed();
   void validate(const uint32_t _blockSize) const;
 };
 

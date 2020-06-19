@@ -64,18 +64,18 @@ void call_using_block(block::device_ptr dev)
   {
     sid::io_buffer ioBuffer(10*1024*1024);
     uint64_t totalSize = 0;
-    block::io_read io_read;
+    block::io_byte_unit io_byte_unit;
     sid::hash::md5 md5;
-    for ( size_t i = 0; i < 1; i++ )
+    for ( size_t i = 0; i < 1024; i++ )
     {
-      io_read.bytes_read = 0;
-      io_read.offset = totalSize;
-      io_read.length = ioBuffer.wr_length();
-      io_read.buffer = ioBuffer.wr_data();
-      if ( ! dev->read(io_read) )
+      io_byte_unit.data_processed = 0;
+      io_byte_unit.offset = totalSize;
+      io_byte_unit.length = ioBuffer.wr_length();
+      io_byte_unit.data = ioBuffer.wr_data();
+      if ( ! dev->read(io_byte_unit) )
         throw dev->exception();
-      cout << "@" << totalSize << ": " << md5.get_hash(ioBuffer.wr_data(), io_read.bytes_read).to_hex_str() << endl;
-      totalSize += io_read.bytes_read;
+      //cout << "@" << totalSize << ": " << md5.get_hash(ioBuffer.wr_data(), io_byte_unit.data_processed).to_hex_str() << endl;
+      totalSize += io_byte_unit.data_processed;
     }
     cout << "Device Size Read..: " << totalSize << endl;
   }
@@ -108,19 +108,31 @@ void call_using_scsi(scsi_disk::device_ptr dev)
   if ( blockSize > 0 )
   {
     sid::io_buffer ioBuffer(10*1024*1024);
-    uint64_t totalSize = 0;
-    scsi::read16 read16;
+    uint64_t totalSize = 0, totalSizeRead = 0;
+    scsi::read16_vec read16_vec;
     sid::hash::md5 md5;
     for ( size_t i = 0; i < 1; i++ )
     {
-      read16.data_size_read = 0;
-      read16.lba = totalSize / blockSize;
-      read16.data = ioBuffer.wr_data();
-      read16.transfer_length = ioBuffer.wr_length() / blockSize;
-      if ( ! dev->read(read16) )
+      read16_vec.clear();
+      scsi::read16 read16;
+      uint64_t bytesToRead = 0;
+      for ( uint64_t sizeLeft = ioBuffer.wr_length(); sizeLeft != 0;
+            sizeLeft -= bytesToRead, totalSize += bytesToRead)
+      {
+        // Determine how much data to read
+        bytesToRead = std::min(sizeLeft, static_cast<uint64_t>(SCSI_DEFAULT_IO_BYTE_SIZE));
+        // Fill the read16 structure
+        read16.data_size_read = 0;
+        read16.lba = totalSize / blockSize;
+        read16.data = ioBuffer.wr_data();
+        read16.transfer_length = bytesToRead / blockSize;
+        // Add it to the vector
+        read16_vec.push_back(read16);
+      }
+      if ( ! dev->read(read16_vec) )
         throw dev->exception();
-      cout << "@" << totalSize << ": " << md5.get_hash(ioBuffer.wr_data(), read16.data_size_read).to_hex_str() << endl;
-      totalSize += read16.data_size_read;
+      totalSizeRead += read16_vec.data_size_read();
+      //cout << "@" << totalSize << ": " << md5.get_hash(ioBuffer.wr_data(), read16.data_size_read).to_hex_str() << endl;
     }
     cout << "ScsiDisk Size Read..: " << totalSize << endl;
   }

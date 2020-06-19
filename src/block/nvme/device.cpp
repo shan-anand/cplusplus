@@ -196,12 +196,12 @@ std::string device::wwn(bool _force/* = false*/)
   return wwnStr;
 }
 
-bool device::read(io_reads& _io_reads)
+bool device::read(io_byte_units& _io_byte_units)
 {
   return false;
 }
 
-bool device::write(io_writes& _io_writes)
+bool device::write(io_byte_units& _io_byte_units)
 {
   return false;
 }

@@ -94,11 +94,11 @@ public:
   virtual bool ready() = 0;
   virtual block::capacity capacity(bool _force = false) = 0;
   virtual std::string wwn(bool _force = false) = 0;
-  virtual bool read(io_reads& _io_reads) = 0;
-  virtual bool write(io_writes& _io_writes) = 0;
+  virtual bool read(io_byte_units& _io_byte_units) = 0;
+  virtual bool write(io_byte_units& _io_byte_units) = 0;
 
-  bool read(io_read& _io_read);
-  bool write(io_write& _io_write);
+  bool read(io_byte_unit& _io_byte_unit);
+  bool write(io_byte_unit& _io_byte_unit);
 
   //! Get exception
   const sid::exception& exception() const { return m_ex; }

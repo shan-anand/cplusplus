@@ -156,10 +156,36 @@ struct sense
 };
 
 /**
- * @struct read16
+ * @struct io16_cdb
+ * @brief Common CDB structure for SCSI READ(16) and WRITE(16)
+ */
+struct io16_cdb
+{
+  static size_t static_cdb_size() { return 16; }
+  // CDB (Command Descriptor Block) members
+  uint8_t        opcode;              //! [Byte 0:(0-7)]
+  uint8_t        protect;             //! [Byte 1:(5-7)]
+  bool           dpo;                 //! [Byte 1:(4)]
+  bool           fua;                 //! [Byte 1:(3)]
+  bool           rarc;                //! [Byte 1:(2)]
+  bool           fua_nv;              //! [Byte 1:(1)]
+  uint64_t       lba;                 //! [Bytes 2 - 9]
+  uint32_t       transfer_length;     //! [Bytes 10 - 13]
+  uint8_t        group;               //! [Byte 14:(0-5)]
+  uint8_t        control;             //! [Byte 15:(0-7)]
+
+  void clear();
+  sid::io_buffer get_cdb() const;
+
+protected:
+  io16_cdb(const uint8_t _opcode);
+};
+
+/**
+ * @struct read16_cdb
  * @brief Data structure for SCSI READ(16)
  */
-struct read16
+struct read16_cdb
 {
   static size_t static_cdb_size() { return 16; }
   // CDB (Command Descriptor Block) members
@@ -174,23 +200,45 @@ struct read16
   uint8_t        group;             //! [Byte 14:(0-5)]
   uint8_t        control;           //! [Byte 15:(0-7)]
 
-  // Other members
-  unsigned char* data;              //! Pointer to the data where the data is read
-                                    //! The size of the buffer must be "transfer_length" or more
-  uint32_t       data_size_read;    //! Output
-
-  read16();
+  read16_cdb();
   void clear();
   sid::io_buffer get_cdb() const;
 };
 
-IMPLEMENT_CLASS_EX(read16);
+/**
+ * @struct read16
+ * @brief Data structure for SCSI READ(16)
+ */
+struct read16 : public read16_cdb
+{
+  using super = read16_cdb;
+  // Members
+  unsigned char* data;              //! Pointer to the data where the data is read
+                                    //! The size of the buffer must be "transfer_length" or more
+  uint32_t       data_size_read;    //! Return data size read
+  scsi::sense    sense;             //! Return sense information
+
+  //! Default constructor
+  read16();
+  //! Clear the object
+  void clear();
+};
 
 /**
- * @struct write16
+ * @struct read16_vec
+ * @brief A vector of read16 objects
+ */
+struct read16_vec : public std::vector<read16>
+{
+  uint64_t transfer_length() const;
+  uint64_t data_size_read() const;
+};
+
+/**
+ * @struct write16_cdb
  * @brief Data structure for SCSI WRITE(16)
  */
-struct write16
+struct write16_cdb
 {
   static size_t static_cdb_size() { return 16; }
   // CDB (Command Descriptor Block) members
@@ -205,16 +253,39 @@ struct write16
   uint8_t        group;             //! [Byte 14:(0-5)]
   uint8_t        control;           //! [Byte 15:(0-7)]
 
-  // Other members
-  const unsigned char* data;        //! Pointer to the data from where the data is to be written
-  uint32_t       data_size_written; //! Output
-
-  write16();
+  write16_cdb();
   void clear();
   sid::io_buffer get_cdb() const;
 };
 
-IMPLEMENT_CLASS_EX(write16);
+/**
+ * @struct write16
+ * @brief Data structure for SCSI WRITE(16)
+ */
+struct write16 : public write16_cdb
+{
+  using super = write16_cdb;
+  // Members
+  const unsigned char* data;        //! Pointer to the data from where the data is to be written
+                                    //! The size of the buffer must be "transfer_length" or more
+  uint32_t    data_size_written;    //! Return data size written
+  scsi::sense sense;                //! Return sense information
+
+  //! Default constructor
+  write16();
+  //! Clear the object
+  void clear();
+};
+
+/**
+ * @struct write16_vec
+ * @brief A vector of write16 objects
+ */
+struct write16_vec : public std::vector<write16>
+{
+  uint64_t transfer_length() const;
+  uint64_t data_size_written() const;
+};
 
 namespace inquiry
 {

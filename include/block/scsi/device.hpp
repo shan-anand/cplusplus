@@ -83,19 +83,29 @@ public:
   bool ready() override;
   block::capacity capacity(bool _force = false) override;
   std::string wwn(bool _force = false) override;
-  bool read(io_reads& _io_reads) override;
-  bool write(io_writes& _io_writes) override;
+  bool read(io_byte_units& _io_byte_units) override;
+  bool write(io_byte_units& _io_byte_units) override;
   //=============================================================================
 
   //! Virtual functions to be overwritten in the derived classes
   virtual bool test_unit_ready(sense& _sense) = 0;
   virtual bool read_capacity(capacity16& _capacity) = 0;
-  virtual bool read(read16& _read16) = 0;
-  virtual bool write(write16& _write16) = 0;
   virtual bool inquiry(inquiry::basic* _inquiry) = 0;
+  virtual bool read(read16_vec& _read16_vec) = 0;
+  virtual bool write(write16_vec& _write16_vec) = 0;
+
+  bool read(read16& _read16);
+  bool write(write16& _write16);
+
+  using super::read;
+  using super::write;
 
 protected:
   device();
+
+private:
+  void p_fill(read16_vec& _read16_vec, const read16& _read16);
+  void p_fill(write16_vec& _write16_vec, const write16& _write16);
 };
 
 } // namespace scsi

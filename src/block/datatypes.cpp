@@ -52,8 +52,7 @@ namespace local
   void validate_block_size(const uint32_t _blockSize);
   bool validate(const uint64_t _value, const uint32_t _blockSize);
   void validate(const byte_region& _byte_region, const uint32_t _blockSize);
-  void validate(const io_read& _io_read, const uint32_t _blockSize);
-  void validate(const io_write& _io_write, const uint32_t _blockSize);
+  void validate(const io_byte_unit& _io_byte_unit, const uint32_t _blockSize);
 }
 
 //! Validate the block size
@@ -82,20 +81,12 @@ void local::validate(const byte_region& _byte_region, const uint32_t _blockSize)
                          + sid::to_str(_blockSize) + ")");
 }
 
-//! Validate the given io_read object
-void local::validate(const io_read& _io_read, const uint32_t _blockSize)
+//! Validate the given io_byte_unit object
+void local::validate(const io_byte_unit& _io_byte_unit, const uint32_t _blockSize)
 {
-  local::validate(static_cast<byte_region>(_io_read), _blockSize);
-  if ( _io_read.buffer == nullptr )
-    throw sid::exception("Read buffer cannot be empty");
-}
-
-//! Validate the given io_write object
-void local::validate(const io_write& _io_write, const uint32_t _blockSize)
-{
-  local::validate(static_cast<byte_region>(_io_write), _blockSize);
-  if ( _io_write.buffer == nullptr )
-    throw sid::exception("Write buffer cannot be empty");
+  local::validate(static_cast<byte_region>(_io_byte_unit), _blockSize);
+  if ( _io_byte_unit.data == nullptr )
+    throw sid::exception("IO buffer cannot be empty");
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -110,9 +101,9 @@ void byte_region::validate(const uint32_t _blockSize) const
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// io_read
+// io_byte_unit
 //
-void io_read::validate(const uint32_t _blockSize) const
+void io_byte_unit::validate(const uint32_t _blockSize) const
 {
   local::validate_block_size(_blockSize);
   local::validate(*this, _blockSize);
@@ -120,30 +111,23 @@ void io_read::validate(const uint32_t _blockSize) const
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// io_reads
+// io_byte_units
 //
-void io_reads::validate(const uint32_t _blockSize) const
+uint64_t io_byte_units::data_processed() const
 {
-  local::validate_block_size(_blockSize);
-  for ( const auto& io : *this )
-    local::validate(io, _blockSize);
+  uint64_t out = 0;
+  for ( const io_byte_unit& io_byte_unit : *this )
+    out += io_byte_unit.data_processed;
+  return out;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// io_write
-//
-void io_write::validate(const uint32_t _blockSize) const
+void io_byte_units::clear_processed()
 {
-  local::validate_block_size(_blockSize);
-  local::validate(*this, _blockSize);
+  for ( io_byte_unit& io_byte_unit : *this )
+    io_byte_unit.clear_processed();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// io_writes
-//
-void io_writes::validate(const uint32_t _blockSize) const
+void io_byte_units::validate(const uint32_t _blockSize) const
 {
   local::validate_block_size(_blockSize);
   for ( const auto& io : *this )

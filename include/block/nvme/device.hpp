@@ -105,9 +105,12 @@ public:
   bool ready() override;
   block::capacity capacity(bool _force = false) override;
   std::string wwn(bool _force = false) override;
-  bool read(io_reads& _io_reads) override;
-  bool write(io_writes& _io_writes) override;
+  bool read(io_byte_units& _io_byte_units) override;
+  bool write(io_byte_units& _io_byte_units) override;
   //=============================================================================
+
+  using super::read;
+  using super::write;
 
 private:
   device_info m_info;

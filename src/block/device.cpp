@@ -63,16 +63,20 @@ device::~device()
 {
 }
 
-bool device::read(io_read& _io_read)
+bool device::read(io_byte_unit& _io_byte_unit)
 {
-  io_reads io_reads;
-  io_reads.push_back(_io_read);
-  return this->read(io_reads);
+  io_byte_units io_byte_units;
+  io_byte_units.push_back(_io_byte_unit);
+  bool isSuccess = this->read(io_byte_units);
+  _io_byte_unit = io_byte_units[0];
+  return isSuccess;
 }
 
-bool device::write(io_write& _io_write)
+bool device::write(io_byte_unit& _io_byte_unit)
 {
-  io_writes io_writes;
-  io_writes.push_back(_io_write);
-  return this->write(io_writes);
+  io_byte_units io_byte_units;
+  io_byte_units.push_back(_io_byte_unit);
+  bool isSuccess = this->write(io_byte_units);
+  _io_byte_unit = io_byte_units[0];
+  return isSuccess;
 }

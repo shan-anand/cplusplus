@@ -761,22 +761,19 @@ bool inquiry::custom_vpd::set(const sid::io_buffer& _ioBuffer, size_t* _reqSize/
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// read16
+// read16_cdb
 //
-read16::read16() : data(nullptr)
+read16_cdb::read16_cdb()
 {
   clear();
 }
 
-void read16::clear()
+void read16_cdb::clear()
 {
-  // Clear everything except the data pointer
-  unsigned char* d = this->data;
-  ::memset(this, 0, sizeof(read16));
-  this->data = d;
+  ::memset(this, 0, sizeof(read16_cdb));
 }
 
-sid::io_buffer read16::get_cdb() const
+sid::io_buffer read16_cdb::get_cdb() const
 {
   sid::io_buffer ioBuffer(static_cdb_size());
 
@@ -803,22 +800,56 @@ sid::io_buffer read16::get_cdb() const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// write16
+// read16
 //
-write16::write16() : data(nullptr)
+read16::read16() : super(), data(nullptr), data_size_read(0), sense()
+{
+}
+
+void read16::clear()
+{
+  super::clear();
+  // Clear everything except the data pointer
+  //this->data;
+  data_size_read  = 0;
+  sense.clear();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// read16_vec
+//
+uint64_t read16_vec::transfer_length() const
+{
+  uint64_t out = 0;
+  for ( const scsi::read16& read16 : *this )
+    out += read16.transfer_length;
+  return out;
+}
+
+uint64_t read16_vec::data_size_read() const
+{
+  uint64_t out = 0;
+  for ( const scsi::read16& read16 : *this )
+    out += read16.data_size_read;
+  return out;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// write16_cdb
+//
+write16_cdb::write16_cdb()
 {
   clear();
 }
 
-void write16::clear()
+void write16_cdb::clear()
 {
-  // Clear everything except the data pointer
-  const unsigned char* d = this->data;
-  ::memset(this, 0, sizeof(write16));
-  this->data = d;
+  ::memset(this, 0, sizeof(write16_cdb));
 }
 
-sid::io_buffer write16::get_cdb() const
+sid::io_buffer write16_cdb::get_cdb() const
 {
   sid::io_buffer ioBuffer(static_cdb_size());
 
@@ -835,4 +866,41 @@ sid::io_buffer write16::get_cdb() const
   ioBuffer.set_8(15, this->control);
 
   return ioBuffer;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// write16
+//
+write16::write16() : super(), data(nullptr), data_size_written(0), sense()
+{
+}
+
+void write16::clear()
+{
+  super::clear();
+  // Clear everything except the data pointer
+  //this->data = nullptr;
+  data_size_written  = 0;
+  sense.clear();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// write16_vec
+//
+uint64_t write16_vec::transfer_length() const
+{
+  uint64_t out = 0;
+  for ( const scsi::write16& write16 : *this )
+    out += write16.transfer_length;
+  return out;
+}
+
+uint64_t write16_vec::data_size_written() const
+{
+  uint64_t out = 0;
+  for ( const scsi::write16& write16 : *this )
+    out += write16.data_size_written;
+  return out;
 }

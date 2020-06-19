@@ -217,12 +217,12 @@ device::~device()
 
 bool device::is_char_device() const
 {
-  return ((m_devMode & S_IFCHR) == S_IFCHR);
+  return S_ISCHR(m_devMode);
 }
 
 bool device::is_block_device() const
 {
-  return ((m_devMode & S_IFBLK) == S_IFBLK);
+  return S_ISBLK(m_devMode);
 }
 
 void device::p_close()
@@ -257,7 +257,7 @@ bool device::p_open()
          S_IFCHR    0020000   character device
          S_IFIFO    0010000   FIFO
     */
-    if ( ((s.st_mode & S_IFCHR) != S_IFCHR) && ((s.st_mode & S_IFBLK) != S_IFBLK) )
+    if ( (! S_ISCHR(s.st_mode)) && (! S_ISBLK(s.st_mode)) )
       throw sid::exception("Not a character or block device");
 
     int ioFlags = O_RDWR;
@@ -271,6 +271,10 @@ bool device::p_open()
       throw sid::exception("Failed to open device. " + sid::to_errno_str(errno));
 
     m_devMode = s.st_mode;
+
+    //cout << "Mode...: " << std::hex << m_devMode << std::dec
+    //     << " " << (this->is_char_device()? "char_dev":"")
+    //     << " " << (this->is_block_device()? "block_dev":"") << endl;
 
     //p_set_non_blocking();
 
@@ -372,6 +376,112 @@ bool device::read_capacity(scsi::capacity16& _capacity)
   return isSuccess;
 }
 
+bool device::read(scsi::read16_vec& _read16_vec)
+{
+  bool isSuccess = false;
+
+  try
+  {
+    if ( m_fd < 0 )
+      throw sid::exception("No device is open");
+
+    if ( this->capacity().block_size == 0 )
+      throw sid::exception("Block size is not set");
+
+    if ( this->is_char_device() )
+    {
+      for ( scsi::read16& read16 : _read16_vec )
+        p_read(read16);
+    }
+    else
+    {
+      std::vector<::aiocb> aio_vec;
+      ::aiocb aio;
+      for ( scsi::read16& read16 : _read16_vec )
+      {
+        memset(&aio, 0, sizeof(::aiocb));
+        {
+          aio.aio_fildes = m_fd;
+          aio.aio_offset = read16.lba * this->capacity().block_size;
+          aio.aio_buf = read16.data;
+          aio.aio_nbytes = read16.transfer_length * this->capacity().block_size;
+          aio.aio_sigevent.sigev_notify = SIGEV_NONE;
+        }
+        aio_vec.push_back(aio);
+      }
+      if ( !aio_vec.empty() )
+      {
+        ::aiocb** aio_list = (::aiocb**) ::calloc(aio_vec.size()+1, sizeof(::aiocb*));
+        for ( size_t i = 0; i < aio_vec.size(); i++ )
+          aio_list[i] = (aio_vec.data() + i);
+
+        int retVal = ::lio_listio(LIO_WAIT, aio_list, aio_vec.size(), nullptr);
+        if ( retVal != 0 )
+          throw sid::exception(
+            sid::to_errno_str(errno, "lio_listio() failed with retVal(" + sid::to_str(retVal) + ")"));
+
+        for ( size_t i = 0; i < aio_vec.size(); i++ )
+        {
+          ::aiocb& aio = aio_vec[i];
+          if ( 0 == ::aio_error(&aio) )
+          {
+            ssize_t bytesRead = ::aio_return(&aio);
+            if ( bytesRead >= 0 )
+              _read16_vec[i].data_size_read = bytesRead;
+          }
+        }
+      }
+    }
+    isSuccess = true;
+  }
+  catch (const sid::exception& e)
+  {
+    this->exception() = e;
+  }
+  catch (...)
+  {
+    this->exception() = sid::exception(-1, std::string(__func__) + "(" + this->id()+ "): Unknown exception");
+  }
+
+  return isSuccess;
+}
+
+bool device::write(scsi::write16_vec& _write16_vec)
+{
+  bool isSuccess = false;
+
+  try
+  {
+    if ( m_fd < 0 )
+      throw sid::exception("No device is open");
+
+    if ( this->capacity().block_size == 0 )
+      throw sid::exception("Block size is not set");
+
+    if ( this->is_char_device() )
+    {
+      for ( scsi::write16& write16 : _write16_vec )
+        p_write(write16);
+    }
+    else
+    {
+      throw sid::exception("write not impemented for block");
+    }
+    isSuccess = true;
+  }
+  catch (const sid::exception& e)
+  {
+    this->exception() = e;
+  }
+  catch (...)
+  {
+    this->exception() = sid::exception(-1, std::string(__func__) + "(" + this->id() + "): Unknown exception");
+  }
+
+  return isSuccess;
+}
+
+/*
 bool device::read(scsi::read16& _read16)
 {
   bool isSuccess = false;
@@ -453,6 +563,7 @@ bool device::read(scsi::read16& _read16)
 
   return isSuccess;
 }
+*/
 
 void device::p_read(scsi::read16& _read16)
 {
@@ -491,6 +602,7 @@ void device::p_read(scsi::read16& _read16)
       //io_hdr.usr_ptr = nullptr;
 
       io_hdr.exec(__func__, m_fd, true);
+      //_read16_ex.sense = io_hdr.sense();
 
       if ( io_hdr.status != 0 )
         throw sid::exception("Failed with status " + sid::to_str((int)io_hdr.status));
@@ -503,6 +615,7 @@ void device::p_read(scsi::read16& _read16)
   catch (...) { throw sid::exception(std::string(__func__) + ": Unknown exception"); }
 }
 
+/*
 bool device::write(scsi::write16& _write16)
 {
   bool isSuccess = false;
@@ -532,6 +645,7 @@ bool device::write(scsi::write16& _write16)
 
   return isSuccess;
 }
+*/
 
 void device::p_write(scsi::write16& _write16)
 {

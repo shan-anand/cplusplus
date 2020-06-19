@@ -131,10 +131,13 @@ public:
   //! Override functions from scsi::device
   bool test_unit_ready(scsi::sense& _sense) override;
   bool read_capacity(scsi::capacity16& _capacity) override;
-  bool read(scsi::read16& _read16) override;
-  bool write(scsi::write16& _write16) override;
+  bool read(scsi::read16_vec& _read16_vec) override;
+  bool write(scsi::write16_vec& _write16_vec) override;
   bool inquiry(scsi::inquiry::basic* _inquiry) override;
   //=============================================================================
+
+  using super::read;
+  using super::write;
 
   bool is_char_device() const;
   bool is_block_device() const;
