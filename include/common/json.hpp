@@ -39,20 +39,14 @@ LICENSE: END
 #include "exception.hpp"
 #include "smart_ptr.hpp"
 
-// #define SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY
-// #define SID_JSON_MAP_OPTIMIZE_FOR_SIZE
-
-// Cannot be optimized for both speed and size
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY) && defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
-#error "json libray can be optimized only for consistency (SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY) or for size (SID_JSON_MAP_OPTIMIZE_FOR_SIZE), but not both"
-#elif defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
-#pragma message "Compiler flag set to optimize json for consistency"
-#elif defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
-#pragma message "Compiler flag set to optimize json for size"
-#else // if nothing is set, default it to optimize for size
-#pragma message "Setting json to optimize for size"
+// ======================
+// Compiler optimization for the size of the structure
 #define SID_JSON_MAP_OPTIMIZE_FOR_SIZE
+
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
+#pragma message "Compiler flag set to optimize json for size"
 #endif
+// ======================
 
 namespace sid {
 namespace json {
@@ -72,16 +66,26 @@ enum class format : uint8_t { compact, pretty };
 //! json formatter for pretty formatting
 struct pretty_formatter
 {
+  format   type;
   char     sep_char;
   uint32_t sep_count;
-  pretty_formatter(char _sep_char = ' ', uint32_t _sep_count = 2) : sep_char(_sep_char), sep_count(_sep_count) {}
+  bool     key_no_quotes;
+
+  pretty_formatter()
+    : type(format::compact), sep_char(' '), sep_count(2), key_no_quotes(false)  {}
+  pretty_formatter(const format& _type, bool _key_no_quotes = false)
+    : pretty_formatter() { type =_type; key_no_quotes = _key_no_quotes; }
+  pretty_formatter(bool _key_no_quotes)
+    : pretty_formatter() { key_no_quotes = _key_no_quotes; }
 };
 
 //! Forward declaration of parser (not exposed)
 struct parser;
 
+#ifdef SID_JSON_MAP_OPTIMIZE_FOR_SIZE
 #pragma pack(push)
 #pragma pack(1)
+#endif
 
 //! Parser statistics object
 struct parser_stats
@@ -100,6 +104,38 @@ struct parser_stats
   std::string to_str() const;
 };
 
+#define SID_JSON_PARSER_MODE_FLEXIBLE_KEY_NAMES     1
+#define SID_JSON_PARSER_MODE_FLEXIBLE_STRING_VALUES 2
+#define SID_JSON_PARSER_MODE_FLEXIBLE_TYPES         4
+
+//! Parser mode
+union parser_mode
+{
+  struct
+  {
+    uint8_t flexible_key_names     : 1; //! If set to 1, accept key names not enclosed within double-quotes
+                                        //!   Must encode characters with unicode character (\u xxxx)
+                                        //!     " -> \u
+                                        //!     : -> \u
+    uint8_t flexible_string_values : 1; //! If set to 1, accept string values not enclosed within double-quotes
+                                        //!     " -> \u
+                                        //!     , -> \u
+                                        //!     ] -> \u
+                                        //!     } -> \u
+    uint8_t flexible_types         : 1; //! If set to 1, it relaxes the parsing logic for boolean and null types by accepting
+                                        //!    True, TRUE, False, FALSE, Null, NULL (in addition to true, false, null)
+
+  };
+  uint8_t mode;
+  parser_mode(uint8_t _mode) : mode(_mode) {}
+  parser_mode(bool _flexible_key_names = false, bool _flexible_string_values = false, bool _flexible_types = false)
+    {
+      this->flexible_key_names = _flexible_key_names? 1 : 0;
+      this->flexible_string_values = _flexible_string_values? 1 : 0;
+      this->flexible_types = _flexible_types? 1 : 0;
+    }
+};
+
 /**
  * @class value
  * @brief json value class
@@ -109,7 +145,7 @@ class value
   friend class parser;
 public:
   /**
-   * @fn bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, bool _strict = true);
+   * @fn bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_mode& _mode = parser_mode());
    * @brief Convert the given json string to json object
    *
    * @param _jout [out] json output
@@ -119,8 +155,8 @@ public:
    *                     If set to false, it relaxes the parsing logic for boolean and null types by accepting
    *                     True, TRUE, False, FALSE, Null, NULL (in addition to true, false, null)
    */
-  static bool parse(json::value& _jout, const std::string& _value, bool _strict = true);
-  static bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, bool _strict = true);
+  static bool parse(json::value& _jout, const std::string& _value, const parser_mode& _mode = parser_mode());
+  static bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_mode& _mode = parser_mode());
 
   // Constructors
   value(const json::element _type = json::element::null);
@@ -155,6 +191,7 @@ public:
   bool is_bool() const { return m_type == json::element::boolean; }
   bool is_array() const { return m_type == json::element::array; }
   bool is_object() const { return m_type == json::element::object; }
+  bool is_basic_type() const { return ! ( is_array() || is_object() ); }
 
   // operator= overloads
   value& operator=(const value& _obj);
@@ -210,7 +247,7 @@ public:
   void write(std::ostream& _out, const pretty_formatter& _formatter) const;
 
 private:
-  void p_write(std::ostream& _out, json::format _format, const pretty_formatter& _formatter, uint32_t _level) const;
+  void p_write(std::ostream& _out, const pretty_formatter& _formatter, uint32_t _level) const;
   void p_set(const json::element _type = json::element::null);
 
 private:
@@ -271,7 +308,9 @@ private:
   union_data    m_data; //! The object
 };
 
+#ifdef SID_JSON_MAP_OPTIMIZE_FOR_SIZE
 #pragma pack(pop)
+#endif
 
 } // namespace json
 } // namespace sid
