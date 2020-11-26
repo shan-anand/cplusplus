@@ -225,11 +225,11 @@ int main(int argc, char* argv[])
   ::srand(::time(nullptr));
   try
   {
-    if ( argc < 2 )
-      throw std::string("Need atleast one argument");
+    //if ( argc < 2 )
+    //  throw std::string("Need atleast one argument");
 
-    regex_test1(argv[1]);
-    return 0;
+    //regex_test1(argv[1]);
+    //return 0;
 
     //json::value j1 = "string";
     //json::value j2 = j1;
@@ -279,54 +279,58 @@ int main(int argc, char* argv[])
       jmeta["storage_group_id"] = "1";
       jmeta["policy_id"] = nullptr;
       jmeta["written_size"] = 32423423;
-      jroot["meta"] = jmeta.to_str();
-      std::string jsonStr = jroot.to_str(json::format::pretty);
+      jmeta["pi"] = 3.14159L;
+      //jroot["meta"] = jmeta.to_str();
+      jroot["meta"] = jmeta;
+      //std::string jsonStr = jroot.to_str(json::pretty_formatter(json::format::pretty, true));
+      bool flexibleKey = true;
+      std::string jsonStr = jroot.to_str(json::pretty_formatter(json::format::compact, flexibleKey));
       cout << jsonStr << endl;
-
+ 
       cout << "=====================================================" << endl;
       json::value jsecond;
-      json::value::parse(jsecond, jsonStr);
+      json::value::parse(jsecond, jsonStr, json::parser_mode(flexibleKey));
       jsonStr = jsecond.to_str(json::format::pretty);
       cout << jsonStr << endl;
       return 0;
 
       for ( size_t i = 0; i < 600000; i++ )
       {
-	json::value& jperson = jroot.append();
-	json::value& jname = jperson["name"];
-	jname["id"] = i;
-	jname["first"] = "Shan";
-	jname["last"] = "Anand";
-	jname["middle"] = nullptr;
-	jperson["male"] = true;
-	jperson["year"] = 1975;
-	json::value& jtest = jperson;//["test"];
-	jtest["int"] = -3423;
-	jtest["uint"] = 3423;
-	jtest["double-1"] = 23432.32L;
-	jtest["double-2"] = -3432e16;
-	jtest["str-1"] = "v\nal\"u\\e";
-	jtest["str-2"] = "unicode-\u0B85";
-	//jtest["str-3"] = json::value::get("{\"k1\":\"\\\\u0B85\"}");
-	json::value& jarray = jtest["array"];
-	jarray.append(100);
-	jarray.append(-200);
-	jarray.append(300);
-	jarray.append(-400);
-	jtest["empty_array"] = json::value(json::element::array);
-	jtest["empty_object"] = json::value(json::element::object);
-	json::value& jaoa = jtest["array_of_arrays"] = json::value(json::element::array);
-	json::value& jmetadata = jperson["metadata"];
-	for ( size_t j = 0; j < (i%5)+1; j++ )
-	{
-	  json::value& ja = jaoa.append();
-	  ja.append() = uuid::create().to_str();
-	  ja.append() = sid::to_str(::rand());
+        json::value& jperson = jroot.append();
+        json::value& jname = jperson["name"];
+        jname["id"] = i;
+        jname["first"] = "Shan";
+        jname["last"] = "Anand";
+        jname["middle"] = nullptr;
+        jperson["male"] = true;
+        jperson["year"] = 1975;
+        json::value& jtest = jperson;//["test"];
+        jtest["int"] = -3423;
+        jtest["uint"] = 3423;
+        jtest["double-1"] = 23432.32L;
+        jtest["double-2"] = -3432e16;
+        jtest["str-1"] = "v\nal\"u\\e";
+        jtest["str-2"] = "unicode-\u0B85";
+        //jtest["str-3"] = json::value::get("{\"k1\":\"\\\\u0B85\"}");
+        json::value& jarray = jtest["array"];
+        jarray.append(100);
+        jarray.append(-200);
+        jarray.append(300);
+        jarray.append(-400);
+        jtest["empty_array"] = json::value(json::element::array);
+        jtest["empty_object"] = json::value(json::element::object);
+        json::value& jaoa = jtest["array_of_arrays"] = json::value(json::element::array);
+        json::value& jmetadata = jperson["metadata"];
+        for ( size_t j = 0; j < (i%5)+1; j++ )
+        {
+          json::value& ja = jaoa.append();
+          ja.append() = uuid::create().to_str();
+          ja.append() = sid::to_str(::rand());
 
-	  json::value& jentry = jmetadata.append();
-	  jentry["key"] = "key-" + sid::to_str(j);
-	  jentry["value"] = "value-" + sid::to_str(j);
-	}
+          json::value& jentry = jmetadata.append();
+          jentry["key"] = "key-" + sid::to_str(j);
+          jentry["value"] = "value-" + sid::to_str(j);
+        }
       }
       cout << jroot.to_str(json::format::pretty) << endl;
       return 0;
@@ -341,14 +345,14 @@ int main(int argc, char* argv[])
     {
       union union_data
       {
-	long double d __attribute__((packed));
-	uint64_t    uval;
-	bool b;
-	std::string str;
-	std::vector<New3> vstr;
-	std::map<std::string, New3>* mstr;
-	union_data() {}
-	~union_data() {}
+        long double d __attribute__((packed));
+        uint64_t    uval;
+        bool b;
+        std::string str;
+        std::vector<New3> vstr;
+        std::map<std::string, New3>* mstr;
+        union_data() {}
+        ~union_data() {}
       };
       union_data   m_data;
       json::element m_type;

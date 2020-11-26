@@ -69,7 +69,7 @@ struct parser
 {
   json::value&        m_jroot;  //! json::value output object
   json::parser_stats& m_stats;  //! statistics object
-  bool                m_strict; //! Use strict or flexible parsing
+  json::parser_mode   m_mode;   //! Parser mode for strict or flexible parsing
   std::string         m_input;  //! The Json string to be parsed
   std::stack<sid::json::element> m_containerStack; //! Container stack
 
@@ -94,9 +94,11 @@ private:
   void parse_object(json::value& _jobj);
   //! parse array
   void parse_array(json::value& _jarr);
+  //! parse key
+  void parse_key(std::string& _str);
   //! parse string
-  void parse_string(std::string& _str);
-  void parse_string(json::value& _jstr);
+  void parse_string(std::string& _str, bool _isKey);
+  void parse_string(json::value& _jstr, bool _isKey);
   //! parser number
   void parse_number(json::value& _jnum, bool bFullCheck);
   //! parse json value
@@ -169,27 +171,27 @@ std::string sid::to_str(const json::element& _type)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * @fn bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, bool _strict = true);
+ * @fn bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_mode& _mode = parser_mode());
  * @brief Convert the given json string to json object
  *
  * @param _jout [out] json output
  * @param _value [in] Input json string
  * @param _stats [out] Parser statistics
- * @param _strict [in] Use strict parsing (default)
+ * @param _mode [in] Parser mode for strict or flexible parsing
  *                     If set to false, it relaxes the parsing logic for boolean and null types by accepting
  *                     True, TRUE, False, FALSE, Null, NULL (in addition to true, false, null)
  */
 /*static*/
-bool json::value::parse(json::value& _jout, const std::string& _value, bool _strict/* = true*/)
+bool json::value::parse(json::value& _jout, const std::string& _value, const parser_mode& _mode /*= parser_mode()*/)
 {
   json::parser_stats stats;
-  return json::value::parse(_jout, stats, _value, _strict);
+  return json::value::parse(_jout, stats, _value, _mode);
 }
 
-bool json::value::parse(json::value& _jout, parser_stats& _stats, const std::string& _value, bool _strict/* = true*/)
+bool json::value::parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_mode& _mode /*= parser_mode()*/)
 {
   json::parser jparser(_jout, _stats);
-  jparser.m_strict = _strict;
+  jparser.m_mode = _mode;
   return jparser.parse(_value);
 }
 
@@ -440,7 +442,7 @@ void json::value::write(std::ostream& _out, json::format _format/* = json::forma
   if ( ! is_object() && ! is_array() )
     throw sid::exception("Can be applied only on a object or array");
 
-  this->p_write(_out, _format, pretty_formatter(), 0);
+  this->p_write(_out, pretty_formatter(_format), 0);
 }
 
 //! Write json to the given output stream using pretty format
@@ -452,59 +454,59 @@ void json::value::write(std::ostream& _out, const pretty_formatter& _formatter) 
   if ( ! ::isspace(_formatter.sep_char) && _formatter.sep_char != '\0' )
     throw sid::exception("Formatter must be a valid space character. It cannot be \"" + std::string(1, _formatter.sep_char) + "\"");
 
-  this->p_write(_out, json::format::pretty, _formatter, 0);
+  this->p_write(_out, _formatter, 0);
 }
 
-void json::value::p_write(std::ostream& _out, json::format _format, const pretty_formatter& _formatter, uint32_t _level) const
+void json::value::p_write(std::ostream& _out, const pretty_formatter& _formatter, uint32_t _level) const
 {
   auto escape_string =[&](const std::string& _input)->std::string
     {
       std::string output;
       for ( size_t i = 0; i < _input.length(); i++ )
       {
-	char ch = _input[i];
-	switch ( ch )
-	{
-	  //case '/':
-	  //output += '\\';
-	  //output += ch;
-	  //break;
-	case '\b':
-	  output += "\\b";
-	  break;
-	case '\f':
-	  output += "\\f";
-	  break;
-	case '\n':
-	  output += "\\n";
-	  break;
-	case '\r':
-	  output += "\\r";
-	  break;
-	case '\t':
-	  output += "\\t";
-	  break;
-	case '\\':
-	case '\"': // Quotation mark
-	  output += '\\';
-	  output += + ch;
-	  break;
-	  /*
-	case '\u':
-	  output += "\\u";
-	  break;
-	  */
-	default:
-	  output += ch;
-	  break;
-	}
+        char ch = _input[i];
+        switch ( ch )
+        {
+          //case '/':
+          //output += '\\';
+          //output += ch;
+          //break;
+        case '\b':
+          output += "\\b";
+          break;
+        case '\f':
+          output += "\\f";
+          break;
+        case '\n':
+          output += "\\n";
+          break;
+        case '\r':
+          output += "\\r";
+          break;
+        case '\t':
+          output += "\\t";
+          break;
+        case '\\':
+        case '\"': // Quotation mark
+          output += '\\';
+          output += + ch;
+          break;
+          /*
+            case '\u':
+            output += "\\u";
+            break;
+          */
+        default:
+          output += ch;
+          break;
+        }
       }
       return output;
     };
 
   std::string padding;
   const char* final_padding = padding.c_str();;
-  if ( _format == json::format::pretty && _formatter.sep_char != '\0' )
+  if ( _formatter.type == json::format::pretty && _formatter.sep_char != '\0' )
   {
     padding = std::string((_level+1) * _formatter.sep_count, _formatter.sep_char);
     final_padding = (padding.c_str() + _formatter.sep_count);
@@ -518,25 +520,31 @@ void json::value::p_write(std::ostream& _out, json::format _format, const pretty
     {
       if ( ! isFirst )
       {
-	_out << ",";
-	if ( _format == json::format::pretty )
-	  _out << endl;
+        _out << ",";
+        if ( _formatter.type == json::format::pretty )
+          _out << endl;
       }
-      else if ( _format == json::format::pretty )
-	_out << endl;
+      else if ( _formatter.type == json::format::pretty )
+        _out << endl;
       isFirst = false;
-      if ( _format == json::format::compact )
+      if ( _formatter.type == json::format::compact )
       {
-	_out << "\"" << entry.first << "\":";
-	entry.second.p_write(_out, _format, _formatter, _level+1);
+        if ( ! _formatter.key_no_quotes )
+          _out << "\"" << entry.first << "\":";
+        else
+          _out << entry.first << ":";
+        entry.second.p_write(_out, _formatter, _level+1);
       }
-      else if ( _format == json::format::pretty )
+      else if ( _formatter.type == json::format::pretty )
       {
-	_out << padding << "\"" << entry.first << "\" : ";
-	entry.second.p_write(_out, _format, _formatter, _level+1);
+        if ( ! _formatter.key_no_quotes )
+          _out << padding << "\"" << entry.first << "\" : ";
+        else
+          _out << padding << entry.first << " : ";
+        entry.second.p_write(_out, _formatter, _level+1);
       }
     }
-    if ( !isFirst && _format == json::format::pretty )
+    if ( !isFirst && _formatter.type == json::format::pretty )
       _out << endl << final_padding;
     _out << "}";
   }
@@ -548,18 +556,18 @@ void json::value::p_write(std::ostream& _out, json::format _format, const pretty
     {
       if ( ! isFirst )
       {
-	_out << ",";
-	if ( _format == json::format::pretty )
-	  _out << endl;
+        _out << ",";
+        if ( _formatter.type == json::format::pretty )
+          _out << endl;
       }
-      else if ( _format == json::format::pretty )
-	_out << endl;
+      else if ( _formatter.type == json::format::pretty )
+        _out << endl;
       isFirst = false;
-      if ( _format == json::format::pretty )
-	_out << padding;
-      (*this)[i].p_write(_out, _format, _formatter, _level+1);
+      if ( _formatter.type == json::format::pretty )
+        _out << padding;
+      (*this)[i].p_write(_out, _formatter, _level+1);
     }
-    if ( !isFirst && _format == json::format::pretty )
+    if ( !isFirst && _formatter.type == json::format::pretty )
       _out << endl << final_padding;
     _out << "]";
   }
@@ -862,8 +870,8 @@ struct time_calc
       uint64_t y = t_start.tv_nsec / 1000;
       if ( x < y )
       {
-	--s;
-	x += 1000000;
+        --s;
+        x += 1000000;
       }
       s += x;
       return s;
@@ -935,7 +943,7 @@ void json::parser::parse_object(json::value& _jobj)
     // This is the case where there are no elements in the object (An empty object)
     if ( *m_p == '}' ) { ++m_p; break; }
 
-    parse_string(m_key);
+    parse_key(m_key);
     m_stats.keys++;
     REMOVE_LEADING_SPACES(m_p);
     if ( *m_p != ':' )
@@ -982,27 +990,55 @@ void json::parser::parse_array(json::value& _jarr)
   m_containerStack.pop();
 }
 
-void json::parser::parse_string(std::string& _str)
+void json::parser::parse_key(std::string& _str)
+{
+  parse_string(_str, true);
+}
+
+void json::parser::parse_string(std::string& _str, bool _isKey)
 {
   _str.clear();
-  if ( *m_p != '\"' )
+  const char chContainer = (m_containerStack.top() == json::element::object)? '}' : ']' ;
+  bool hasQuotes = true;
+  if ( ( _isKey && m_mode.flexible_key_names ) || ( ! _isKey && m_mode.flexible_string_values ) )
+    hasQuotes = (*m_p == '\"');
+  else if ( *m_p != '\"' )
     throw sid::exception("Expected \" at position " + loc_str() + ", found \"" + std::string(1, *m_p) + "\"");
 
   auto check_hex = [&](char ch)->char
     {
       if ( ch == '\0' )
-	throw sid::exception("Missing hexadecimal sequence characters at the end position " + loc_str());
+        throw sid::exception("Missing hexadecimal sequence characters at the end position " + loc_str());
       if ( ! ::isxdigit(ch) )
-	throw sid::exception("Missing hexadecimal character at " + loc_str());
+        throw sid::exception("Missing hexadecimal character at " + loc_str());
       return ch;
     };
 
   char ch = 0;
+  if ( !hasQuotes )
+    --m_p;
+
   while ( true )
   {
     ch = *(++m_p);
-    if ( ch == '\"' ) break;
-    if ( ch == '\0' ) throw sid::exception("Missing \" for string starting at " + loc_str());
+    if ( hasQuotes )
+    {
+      if ( ch == '\"' ) break;
+      if ( ch == '\0' ) throw sid::exception("Missing \" for string starting at " + loc_str());
+    }
+    else
+    {
+      // A space character denotes end of the string
+      if ( ::isspace(ch) )
+        break;
+      // For a key : denotes end of the key
+      if ( _isKey && ch == ':' )
+        { --m_p; break; }
+      // For a value the end of container key denotes end of the value
+      if ( !_isKey && ch == chContainer )
+        break;
+      if ( ch == '\0' ) throw sid::exception("End of string character not found for string starting at " + loc_str());
+    }
     if ( ch != '\\' ) { _str += ch; continue; }
     // We're encountered an escape character. Process it
     {
@@ -1018,28 +1054,28 @@ void json::parser::parse_string(std::string& _str)
       case '\\': _str += ch;   break;
       case '\"': _str += ch;   break;
       case 'u':
-	{
-	  const char* p = m_p;
-	  // Must be followed by 4 hex digits
-	  for ( int i = 0; i < 4; i++ )
-	    check_hex(*(++m_p));
-	  _str.append(p, (p-m_p));
-	}
-	break;
+      {
+        const char* p = m_p;
+        // Must be followed by 4 hex digits
+        for ( int i = 0; i < 4; i++ )
+          check_hex(*(++m_p));
+        _str.append(p, (p-m_p));
+      }
+      break;
       case '\0':
-	throw sid::exception("Missing escape sequence characters at the end position " + loc_str());
+        throw sid::exception("Missing escape sequence characters at the end position " + loc_str());
       default:
-	throw sid::exception("Invalid escape sequence (" + std::string(1, ch) + ") for string at " + loc_str());
+        throw sid::exception("Invalid escape sequence (" + std::string(1, ch) + ") for string at " + loc_str());
       }
     }
   }
   ++m_p;
 }
 
-void json::parser::parse_string(json::value& _jstr)
+void json::parser::parse_string(json::value& _jstr, bool _isKey)
 {
   std::string str;
-  parse_string(str);
+  parse_string(str, _isKey);
   _jstr = str;
 }
 
@@ -1051,7 +1087,7 @@ void json::parser::parse_value(json::value& _jval)
   else if ( ch == '[' )
     parse_array(_jval);
   else if ( ch == '\"' )
-    parse_string(_jval);
+    parse_string(_jval, false);
   else if ( ch == '-' || ::isdigit(ch) )
     parse_number(_jval, true);
   else if ( ch == '\0' )
@@ -1063,7 +1099,7 @@ void json::parser::parse_value(json::value& _jval)
     for ( char ch; (ch = *m_p) != '\0'; ++m_p )
     {
       if ( ch == ',' || ::isspace(ch) || ch == chContainer )
-	break;
+        break;
     }
     if ( m_p == p_start )
       throw sid::exception("Expected value not found at position " + loc_str());
@@ -1071,28 +1107,28 @@ void json::parser::parse_value(json::value& _jval)
     size_t len = m_p - p_start;
     if ( len == 4 )
     {
-      if ( ::strncmp(p_start, "null", len) )
-	 ;
-      else if ( ::strncmp(p_start, "true", len) )
-	 _jval = true;
+      if ( ::strncmp(p_start, "null", len) == 0 )
+        ;
+      else if ( ::strncmp(p_start, "true", len) == 0 )
+        _jval = true;
 
-       if ( ! m_strict )
-       {
-	 if ( ::strncmp(p_start, "Null", len) || ::strncmp(p_start, "NULL", len) )
-	   ;
-	 else if ( ::strncmp(p_start, "True", len) || ::strncmp(p_start, "TRUE", len) )
-	   _jval = true;
-       }
+      if ( m_mode.flexible_types )
+      {
+        if ( ::strncmp(p_start, "Null", len) == 0 || ::strncmp(p_start, "NULL", len) == 0 )
+          ;
+        else if ( ::strncmp(p_start, "True", len) == 0 || ::strncmp(p_start, "TRUE", len) == 0 )
+          _jval = true;
+      }
     }
     else if ( len == 5 )
     {
-      if ( ::strncmp(p_start, "false", len) )
-	 _jval = false;
-       if ( ! m_strict )
-       {
-	 if ( ::strncmp(p_start, "False", len) || ::strncmp(p_start, "FALSE", len) )
-	   _jval = false;
-       }
+      if ( ::strncmp(p_start, "false", len) == 0 )
+        _jval = false;
+      if ( m_mode.flexible_types )
+      {
+        if ( ::strncmp(p_start, "False", len) == 0 || ::strncmp(p_start, "FALSE", len) == 0 )
+          _jval = false;
+      }
     }
     else
       throw sid::exception("Invalid value [" + std::string(p_start, len) + "] at position " + loc_str() + ". Did you miss enclosing in \"\"?");
@@ -1124,9 +1160,9 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
     for ( ; *m_p != '\0'; m_p++ )
     {
       if ( *m_p == ',' || ::isspace(*m_p) ||  *m_p == chContainer )
-	break;
+        break;
       if ( !isDouble && (*m_p == '.' || *m_p == 'e' || *m_p == 'E') )
-	isDouble = true;
+        isDouble = true;
     }
   }
   else
@@ -1136,8 +1172,8 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
     {
       struct s_integer
       {
-	bool     negative = false;
-	uint64_t digits = 0;
+        bool     negative = false;
+        uint64_t digits = 0;
       };
       s_integer integer;
       bool hasFraction = false;
@@ -1155,22 +1191,22 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
     {
       ch = *(++m_p);
       if ( ch >= '0' && ch <= '9' )
-	throw sid::exception("Invalid digit (" + std::string(1, ch) + ") after first 0 at position " + loc_str());
+        throw sid::exception("Invalid digit (" + std::string(1, ch) + ") after first 0 at position " + loc_str());
       num.integer.digits = 0;
     }
     else
     {
       while ( (ch = *(++m_p)) >= '0' && ch <= '9'  )
-	;
+        ;
     }
     // Check whether it has fraction and populate accordingly
     if ( ch == '.' )
     {
       bool hasDigits = false;
       while ( (ch = *(++m_p)) >= '0' && ch <= '9'  )
-	hasDigits = true;
+        hasDigits = true;
       if ( !hasDigits )
-	throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for fraction at position " + loc_str());
+        throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for fraction at position " + loc_str());
       num.hasFraction = true;
     }
     // Check whether it has an exponent and populate accordingly
@@ -1178,12 +1214,12 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
     {
       ch = *(++m_p);
       if ( ch != '-' && ch != '+' )
-	--m_p;
+        --m_p;
       bool hasDigits = false;
       while ( (ch = *(++m_p)) >= '0' && ch <= '9'  )
-	hasDigits = true;
+        hasDigits = true;
       if ( !hasDigits )
-	throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for exponent at position " + loc_str());
+        throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for exponent at position " + loc_str());
       num.hasExponent = true;
     }
 
@@ -1210,14 +1246,14 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
     {
       int64_t v = 0;
       if ( ! sid::to_num(numStr, /*out*/ v, &errStr) )
-	throw sid::exception("Unable to convert (" + numStr + ") to numeric at position " + loc_str() + ": " + errStr);
+        throw sid::exception("Unable to convert (" + numStr + ") to numeric at position " + loc_str() + ": " + errStr);
       _jnum = v;
     }
     else
     {
       uint64_t v = 0;
       if ( ! sid::to_num(numStr, /*out*/ v, &errStr) )
-	throw sid::exception("Unable to convert (" + numStr + ") to numeric at position " + loc_str() + ": " + errStr);
+        throw sid::exception("Unable to convert (" + numStr + ") to numeric at position " + loc_str() + ": " + errStr);
       _jnum = v;
     }
   }

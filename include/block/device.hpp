@@ -100,12 +100,50 @@ public:
   bool read(io_byte_unit& _io_byte_unit);
   bool write(io_byte_unit& _io_byte_unit);
 
+  /*
+  struct file
+  {
+    int fd;
+    int mode;
+
+    file() : fd(-1), mode(0) {}
+    bool is_open() const { return (fd >= 0); }
+    void set(int _fd, int _mode) { fd = _fd; mode = _mode; }
+    void close();
+
+    bool is_char_mode() const;
+    bool is_block_mode() const;
+    bool is_socket_mode() const;
+
+    bool set_blocking(bool _enable);
+    bool is_blocking() const;
+    bool is_non_blocking() const;
+  };
+  */
+  //! Get file descriptor
+  const int& fd() const { return m_fd1; }
+  //! Get device mode
+  const int& mode() const { return m_mode; }
   //! Get exception
   const sid::exception& exception() const { return m_ex; }
+
+  bool is_char_device() const;
+  bool is_block_device() const;
+  bool is_socket_device() const;
+
+protected:
+  //! Set file descriptor
+  int fd(int _fd) { int old = m_fd1; m_fd1 = _fd; return old; }
+  //! Set device mode
+  int mode(int _mode) { int old = m_mode; m_mode = _mode; return old; }
   //! Set exception
-  sid::exception& exception() { return m_ex; }
+  const sid::exception& exception(const sid::exception& _ex) { m_ex = _ex; return m_ex; }
+  const sid::exception& exception(const std::string& _msg) { m_ex = sid::exception(_msg); return m_ex; }
+  const sid::exception& exception(int _code, const std::string& _msg) { m_ex = sid::exception(_code, _msg); return m_ex; }
 
 private:
+  int            m_fd1;
+  int            m_mode;
   sid::exception m_ex;
 
 protected:
