@@ -3,10 +3,11 @@ POST_SUBDIRS = test
 
 SOURCE_FILES = \
 	convert.cpp \
-	regex.cpp \
 	hash.cpp \
 	io_buffer.cpp \
-	uuid.cpp \
-	json.cpp
+	json.cpp \
+	regex.cpp \
+	util.cpp \
+	uuid.cpp
 
 include $(SID_ROOT)/build.mk

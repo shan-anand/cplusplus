@@ -41,7 +41,7 @@ LICENSE: END
 
 #include <uuid/uuid.h>
 #include <string>
-#include "common/exception.hpp"
+#include "exception.hpp"
 
 namespace sid {
 

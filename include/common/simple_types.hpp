@@ -2,8 +2,11 @@
 #define _SID_SIMPLE_TYPES_HPP_
 
 #include <string>
+#include <functional>
 
 namespace sid {
+
+typedef std::function<bool()> FNContinueCallback;
 
 //! basic_cred data structure
 struct basic_cred

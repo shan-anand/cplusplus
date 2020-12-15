@@ -1,5 +1,5 @@
 /**
- * @file Hash.cpp
+ * @file hash.cpp
  * @brief Class implementations of Message digest algorithms
  */
 
