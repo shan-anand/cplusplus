@@ -6,6 +6,7 @@
 #include <fstream>
 #include <block/block.hpp>
 #include <common/hash.hpp>
+#include <common/util.hpp>
 
 #include "main.h"
 #include <cstring>
@@ -23,7 +24,19 @@ int main(int argc, char* argv[])
   try
   {
     if ( argc < 2 )
-      throw sid::exception("Device path is required as a paremeter");
+      throw sid::exception(std::string("Usage: ") + argv[0] + std::string(" <command>"));
+
+    const std::string cmd = argv[1];
+    if ( cmd == "--list-devices" )
+    {
+      std::vector<std::string> args;
+      for ( int i = 2; i < argc; i++ )
+        args.push_back(argv[i]);
+      device_details deviceDetails = (args.empty())?  device_details::get() : device_details::get(args);
+      for ( const device_detail& deviceDetail : deviceDetails )
+        cout << deviceDetail.path << ", " << deviceDetail.serial << " " << deviceDetail.wwn << endl;
+      return 0;
+    }
 
     scsi_disk::device_info info;
     info.path = argv[1];

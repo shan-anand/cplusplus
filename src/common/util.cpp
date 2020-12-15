@@ -112,7 +112,7 @@ command command::execute(const std::string& _cmd, const std::vector<std::string>
       const char* cparams[_params.size()+2] = {0};
       cparams[0] = _cmd.c_str();
       for ( size_t i = 0; i < _params.size(); i++ )
-        cparams[i+1] = _params[i+1].c_str();
+        cparams[i+1] = _params[i].c_str();
       if ( -1 == ::execve(cparams[0], (char* const*) cparams, (char* const*) nullptr) )
         throw sid::exception(errno, sid::to_errno_str(errno, "Failed to run execve()"));
     }

@@ -285,13 +285,13 @@ bool device::test_unit_ready(scsi::sense& _sense)
   {
     isSuccess = true;
   }
-  catch (const sid::exception& e)
+  catch (const sid::exception& _e)
   {
-    this->exception() = e;
+    this->exception(_e);
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__) + "(" + this->id()+ "): Unknown exception");
+    this->exception(-1, std::string(__func__) + "(" + this->id()+ "): Unknown exception");
   }
 
   return isSuccess;
@@ -305,13 +305,13 @@ bool device::read_capacity(scsi::capacity16& _capacity)
   {
     isSuccess = true;
   }
-  catch (const sid::exception& e)
+  catch (const sid::exception& _e)
   {
-    this->exception() = e;
+    this->exception(_e);
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__) + "(" + this->id()+ "): Unknown exception");
+    this->exception(-1, std::string(__func__) + "(" + this->id()+ "): Unknown exception");
   }
 
   return isSuccess;
@@ -325,13 +325,13 @@ bool device::read(scsi::read16_vec& _read16_vec)
   {
     isSuccess = true;
   }
-  catch (const sid::exception& e)
+  catch (const sid::exception& _e)
   {
-    this->exception() = e;
+    this->exception(_e);
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__) + "(" + this->id()+ "): Unknown exception");
+    this->exception(-1, std::string(__func__) + "(" + this->id()+ "): Unknown exception");
   }
 
   return isSuccess;
@@ -345,13 +345,13 @@ bool device::write(scsi::write16_vec& _write16_vec)
   {
     isSuccess = true;
   }
-  catch (const sid::exception& e)
+  catch (const sid::exception& _e)
   {
-    this->exception() = e;
+    this->exception(_e);
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__) + "(" + this->id() + "): Unknown exception");
+    this->exception(-1, std::string(__func__) + "(" + this->id() + "): Unknown exception");
   }
 
   return isSuccess;
@@ -365,13 +365,13 @@ bool device::inquiry(scsi::inquiry::basic* _inquiry)
   {
     isSuccess = true;
   }
-  catch (const sid::exception& e)
+  catch (const sid::exception& _e)
   {
-    this->exception() = e;
+    this->exception(_e);
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__) + "(" + this->id()+ "): Unknown exception");
+    this->exception(-1, std::string(__func__) + "(" + this->id()+ "): Unknown exception");
   }
 
   return isSuccess;

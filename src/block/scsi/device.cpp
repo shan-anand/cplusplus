@@ -150,12 +150,12 @@ bool device::read(io_byte_units& _io_byte_units) // override
   }
   catch (const sid::exception& _e)
   {
-    this->exception() = _e;
+    this->exception(_e);
   }
   catch (...)
   {
     // unhandled exception
-    this->exception() = sid::exception(-1, std::string(__func__)
+    this->exception(-1, std::string(__func__)
                                        + "(" + this->id() + "): Unknown exception");
   }
   return isSuccess;
@@ -163,7 +163,7 @@ bool device::read(io_byte_units& _io_byte_units) // override
 
 bool device::write(io_byte_units& _io_byte_units) // override
 {
-  this->exception() = sid::exception("block::write() not implemented");
+  this->exception("block::write() not implemented");
   return false;
 }
 

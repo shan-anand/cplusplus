@@ -270,6 +270,9 @@ bool device::p_open()
     if ( m_fd == -1 )
       throw sid::exception("Failed to open device. " + sid::to_errno_str(errno));
 
+    this->fd(m_fd);
+    this->mode(m_devMode);
+
     m_devMode = s.st_mode;
 
     //cout << "Mode...: " << std::hex << m_devMode << std::dec
@@ -282,12 +285,12 @@ bool device::p_open()
   }
   catch (const sid::exception& e)
   {
-    this->exception() = sid::exception(e.code(), std::string(__func__) +
+    this->exception(e.code(), std::string(__func__) +
                                        "(" + this->id()+ "): " + e.message());
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__) + "(" +
+    this->exception(-1, std::string(__func__) + "(" +
                                        this->id()+ "): Unknown exception");
   }
 
@@ -327,12 +330,12 @@ bool device::test_unit_ready(scsi::sense& _sense)
   }
   catch (const sid::exception& e)
   {
-    this->exception() = sid::exception(e.code(), std::string(__func__) +
+    this->exception(e.code(), std::string(__func__) +
                                        "(" + this->id() + "): " + e.message());
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__)
+    this->exception(-1, std::string(__func__)
                                        + "(" + this->id() + "): Unknown exception");
   }
 
@@ -364,12 +367,12 @@ bool device::read_capacity(scsi::capacity16& _capacity)
   }
   catch (const sid::exception& e)
   {
-    this->exception() = sid::exception(e.code(), std::string(__func__)
+    this->exception(e.code(), std::string(__func__)
                                        + "(" + this->id() + "): " + e.message());
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__)
+    this->exception(-1, std::string(__func__)
                                        + "(" + this->id() + "): Unknown exception");
   }
 
@@ -434,13 +437,13 @@ bool device::read(scsi::read16_vec& _read16_vec)
     }
     isSuccess = true;
   }
-  catch (const sid::exception& e)
+  catch (const sid::exception& _e)
   {
-    this->exception() = e;
+    this->exception(_e);
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__) + "(" + this->id()+ "): Unknown exception");
+    this->exception(-1, std::string(__func__) + "(" + this->id()+ "): Unknown exception");
   }
 
   return isSuccess;
@@ -469,13 +472,13 @@ bool device::write(scsi::write16_vec& _write16_vec)
     }
     isSuccess = true;
   }
-  catch (const sid::exception& e)
+  catch (const sid::exception& _e)
   {
-    this->exception() = e;
+    this->exception(_e);
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__) + "(" + this->id() + "): Unknown exception");
+    this->exception(-1, std::string(__func__) + "(" + this->id() + "): Unknown exception");
   }
 
   return isSuccess;
@@ -552,12 +555,12 @@ bool device::read(scsi::read16& _read16)
   }
   catch (const sid::exception& e)
   {
-    this->exception() = sid::exception(e.code(), std::string(__func__)
+    this->exception(e.code(), std::string(__func__)
                                        + "(" + this->id() + "): " + e.message());
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__)
+    this->exception(-1, std::string(__func__)
                                        + "(" + this->id() + "): Unknown exception");
   }
 
@@ -634,12 +637,12 @@ bool device::write(scsi::write16& _write16)
   }
   catch (const sid::exception& e)
   {
-    this->exception() = sid::exception(e.code(), std::string(__func__)
+    this->exception(e.code(), std::string(__func__)
                                        + "(" + this->id() + "): " + e.message());
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__)
+    this->exception(-1, std::string(__func__)
                                        + "(" + this->id() + "): Unknown exception");
   }
 
@@ -705,12 +708,12 @@ bool device::inquiry(scsi::inquiry::basic* _inquiry)
   }
   catch (const sid::exception& e)
   {
-    this->exception() = sid::exception(e.code(), std::string(__func__)
+    this->exception(e.code(), std::string(__func__)
                                        + "(" + this->id()+ "): " + e.message());
   }
   catch (...)
   {
-    this->exception() = sid::exception(-1, std::string(__func__)
+    this->exception(-1, std::string(__func__)
                                        + "(" + this->id()+ "): Unknown exception");
   }
 

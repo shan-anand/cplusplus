@@ -41,14 +41,20 @@ LICENSE: END
 #define _SID_BLOCK_DEVICE_H_
 
 #include <string>
+#include <functional>
 #include <common/smart_ptr.hpp>
 #include "datatypes.hpp"
 
 namespace sid {
 namespace block {
 
+//! Forward declaration of device
 class device;
 using device_ptr = smart_ptr<device>;
+
+//! Forward declaration of device_detail
+struct device_detail;
+using FNDeviceDetailCallback = std::function<bool(const device_detail&)>;
 
 /**
  * @struct device_info
@@ -148,6 +154,67 @@ private:
 
 protected:
   device();
+};
+
+/**
+ * @struct device_details
+ * @brief Cetailed information about multiple devices
+ */
+struct device_details : public std::vector<device_detail>
+{
+  static device_details get();
+  static device_details get(const std::string& _path);
+  static device_details get(const std::vector<std::string>& _paths);
+  static bool enumerate(FNDeviceDetailCallback& _fnDeviceDetailCallback);
+};
+
+/**
+ * @struct device_detail
+ * @brief Detailed information about a device
+ */
+struct device_detail
+{
+  struct filesystem
+  {
+    std::string type;
+    uint64_t    size;
+    uint64_t    available;
+    uint64_t    used;
+
+    filesystem() { clear(); }
+    void clear();
+    bool empty() const { return type.empty(); }
+  };
+  struct partition
+  {
+    std::string type;
+    std::string uuid;
+    std::string label;
+
+    partition() { clear(); }
+    void clear();
+    bool empty() const { return type.empty(); }
+  };
+
+  std::string    name;
+  std::string    path;
+  uint64_t       size;
+  uint16_t       blockSize;
+  bool           isReadOnly;
+  std::string    uuid;
+  std::string    model;
+  std::string    serial;
+  std::string    wwn;
+  std::string    label;
+  std::string    mountPoint;
+  filesystem     fs;
+  partition      part;
+  device_details children;
+
+  static device_detail get(const std::string& _path);
+
+  device_detail();
+  void clear();
 };
 
 } // namespace block

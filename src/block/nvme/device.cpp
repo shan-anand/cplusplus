@@ -169,8 +169,7 @@ device::~device()
 
 bool device::ready()
 {
-  this->exception() = sid::exception(std::string(__func__) +
-                                     "(" + this->id()+ "): Not implemented");
+  this->exception(std::string(__func__) + "(" + this->id()+ "): Not implemented");
 
   return false;
 }
