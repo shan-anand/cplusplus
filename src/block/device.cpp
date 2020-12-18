@@ -255,10 +255,16 @@ bool s_enum_block_devices(const std::string& _path, FNDeviceDetailCallback& _fnD
   {
     const json::value& jdevice = jdevices[i];
     device_detail deviceDetail;
-    deviceDetail.name = jdevice["name"].get_str();
-    deviceDetail.path = jdevice["path"].get_str();
-    deviceDetail.serial = jdevice["serial"].get_str();
-    deviceDetail.wwn = jdevice["wwn"].get_str();
+    jdevice.get_value("name", deviceDetail.name);
+    jdevice.get_value("path", deviceDetail.path);
+    jdevice.get_value("size", deviceDetail.size);
+    jdevice.get_value("phy-sec", deviceDetail.blockSize);
+    jdevice.get_value("ro", deviceDetail.isReadOnly);
+    jdevice.get_value("model", deviceDetail.model);
+    jdevice.get_value("serial", deviceDetail.serial);
+    jdevice.get_value("wwn", deviceDetail.wwn);
+    jdevice.get_value("label", deviceDetail.label);
+    jdevice.get_value("mountpoint", deviceDetail.mountPoint);
 
     // Fill any missing details using another command
     s_fill_missing_details(deviceDetail);

@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
         args.push_back(argv[i]);
       device_details deviceDetails = (args.empty())?  device_details::get() : device_details::get(args);
       for ( const device_detail& deviceDetail : deviceDetails )
-        cout << deviceDetail.path << ", " << deviceDetail.serial << " " << deviceDetail.wwn << endl;
+        cout << deviceDetail.path << " " << deviceDetail.size << " " << deviceDetail.serial << " " << deviceDetail.wwn << endl;
       return 0;
     }
 
