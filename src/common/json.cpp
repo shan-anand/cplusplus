@@ -344,10 +344,22 @@ bool json::value::has_index(const size_t _index) const
 
 bool json::value::has_key(const std::string& _key) const
 {
+  json::value jval;
+  return has_key(_key, jval);
+}
+
+bool json::value::has_key(const std::string& _key, value& _obj) const
+{
   if ( ! is_object() )
     throw sid::exception(__func__ + std::string("() can be used only for object type"));
   for ( const auto& entry : m_data.map() )
-    if ( entry.first == _key ) return true;
+  {
+    if ( entry.first == _key )
+    {
+      _obj = entry.second;
+      return true;
+    }
+  }
   return false;
 }
 
@@ -418,6 +430,22 @@ std::string json::value::as_str() const
   else if ( is_double() )
     return sid::to_str(m_data._dbl);
   throw sid::exception(__func__ + std::string("() can be used only for string, number or boolean types"));
+}
+
+int json::value::get_value(bool& _val) const
+{
+  if ( is_null() )
+    return -1;
+  _val = get_bool();
+  return 1;
+}
+
+int json::value::get_value(std::string& _val) const
+{
+  if ( is_null() )
+    return -1;
+  _val = as_str();
+  return 1;
 }
 
 //! Convert json to string format

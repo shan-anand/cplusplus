@@ -206,6 +206,7 @@ public:
 
   bool has_index(const size_t _index) const;
   bool has_key(const std::string& _key) const;
+  bool has_key(const std::string& _key, value& _obj) const;
   std::vector<std::string> get_keys() const;
   size_t size() const; // For array and object type
 
@@ -217,6 +218,39 @@ public:
   std::string get_str() const;
   std::string as_str() const;
 
+  //! get functions with arguments
+  //    0 : doesn't exist
+  //    1 : Exists with non-null value
+  //   -1 : Exists but it has null value
+  template <typename T> int get_value(T& _val) const
+  {
+    if ( is_null() )
+      return -1;
+    if ( ! is_num() )
+      throw sid::exception(__func__ + std::string("() can be used only for number type"));
+
+    if ( std::is_floating_point<T>::value )
+      _val = static_cast<T>(get_double());
+    else if ( std::is_signed<T>::value )
+      _val = static_cast<T>(get_int64());
+    else
+      _val = static_cast<T>(get_uint64());
+    return 1;
+  }
+  int get_value(bool& _val) const;
+  int get_value(std::string& _val) const;
+
+  int get_value(const std::string& _key, value& _obj) const
+  {
+    return has_key(_key, _obj)? ( ! _obj.is_null()? 1 : -1 ) : 0;
+  }
+
+  template <typename T> int get_value(const std::string& _key, T& _val) const
+  {
+    value jval;
+    return has_key(_key, jval)? jval.get_value(_val) : 0;
+  }
+
   const value& operator[](const size_t _index) const;
   value& operator[](const size_t _index);
   const value& operator[](const std::string& _key) const;
@@ -227,10 +261,10 @@ public:
   template <typename T> value& append(const T& _val)
   {
     if ( ! is_array() )
-      {
-	clear();
-	m_type = m_data.init(json::element::array);
-      }
+    {
+      clear();
+      m_type = m_data.init(json::element::array);
+    }
     value& jval = append();
     jval.m_type = jval.m_data.init(_val);
     return jval;
