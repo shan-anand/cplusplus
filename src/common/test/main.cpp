@@ -257,10 +257,25 @@ int main(int argc, char* argv[])
     if ( argc > 1 )
     {
       std::string jsonStr = get_file_contents(argv[1]);
+      std::string dupKey;
+      if ( argc > 2 ) dupKey = argv[2];
       json::parser_stats stats;
       //jroot = std::move(json::value::get(jsonStr, stats));
-      json::value::parse(jroot, stats, jsonStr);
+      json::parser_control ctrl;
+      if ( dupKey == "--accept" )
+        ctrl.dupKey = json::parser_control::dup_key::accept;
+      else if ( dupKey == "--ignore" )
+        ctrl.dupKey = json::parser_control::dup_key::ignore;
+      else if ( dupKey == "--append" )
+        ctrl.dupKey = json::parser_control::dup_key::append;
+      else if ( dupKey == "--reject" )
+        ctrl.dupKey = json::parser_control::dup_key::reject;
+      else if ( ! dupKey.empty() )
+        throw sid::exception("Can only be --accept|--ignore|--append|--reject");
+      json::value::parse(jroot, stats, jsonStr, ctrl);
       cout << stats.to_str() << endl;
+      cout << jsonStr << endl;
+      cout << jroot.to_str() << endl;
       //cout << jroot.to_str(json::format::pretty) << endl;
       //json::value j1 = jroot;
       //cout << stats.to_str() << endl;
@@ -283,13 +298,17 @@ int main(int argc, char* argv[])
       //jroot["meta"] = jmeta.to_str();
       jroot["meta"] = jmeta;
       //std::string jsonStr = jroot.to_str(json::pretty_formatter(json::format::pretty, true));
+
       bool flexibleKey = true;
       std::string jsonStr = jroot.to_str(json::pretty_formatter(json::format::compact, flexibleKey));
       cout << jsonStr << endl;
  
       cout << "=====================================================" << endl;
       json::value jsecond;
-      json::value::parse(jsecond, jsonStr, json::parser_mode(flexibleKey));
+
+      json::parser_control ctrl;
+      ctrl.mode.allowFlexibleKeys = flexibleKey? 1 : 0;
+      json::value::parse(jsecond, jsonStr, ctrl);
       jsonStr = jsecond.to_str(json::format::pretty);
       cout << jsonStr << endl;
       return 0;

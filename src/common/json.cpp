@@ -67,10 +67,10 @@ namespace json {
  */
 struct parser
 {
-  json::value&        m_jroot;  //! json::value output object
-  json::parser_stats& m_stats;  //! statistics object
-  json::parser_mode   m_mode;   //! Parser mode for strict or flexible parsing
-  std::string         m_input;  //! The Json string to be parsed
+  json::value&         m_jroot;  //! json::value output object
+  json::parser_stats&  m_stats;  //! statistics object
+  json::parser_control m_ctrl;   //! Parser control flags
+  std::string          m_input;  //! The Json string to be parsed
   std::stack<sid::json::element> m_containerStack; //! Container stack
 
   // constructor
@@ -171,27 +171,25 @@ std::string sid::to_str(const json::element& _type)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * @fn bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_mode& _mode = parser_mode());
+ * @fn bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_control& _ctrl = parser_control());
  * @brief Convert the given json string to json object
  *
  * @param _jout [out] json output
  * @param _value [in] Input json string
  * @param _stats [out] Parser statistics
- * @param _mode [in] Parser mode for strict or flexible parsing
- *                     If set to false, it relaxes the parsing logic for boolean and null types by accepting
- *                     True, TRUE, False, FALSE, Null, NULL (in addition to true, false, null)
+ * @param _ctrl [in] Parser control flags
  */
 /*static*/
-bool json::value::parse(json::value& _jout, const std::string& _value, const parser_mode& _mode /*= parser_mode()*/)
+bool json::value::parse(json::value& _jout, const std::string& _value, const parser_control& _ctrl /*= parser_control()*/)
 {
   json::parser_stats stats;
-  return json::value::parse(_jout, stats, _value, _mode);
+  return json::value::parse(_jout, stats, _value, _ctrl);
 }
 
-bool json::value::parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_mode& _mode /*= parser_mode()*/)
+bool json::value::parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_control& _ctrl /*= parser_control()*/)
 {
   json::parser jparser(_jout, _stats);
-  jparser.m_mode = _mode;
+  jparser.m_ctrl = _ctrl;
   return jparser.parse(_value);
 }
 
@@ -972,14 +970,54 @@ void json::parser::parse_object(json::value& _jobj)
     if ( *m_p == '}' ) { ++m_p; break; }
 
     parse_key(m_key);
+    // Check whether this key already exists in the object map
+    bool isDuplicateKey = _jobj.has_key(m_key);
+    if ( isDuplicateKey )
+    {
+      // Handle duplicate key scenario
+      if ( m_ctrl.dupKey == parser_control::dup_key::reject )
+        throw sid::exception("Duplicate key \"" + m_key + "\" encountered");
+    }
+
     m_stats.keys++;
     REMOVE_LEADING_SPACES(m_p);
     if ( *m_p != ':' )
       throw sid::exception("Expected : at position " + loc_str());
     m_p++;
     REMOVE_LEADING_SPACES(m_p);
-    json::value& jval = _jobj[m_key];
-    parse_value(jval);
+    if ( ! isDuplicateKey )
+    {
+      parse_value(_jobj[m_key]);
+    }
+    // Handle duplicate key based on the input mode
+    else if ( m_ctrl.dupKey == parser_control::dup_key::accept )
+    {
+      // Accept the value and overwrite it
+      parse_value(_jobj[m_key]);
+    }
+    else if ( m_ctrl.dupKey == parser_control::dup_key::ignore )
+    {
+      // Parse the value, but ignore it
+      json::value jignore;
+      parse_value(jignore);
+    }
+    else if ( m_ctrl.dupKey == parser_control::dup_key::append )
+    {
+      // make it as an array and append the duplicate keys
+      if ( ! _jobj[m_key].is_array() )
+      {
+        // make a copy of the existing key's value
+        json::value jcopy = _jobj[m_key];
+        // make they key as an array
+        _jobj[m_key].clear();
+        _jobj[m_key].p_set(json::element::array);
+        // append the copied value to the array
+        _jobj[m_key].append(jcopy);
+      }
+      // Append the new value to the array
+      json::value& jval = _jobj[m_key].append();
+      parse_value(jval);
+    }
     ch = *m_p;
     // Can have a ,
     // Must end with }
@@ -1028,7 +1066,7 @@ void json::parser::parse_string(std::string& _str, bool _isKey)
   _str.clear();
   const char chContainer = (m_containerStack.top() == json::element::object)? '}' : ']' ;
   bool hasQuotes = true;
-  if ( ( _isKey && m_mode.flexible_key_names ) || ( ! _isKey && m_mode.flexible_string_values ) )
+  if ( ( _isKey && m_ctrl.mode.allowFlexibleKeys ) || ( ! _isKey && m_ctrl.mode.allowFlexibleStrings ) )
     hasQuotes = (*m_p == '\"');
   else if ( *m_p != '\"' )
     throw sid::exception("Expected \" at position " + loc_str() + ", found \"" + std::string(1, *m_p) + "\"");
@@ -1140,7 +1178,7 @@ void json::parser::parse_value(json::value& _jval)
       else if ( ::strncmp(p_start, "true", len) == 0 )
         _jval = true;
 
-      if ( m_mode.flexible_types )
+      if ( m_ctrl.mode.allowNocaseValues )
       {
         if ( ::strncmp(p_start, "Null", len) == 0 || ::strncmp(p_start, "NULL", len) == 0 )
           ;
@@ -1152,7 +1190,7 @@ void json::parser::parse_value(json::value& _jval)
     {
       if ( ::strncmp(p_start, "false", len) == 0 )
         _jval = false;
-      if ( m_mode.flexible_types )
+      if ( m_ctrl.mode.allowNocaseValues )
       {
         if ( ::strncmp(p_start, "False", len) == 0 || ::strncmp(p_start, "FALSE", len) == 0 )
           _jval = false;

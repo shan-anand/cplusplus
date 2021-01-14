@@ -104,36 +104,45 @@ struct parser_stats
   std::string to_str() const;
 };
 
-#define SID_JSON_PARSER_MODE_FLEXIBLE_KEY_NAMES     1
-#define SID_JSON_PARSER_MODE_FLEXIBLE_STRING_VALUES 2
-#define SID_JSON_PARSER_MODE_FLEXIBLE_TYPES         4
+#define SID_JSON_PARSE_MODE_ALLOW_FLEXIBLE_KEYS    1
+#define SID_JSON_PARSE_MODE_ALLOW_FLEXIBLE_STRINGS 2
+#define SID_JSON_PARSE_MODE_ALLOW_NOCASE_VALUES    4
 
-//! Parser mode
-union parser_mode
+//! Parser control parameters
+struct parser_control
 {
-  struct
+  enum class dup_key : uint8_t { accept = 0, ignore, append, reject };
+  union parse_mode
   {
-    uint8_t flexible_key_names     : 1; //! If set to 1, accept key names not enclosed within double-quotes
+    struct
+    {
+      uint8_t allowFlexibleKeys    : 1; //! If set to 1, accept key names not enclosed within double-quotes
                                         //!   Must encode characters with unicode character (\u xxxx)
                                         //!     " -> \u
                                         //!     : -> \u
-    uint8_t flexible_string_values : 1; //! If set to 1, accept string values not enclosed within double-quotes
+      uint8_t allowFlexibleStrings : 1; //! If set to 1, accept string values not enclosed within double-quotes
                                         //!     " -> \u
                                         //!     , -> \u
                                         //!     ] -> \u
                                         //!     } -> \u
-    uint8_t flexible_types         : 1; //! If set to 1, it relaxes the parsing logic for boolean and null types by accepting
+      uint8_t allowNocaseValues    : 1; //! If set to 1, it relaxes the parsing logic for boolean and null types by accepting
                                         //!    True, TRUE, False, FALSE, Null, NULL (in addition to true, false, null)
-
+    };
+    uint8_t flags;
+    parse_mode() : flags(0) {}
+    parse_mode(uint8_t _flags) : flags(_flags) {}
   };
-  uint8_t mode;
-  parser_mode(uint8_t _mode) : mode(_mode) {}
-  parser_mode(bool _flexible_key_names = false, bool _flexible_string_values = false, bool _flexible_types = false)
-    {
-      this->flexible_key_names = _flexible_key_names? 1 : 0;
-      this->flexible_string_values = _flexible_string_values? 1 : 0;
-      this->flexible_types = _flexible_types? 1 : 0;
-    }
+
+  //! Members
+  parse_mode mode;    //! Parser control modes
+  dup_key    dupKey;  //! Duplicate key handling
+
+  //! Default constructor
+  parser_control(const parse_mode& _mode = parse_mode(), const dup_key& _dupKey = dup_key::accept)
+    : mode(_mode), dupKey(_dupKey) {}
+  //! One argment constructor
+  parser_control(const dup_key& _dupKey, const parse_mode& _mode = parse_mode())
+    : mode(_mode), dupKey(_dupKey) {}
 };
 
 /**
@@ -145,18 +154,16 @@ class value
   friend class parser;
 public:
   /**
-   * @fn bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_mode& _mode = parser_mode());
+   * @fn bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_control& _ctrl = parser_control());
    * @brief Convert the given json string to json object
    *
    * @param _jout [out] json output
    * @param _stats [out] Parser statistics
    * @param _value [in] Input json string
-   * @param _strict [in] Use strict parsing (default)
-   *                     If set to false, it relaxes the parsing logic for boolean and null types by accepting
-   *                     True, TRUE, False, FALSE, Null, NULL (in addition to true, false, null)
+   * @param _ctrl [in] Parser control flags
    */
-  static bool parse(json::value& _jout, const std::string& _value, const parser_mode& _mode = parser_mode());
-  static bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_mode& _mode = parser_mode());
+  static bool parse(json::value& _jout, const std::string& _value, const parser_control& _ctrl = parser_control());
+  static bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_control& _ctrl = parser_control());
 
   // Constructors
   value(const json::element _type = json::element::null);
