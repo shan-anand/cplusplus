@@ -5,6 +5,7 @@
 #include <vector>
 #include <limits>
 #include <stdlib.h>
+#include "common/optional.hpp"
 #include "common/uuid.hpp"
 #include "common/json.hpp"
 #include "common/convert.hpp"
@@ -253,29 +254,80 @@ int main(int argc, char* argv[])
     return 0;
 */
     cout << "sizeof(json::value) = " << sizeof(json::value) << endl;
+    json::parser_control ctrl;
+    json::parser_stats stats;
     json::value jroot;
+    sid::optional<json::pretty_formatter> outputFmt;
     if ( argc > 1 )
     {
       std::string jsonStr = get_file_contents(argv[1]);
-      std::string dupKey;
-      if ( argc > 2 ) dupKey = argv[2];
-      json::parser_stats stats;
-      //jroot = std::move(json::value::get(jsonStr, stats));
-      json::parser_control ctrl;
-      if ( dupKey == "--accept" )
-        ctrl.dupKey = json::parser_control::dup_key::accept;
-      else if ( dupKey == "--ignore" )
-        ctrl.dupKey = json::parser_control::dup_key::ignore;
-      else if ( dupKey == "--append" )
-        ctrl.dupKey = json::parser_control::dup_key::append;
-      else if ( dupKey == "--reject" )
-        ctrl.dupKey = json::parser_control::dup_key::reject;
-      else if ( ! dupKey.empty() )
-        throw sid::exception("Can only be --accept|--ignore|--append|--reject");
+      std::string param, key, value;
+      for ( int i = 2; i < argc; i++ )
+      {
+        param = argv[i];
+        if ( param[0] != '-' )
+          throw sid::exception("Invalid parameter at position " + sid::to_str(i));
+        size_t pos = param.find('=');
+        if ( pos == std::string::npos )
+        {
+          key = param;
+          value.clear();
+        }
+        else
+        {
+          key = param.substr(0, pos);
+          value = param.substr(pos+1);
+        }
+        if ( key == "--dup" || key == "--duplicate" )
+        {
+          if ( value == "accept" )
+            ctrl.dupKey = json::parser_control::dup_key::accept;
+          else if ( value == "ignore" )
+            ctrl.dupKey = json::parser_control::dup_key::ignore;
+          else if ( value == "append" )
+            ctrl.dupKey = json::parser_control::dup_key::append;
+          else if ( value == "reject" )
+            ctrl.dupKey = json::parser_control::dup_key::reject;
+          else if ( ! value.empty() )
+            throw sid::exception("Can only be accept|ignore|append|reject");
+        }
+        else if ( key == "--allow-flex-keys" || key == "--allow-flexible-keys" )
+          ctrl.mode.allowFlexibleKeys = 1;
+        else if ( key == "--allow-flex-strings" || key == "--allow-flexible-strings" )
+          ctrl.mode.allowFlexibleStrings = 1;
+        else if ( key == "--allow-nocase" || key == "--allow-nocase-values" )
+          ctrl.mode.allowNocaseValues = 1;
+        else if ( key == "--show-output" )
+        {
+          if ( ! value.empty() && value != "false" )
+          {
+            json::pretty_formatter fmt;
+            if ( value == "compact" )
+              fmt.type = json::format::compact;
+            if ( value == "xcompact" )
+            {
+              fmt.type = json::format::compact;
+              fmt.key_no_quotes = fmt.string_no_quotes = true;
+            }
+            else if ( value == "pretty" )
+              fmt.type = json::format::pretty;
+            else if ( value == "xpretty" )
+            {
+              fmt.type = json::format::pretty;
+              fmt.key_no_quotes = fmt.string_no_quotes = true;
+            }
+            outputFmt = fmt;
+          }
+        }
+        else
+          throw sid::exception("Invalid key: " + key);
+      }
       json::value::parse(jroot, stats, jsonStr, ctrl);
       cout << stats.to_str() << endl;
-      cout << jsonStr << endl;
-      cout << jroot.to_str() << endl;
+      //cout << jsonStr << endl;
+      if ( outputFmt.exists() )
+        cout << jroot.to_str(outputFmt()) << endl;
+
       //cout << jroot.to_str(json::format::pretty) << endl;
       //json::value j1 = jroot;
       //cout << stats.to_str() << endl;

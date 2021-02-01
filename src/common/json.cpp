@@ -46,17 +46,7 @@ LICENSE: END
 
 using namespace sid;
 
-#define REMOVE_LEADING_SPACES(p)  for (; ::isspace(*p) && *p != '\0'; p++ );
-
-/*
-void REMOVE_LEADING_SPACES(const std::string& input, size_t& i)
-{
-  size_t pos = input.find_first_not_of(" \t\r\n\v\f", i);
-  if ( pos != std::string::npos )
-    i = pos;
-  return;
-}
-*/
+//#define REMOVE_LEADING_SPACES(p)  for (; ::isspace(*p) && *p != '\0'; p++ );
 
 namespace sid {
 namespace json {
@@ -80,15 +70,21 @@ struct parser
   bool parse(const std::string& _value);
 
 private:
+  struct line_info
+  {
+    const char* begin; //! Beginning of word position
+    uint64_t    count; //! Current line number
+  };
   //! Key value for object. It is reused in recursion.
   std::string m_key;
   const char* m_p;
+  line_info   m_line;
 
   //! get the current location of paring in the string
-  size_t loc() const { return (m_p - m_input.c_str()); }
-  size_t loc(const char* p) const { return (p - m_input.c_str()); }
-  std::string loc_str() const { return sid::to_str(loc()); }
-  std::string loc_str(const char* p) const { return sid::to_str(loc(p)); }
+  std::string loc_str(const line_info& line, const char* p) const { return std::string("@line:") + sid::to_str(line.count) + ", @pos:" + sid::to_str(p-line.begin+1); }
+  std::string loc_str(const line_info& line) const { return loc_str(line, m_p); }
+  std::string loc_str(const char* p) const { return loc_str(m_line, p); }
+  std::string loc_str() const { return loc_str(m_line, m_p); }
 
   //! parse object
   void parse_object(json::value& _jobj);
@@ -103,6 +99,11 @@ private:
   void parse_number(json::value& _jnum, bool bFullCheck);
   //! parse json value
   void parse_value(json::value& _jval);
+
+  //! check for space character
+  bool is_space(const char* _p);
+  //! remove leading spaces and comments
+  void REMOVE_LEADING_SPACES(const char*& _p);
 };
 
 } // namespace json
@@ -267,10 +268,10 @@ void json::value::clear()
 
 json::value& json::value::operator=(const value& _obj)
 {
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
-  const bool is_new = true;
-#else
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
   const bool is_new = ( m_type != _obj.m_type || m_type != json::element::object );
+#else
+  const bool is_new = true;
 #endif
   if ( is_new )
     this->clear();
@@ -598,7 +599,14 @@ void json::value::p_write(std::ostream& _out, const pretty_formatter& _formatter
     _out << "]";
   }
   else if ( is_string() )
-    _out << "\"" << escape_string(m_data._str)<< "\"";
+  {
+    if ( ! _formatter.string_no_quotes
+         || ( m_data._str.length() == 4 && (m_data._str == "true" || m_data._str == "null") )
+         || ( m_data._str.length() == 5 && m_data._str == "false") )
+     _out << "\"" << escape_string(m_data._str) << "\"";
+    else
+     _out << escape_string(m_data._str);
+  }
   else if ( is_null() )
     _out << "null";
   else
@@ -695,10 +703,10 @@ json::element json::value::union_data::clear(const json::element _type)
   {
   case json::element::string: _str.~string(); break;
   case json::element::array:  _arr.~array(); break;
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
-  case json::element::object: _map.~object(); break;    
-#else
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
   case json::element::object: delete _map; _map = nullptr; break;
+#else
+  case json::element::object: _map.~object(); break;    
 #endif
   default: break;
   }
@@ -716,10 +724,10 @@ json::element json::value::union_data::init(const json::element _type/* = json::
   case json::element::_double:   _dbl = 0; break;
   case json::element::boolean:   _bval = false; break;
   case json::element::array:     new (&_arr) array; break;
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
-  case json::element::object:    new (&_map) object; break;
-#else
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
   case json::element::object:    _map = new object; ++gobjects_alloc; break;
+#else
+  case json::element::object:    new (&_map) object; break;
 #endif
   }
   return _type;
@@ -791,9 +799,7 @@ json::element json::value::union_data::init(const array& _val)
 
 json::element json::value::union_data::init(const object& _val, const bool _new/* = true*/)
 {
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
-  new (&_map) object(_val);
-#else
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
   if ( _new )
   {
     _map = new object(_val);
@@ -801,6 +807,8 @@ json::element json::value::union_data::init(const object& _val, const bool _new/
   }
   else
     *_map = _val;
+#else
+  new (&_map) object(_val);
 #endif
   return json::element::object;
 }
@@ -817,19 +825,19 @@ json::element json::value::union_data::init(union_data&& _obj, json::element _ty
   case json::element::_double:         _dbl  = _obj._dbl;  break;
   case json::element::boolean:         _bval = _obj._bval; break;
   case json::element::array:           new (&_arr) array(_obj._arr); break;
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
-  case json::element::object:          new (&_map) object(_obj._map); break;
-#else
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
   case json::element::object:          _map  = _obj._map;  break;
+#else
+  case json::element::object:          new (&_map) object(_obj._map); break;
 #endif
   }
   // We've made a copy of the string and array objects.
   // So, we need to clear them from _obj
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
-    _obj.clear(_type);
-#else
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
   // object uses a pointer. We don't want to clear the object type alone
   if ( _type != json::element::object )
+    _obj.clear(_type);
+#else
     _obj.clear(_type);
 #endif
   return _type;
@@ -914,6 +922,56 @@ private:
   }
 };
 
+//! check for space character
+bool json::parser::is_space(const char* _p)
+{
+  if ( *_p == '\n' )
+  {
+    ++m_line.count;
+    m_line.begin = _p + 1;
+    return true;
+  }
+  return ::isspace(*_p);
+}
+
+void json::parser::REMOVE_LEADING_SPACES(const char*& _p)
+{
+  do
+  {
+    for (; is_space(_p) && *_p != '\0'; _p++ );
+    if ( *_p != '/' )
+      return;
+
+    if ( *(_p+1) == '/' )
+    {
+      // C++ style comment encountered. Parse until end of line
+      for ( _p++; *_p != '\n' && *_p != '\0'; _p++ );
+    }
+    else if ( *(_p+1) == '*' )
+    {
+      const line_info old_line = m_line;
+      const char* old_p = _p;
+      // C style comment encountered. Parse until */
+      do
+      {
+        for ( _p++; *_p != '*' && *_p != '\0'; _p++ )
+        {
+          if ( *_p == '\n' )
+          {
+            ++m_line.count;
+            m_line.begin = _p + 1;
+          }
+        }
+        if ( *_p != '*' )
+          throw sid::exception(std::string("Comments starting " + loc_str(old_line, old_p)) + " is not closed");
+      }
+      while ( *(_p+1) != '/' );
+      _p += 2;
+    }
+  }
+  while ( true );
+}
+
 bool json::parser::parse(const std::string& _value)
 {
   time_calc tc;
@@ -926,7 +984,8 @@ bool json::parser::parse(const std::string& _value)
     m_stats.clear();
 
     m_input = _value;
-    m_p = m_input.c_str();
+    m_p = m_line.begin = m_input.c_str();
+    m_line.count = 1;
     REMOVE_LEADING_SPACES(m_p);
     char ch = *m_p;
     if ( ch == '{' )
@@ -934,9 +993,9 @@ bool json::parser::parse(const std::string& _value)
     else if ( ch == '[' )
       parse_array(m_jroot);
     else if ( ch != '\0' )
-      throw sid::exception(std::string("Invalid character [") + ch + "] at position " + loc_str() + ". Expecting { or [");
+      throw sid::exception(std::string("Invalid character [") + ch + "] " + loc_str() + ". Expecting { or [");
     else
-      throw sid::exception(std::string("End of data reached at position ") + loc_str() + ". Expecting { or [");
+      throw sid::exception(std::string("End of data reached ") + loc_str() + ". Expecting { or [");
 
     tc.stop();
     m_stats.time_ms = tc.diff_millisecs();
@@ -982,7 +1041,7 @@ void json::parser::parse_object(json::value& _jobj)
     m_stats.keys++;
     REMOVE_LEADING_SPACES(m_p);
     if ( *m_p != ':' )
-      throw sid::exception("Expected : at position " + loc_str());
+      throw sid::exception("Expected : " + loc_str());
     m_p++;
     REMOVE_LEADING_SPACES(m_p);
     if ( ! isDuplicateKey )
@@ -1023,7 +1082,7 @@ void json::parser::parse_object(json::value& _jobj)
     // Must end with }
     if ( ch == '}' ) { ++m_p; break; }
     if ( ch != ',' )
-      throw sid::exception("Encountered " + std::string(m_p, 1) + ". Expected , or } at position " + loc_str());
+      throw sid::exception("Encountered " + std::string(m_p, 1) + ". Expected , or } " + loc_str());
   }
   m_containerStack.pop();
 }
@@ -1051,7 +1110,7 @@ void json::parser::parse_array(json::value& _jarr)
     // Must end with ]
     if ( ch == ']' ) { ++m_p; break; }
     if ( ch != ',' )
-      throw sid::exception("Expected , or ] at position " + loc_str());
+      throw sid::exception("Expected , or ] " + loc_str());
   }
   m_containerStack.pop();
 }
@@ -1069,7 +1128,10 @@ void json::parser::parse_string(std::string& _str, bool _isKey)
   if ( ( _isKey && m_ctrl.mode.allowFlexibleKeys ) || ( ! _isKey && m_ctrl.mode.allowFlexibleStrings ) )
     hasQuotes = (*m_p == '\"');
   else if ( *m_p != '\"' )
-    throw sid::exception("Expected \" at position " + loc_str() + ", found \"" + std::string(1, *m_p) + "\"");
+    throw sid::exception("Expected \" " + loc_str() + ", found \"" + std::string(1, *m_p) + "\"");
+
+  const line_info old_line = m_line;
+  const char* old_p = m_p;
 
   auto check_hex = [&](char ch)->char
     {
@@ -1090,20 +1152,26 @@ void json::parser::parse_string(std::string& _str, bool _isKey)
     if ( hasQuotes )
     {
       if ( ch == '\"' ) break;
-      if ( ch == '\0' ) throw sid::exception("Missing \" for string starting at " + loc_str());
+      if ( ch == '\n' )
+      {
+        ++m_line.count;
+        m_line.begin = m_p + 1;
+      }
+      else if ( ch == '\0' )
+        throw sid::exception("Missing \" for string starting " + loc_str(old_line, old_p));
     }
     else
     {
+      // Cannot have double-quotes, it must be escaped
+      if ( ch == '\"' ) throw sid::exception("Character \" must be escaped " + loc_str());
       // A space character denotes end of the string
-      if ( ::isspace(ch) )
+      if ( is_space(m_p) )
         break;
       // For a key : denotes end of the key
-      if ( _isKey && ch == ':' )
+      // For a value , and the end of container key denotes end of the value
+      if ( ( _isKey && ch == ':' ) || ( ! _isKey && (ch == ',' || ch == chContainer) ) )
         { --m_p; break; }
-      // For a value the end of container key denotes end of the value
-      if ( !_isKey && ch == chContainer )
-        break;
-      if ( ch == '\0' ) throw sid::exception("End of string character not found for string starting at " + loc_str());
+      if ( ch == '\0' ) throw sid::exception("End of string character not found for string starting " + loc_str());
     }
     if ( ch != '\\' ) { _str += ch; continue; }
     // We're encountered an escape character. Process it
@@ -1162,14 +1230,16 @@ void json::parser::parse_value(json::value& _jval)
   {
     const char chContainer = (m_containerStack.top() == json::element::object)? '}' : ']' ;
     const char* p_start = m_p;
+    const line_info old_line = m_line;
     for ( char ch; (ch = *m_p) != '\0'; ++m_p )
     {
-      if ( ch == ',' || ::isspace(ch) || ch == chContainer )
+      if ( ch == ',' || is_space(m_p) || ch == chContainer )
         break;
     }
     if ( m_p == p_start )
-      throw sid::exception("Expected value not found at position " + loc_str());
+      throw sid::exception("Expected value not found " + loc_str());
 
+    bool found = true;
     size_t len = m_p - p_start;
     if ( len == 4 )
     {
@@ -1177,27 +1247,45 @@ void json::parser::parse_value(json::value& _jval)
         ;
       else if ( ::strncmp(p_start, "true", len) == 0 )
         _jval = true;
-
-      if ( m_ctrl.mode.allowNocaseValues )
+      else if ( ! m_ctrl.mode.allowNocaseValues )
+        found = false;
+      else
       {
         if ( ::strncmp(p_start, "Null", len) == 0 || ::strncmp(p_start, "NULL", len) == 0 )
           ;
         else if ( ::strncmp(p_start, "True", len) == 0 || ::strncmp(p_start, "TRUE", len) == 0 )
           _jval = true;
+        else
+          found = false;
       }
     }
     else if ( len == 5 )
     {
       if ( ::strncmp(p_start, "false", len) == 0 )
         _jval = false;
-      if ( m_ctrl.mode.allowNocaseValues )
+      else if ( ! m_ctrl.mode.allowNocaseValues )
+        found = false;
+      else
       {
         if ( ::strncmp(p_start, "False", len) == 0 || ::strncmp(p_start, "FALSE", len) == 0 )
           _jval = false;
+        else
+          found = false;
       }
     }
     else
-      throw sid::exception("Invalid value [" + std::string(p_start, len) + "] at position " + loc_str() + ". Did you miss enclosing in \"\"?");
+      found = false;
+    if ( ! found )
+    {
+      if ( m_ctrl.mode.allowFlexibleStrings )
+      {
+        m_p = p_start;
+        m_line = old_line;
+        parse_string(_jval, false);
+      }
+      else
+        throw sid::exception("Invalid value [" + std::string(p_start, len) + "] " + loc_str() + ". Did you miss enclosing in \"\"?");
+    }
   }
   // Set the statistics of non-container objects here
   if ( _jval.is_string() )
@@ -1225,7 +1313,7 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
     isNegative = (*m_p == '-');
     for ( ; *m_p != '\0'; m_p++ )
     {
-      if ( *m_p == ',' || ::isspace(*m_p) ||  *m_p == chContainer )
+      if ( *m_p == ',' || is_space(m_p) ||  *m_p == chContainer )
         break;
       if ( !isDouble && (*m_p == '.' || *m_p == 'e' || *m_p == 'E') )
         isDouble = true;
@@ -1251,13 +1339,13 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
       ++m_p;
     char ch = *m_p;
     if ( ch < '0' || ch > '9' )
-      throw sid::exception("Missing integer digit at position" + loc_str());
+      throw sid::exception("Missing integer digit" + loc_str());
 
     if ( ch == '0' )
     {
       ch = *(++m_p);
       if ( ch >= '0' && ch <= '9' )
-        throw sid::exception("Invalid digit (" + std::string(1, ch) + ") after first 0 at position " + loc_str());
+        throw sid::exception("Invalid digit (" + std::string(1, ch) + ") after first 0 " + loc_str());
       num.integer.digits = 0;
     }
     else
@@ -1272,7 +1360,7 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
       while ( (ch = *(++m_p)) >= '0' && ch <= '9'  )
         hasDigits = true;
       if ( !hasDigits )
-        throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for fraction at position " + loc_str());
+        throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for fraction " + loc_str());
       num.hasFraction = true;
     }
     // Check whether it has an exponent and populate accordingly
@@ -1285,7 +1373,7 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
       while ( (ch = *(++m_p)) >= '0' && ch <= '9'  )
         hasDigits = true;
       if ( !hasDigits )
-        throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for exponent at position " + loc_str());
+        throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for exponent " + loc_str());
       num.hasExponent = true;
     }
 
@@ -1297,7 +1385,7 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
   REMOVE_LEADING_SPACES(m_p);
   char ch = *m_p;
   if ( ch != ',' && ch != '\0' && ch != chContainer )
-    throw sid::exception("Invalid character " + std::string(1, ch) + " Expected , or " + std::string(1, chContainer) + " at position " + loc_str());
+    throw sid::exception("Invalid character " + std::string(1, ch) + " Expected , or " + std::string(1, chContainer) + " " + loc_str());
 
   std::string numStr(p_start, p_end-p_start);
   if ( isDouble )
@@ -1312,14 +1400,14 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
     {
       int64_t v = 0;
       if ( ! sid::to_num(numStr, /*out*/ v, &errStr) )
-        throw sid::exception("Unable to convert (" + numStr + ") to numeric at position " + loc_str() + ": " + errStr);
+        throw sid::exception("Unable to convert (" + numStr + ") to numeric " + loc_str() + ": " + errStr);
       _jnum = v;
     }
     else
     {
       uint64_t v = 0;
       if ( ! sid::to_num(numStr, /*out*/ v, &errStr) )
-        throw sid::exception("Unable to convert (" + numStr + ") to numeric at position " + loc_str() + ": " + errStr);
+        throw sid::exception("Unable to convert (" + numStr + ") to numeric " + loc_str() + ": " + errStr);
       _jnum = v;
     }
   }

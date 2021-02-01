@@ -70,13 +70,14 @@ struct pretty_formatter
   char     sep_char;
   uint32_t sep_count;
   bool     key_no_quotes;
+  bool     string_no_quotes;
 
   pretty_formatter()
-    : type(format::compact), sep_char(' '), sep_count(2), key_no_quotes(false)  {}
-  pretty_formatter(const format& _type, bool _key_no_quotes = false)
-    : pretty_formatter() { type =_type; key_no_quotes = _key_no_quotes; }
-  pretty_formatter(bool _key_no_quotes)
-    : pretty_formatter() { key_no_quotes = _key_no_quotes; }
+    : type(format::compact), sep_char(' '), sep_count(2), key_no_quotes(false), string_no_quotes(false)  {}
+  pretty_formatter(const format& _type, bool _key_no_quotes = false, bool _string_no_quotes = false)
+    : pretty_formatter() { type =_type; key_no_quotes = _key_no_quotes; string_no_quotes = _string_no_quotes; }
+  pretty_formatter(bool _key_no_quotes, bool _string_no_quotes)
+    : pretty_formatter() { key_no_quotes = _key_no_quotes; string_no_quotes = _string_no_quotes; }
 };
 
 //! Forward declaration of parser (not exposed)
@@ -303,10 +304,10 @@ private:
     bool        _bval;
     std::string _str;
     array       _arr;
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
-    object      _map;
-#else
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
     object*     _map;
+#else
+    object      _map;
 #endif
     //! Default constructor
     union_data(const json::element _type = json::element::null);
@@ -336,12 +337,12 @@ private:
     json::element init(union_data&& _obj, json::element _type) noexcept;
 
     union_data& operator=(const union_data& _obj) { *this = std::move(_obj); return *this; }
-#if defined(SID_JSON_MAP_OPTIMIZE_FOR_CONSISTENCY)
-    const object& map() const { return _map; }
-    object& map() { return _map; }
-#else
+#if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
     const object& map() const { return (*_map); }
     object& map() { return (*_map); }
+#else
+    const object& map() const { return _map; }
+    object& map() { return _map; }
 #endif
   };
 
@@ -352,6 +353,66 @@ private:
 #ifdef SID_JSON_MAP_OPTIMIZE_FOR_SIZE
 #pragma pack(pop)
 #endif
+
+/*
+namespace std {
+using strings = std::vector<std::string>;
+}
+using opt_size_t = sid::optional<size_t>;
+using opt_int = sid::optional<int>;
+using opt_bool = sid::optional<bool>;
+using opt_string = sid::optional<std::string>;
+ 
+enum class element : uint8_t { null, object, array, string, boolean, _signed, _unsigned, _double };
+
+enum class schema_type : uint8_t { null_, boolean, object, array, number, integer, string };
+
+struct property
+{
+  std::string           key;
+  std::string           description;
+  schema_type           type;
+  // For numbers
+  sid::optional<int>    minimum;
+  sid::optional<bool>   exclusiveMinimum;
+  sid::optional<int>    maximum;
+  sid::optional<bool>   exclusiveMaximum;
+  sid::optional<int>    multipleOf;
+  // For strings
+  sid::optional<size_t> maxLength;
+  sid::optional<size_t> minLength;
+  std::string           pattern;
+  // For arrays
+  sid::optional<size_t> maxItems;
+  sid::optional<size_t> minItems;
+  sid::optional<bool>   uniqueItems;
+  sid::optional<size_t> maxContains;
+  sid::optional<size_t> minContains;
+  // For objects
+  sid::optional<size_t> maxProperties;
+  sid::optional<size_t> minProperties;
+  std::strings          required;
+};
+
+struct schema
+{
+  std::string  schema;
+  std::string  title;
+  std::string  description;
+  schema_type  type;
+  properties   properties;
+  std::strings required;
+};
+
+json::schema schema;
+
+json::parse(jsonFile, schemaFile);
+json::parse(jsonFile, schema);
+
+json::schema schema = json::schema::parse(schemaFile);
+
+
+*/
 
 } // namespace json
 } // namespace sid
