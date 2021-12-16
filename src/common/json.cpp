@@ -39,6 +39,7 @@ LICENSE: END
 #include <common/json.hpp>
 #include <common/convert.hpp>
 #include <common/optional.hpp>
+#include <fstream>
 #include <stack>
 #include <iomanip>
 #include <ctime>
@@ -81,7 +82,9 @@ private:
   line_info   m_line;
 
   //! get the current location of paring in the string
-  std::string loc_str(const line_info& line, const char* p) const { return std::string("@line:") + sid::to_str(line.count) + ", @pos:" + sid::to_str(p-line.begin+1); }
+  std::string loc_str(const line_info& line, const char* p) const {
+    return std::string("@line:") + sid::to_str(line.count) + ", @pos:" + sid::to_str(p-line.begin+1);
+  }
   std::string loc_str(const line_info& line) const { return loc_str(line, m_p); }
   std::string loc_str(const char* p) const { return loc_str(m_line, p); }
   std::string loc_str() const { return loc_str(m_line, m_p); }
@@ -136,14 +139,16 @@ void json::parser_stats::clear()
 std::string json::parser_stats::to_str() const
 {
   std::ostringstream out;
-  out << "objects.......: " << sid::get_sep(objects) << " (" << sid::get_sep(gobjects_alloc) << ")" << endl
+  out << "objects.......: " << sid::get_sep(objects)
+      << " (" << sid::get_sep(gobjects_alloc) << ")" << endl
       << "arrays........: " << sid::get_sep(arrays) << endl
       << "strings.......: " << sid::get_sep(strings) << endl
       << "numbers.......: " << sid::get_sep(numbers) << endl
       << "booleans......: " << sid::get_sep(booleans) << endl
       << "nulls.........: " << sid::get_sep(nulls) << endl
       << "(keys)........: " << sid::get_sep(keys) << endl
-      << "(time taken)..: " << sid::get_sep(time_ms/1000) << "." << std::setfill('0') << std::setw(3) << (time_ms % 1000) << " seconds" << endl
+      << "(time taken)..: " << sid::get_sep(time_ms/1000)
+      << "." << std::setfill('0') << std::setw(3) << (time_ms % 1000) << " seconds" << endl
     ;
   return out.str();
 }
@@ -172,7 +177,11 @@ std::string sid::to_str(const json::element& _type)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * @fn bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_control& _ctrl = parser_control());
+ * @fn bool parse(json::value&          _jout,
+ *                parser_stats&         _stats,
+ *                const std::string&    _value,
+ *                const parser_control& _ctrl = parser_control()
+ *               );
  * @brief Convert the given json string to json object
  *
  * @param _jout [out] json output
@@ -181,13 +190,22 @@ std::string sid::to_str(const json::element& _type)
  * @param _ctrl [in] Parser control flags
  */
 /*static*/
-bool json::value::parse(json::value& _jout, const std::string& _value, const parser_control& _ctrl /*= parser_control()*/)
+bool json::value::parse(
+  json::value&          _jout,
+  const std::string&    _value,
+  const parser_control& _ctrl /*= parser_control()*/
+  )
 {
   json::parser_stats stats;
   return json::value::parse(_jout, stats, _value, _ctrl);
 }
 
-bool json::value::parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_control& _ctrl /*= parser_control()*/)
+bool json::value::parse(
+  json::value&          _jout,
+  parser_stats&         _stats,
+  const std::string&    _value,
+  const parser_control& _ctrl /*= parser_control()*/
+  )
 {
   json::parser jparser(_jout, _stats);
   jparser.m_ctrl = _ctrl;
@@ -428,7 +446,8 @@ std::string json::value::as_str() const
     return sid::to_str(m_data._u64);
   else if ( is_double() )
     return sid::to_str(m_data._dbl);
-  throw sid::exception(__func__ + std::string("() can be used only for string, number or boolean types"));
+  throw sid::exception(
+    __func__ + std::string("() can be used only for string, number or boolean types"));
 }
 
 int json::value::get_value(bool& _val) const
@@ -479,7 +498,8 @@ void json::value::write(std::ostream& _out, const pretty_formatter& _formatter) 
     throw sid::exception("Can be applied only on a object or array");
 
   if ( ! ::isspace(_formatter.sep_char) && _formatter.sep_char != '\0' )
-    throw sid::exception("Formatter must be a valid space character. It cannot be \"" + std::string(1, _formatter.sep_char) + "\"");
+    throw sid::exception("Formatter must be a valid space character. It cannot be \""
+                         + std::string(1, _formatter.sep_char) + "\"");
 
   this->p_write(_out, _formatter, 0);
 }
@@ -618,7 +638,8 @@ const json::value& json::value::operator[](const size_t _index) const
   if ( ! is_array() )
     throw sid::exception(__func__ + std::string(": can be used only for array type"));
   if ( _index >= m_data._arr.size() )
-    throw sid::exception(__func__ + std::string(": index(") + sid::to_str(_index) + ") out of range(" + sid::to_str(m_data._arr.size()) + ")");
+    throw sid::exception(__func__ + std::string(": index(") + sid::to_str(_index)
+                         + ") out of range(" + sid::to_str(m_data._arr.size()) + ")");
   return m_data._arr[_index];
 }
 
@@ -627,7 +648,8 @@ json::value& json::value::operator[](const size_t _index)
   if ( ! is_array() )
     throw sid::exception(__func__ + std::string(": can be used only for array type"));
   if ( _index >= m_data._arr.size() )
-    throw sid::exception(__func__ + std::string(": index(") + sid::to_str(_index) + ") out of range(" + sid::to_str(m_data._arr.size()) + ")");
+    throw sid::exception(__func__ + std::string(": index(") + sid::to_str(_index)
+                         + ") out of range(" + sid::to_str(m_data._arr.size()) + ")");
   return m_data._arr[_index];
 }
 
@@ -733,7 +755,11 @@ json::element json::value::union_data::init(const json::element _type/* = json::
   return _type;
 }
 
-json::element json::value::union_data::init(const union_data& _obj, const bool _new/* = true*/, const json::element _type/* = json::element::null*/)
+json::element json::value::union_data::init(
+  const union_data&   _obj,
+  const bool          _new/* = true*/,
+  const json::element _type/* = json::element::null*/
+  )
 {
   switch ( _type )
   {
@@ -897,7 +923,8 @@ struct time_calc
   uint64_t diff_millisecs() const { return diff_microsecs() / 1000; }
   uint64_t diff_microsecs() const
   {
-    if ( t_end.tv_sec > t_start.tv_sec || (t_end.tv_sec == t_start.tv_sec && t_end.tv_nsec >= t_start.tv_nsec) )
+    if ( t_end.tv_sec > t_start.tv_sec ||
+         (t_end.tv_sec == t_start.tv_sec && t_end.tv_nsec >= t_start.tv_nsec) )
     {
       uint64_t s = (t_end.tv_sec - t_start.tv_sec) * 1000000;
       uint64_t x = t_end.tv_nsec / 1000;
@@ -963,7 +990,8 @@ void json::parser::REMOVE_LEADING_SPACES(const char*& _p)
           }
         }
         if ( *_p != '*' )
-          throw sid::exception(std::string("Comments starting " + loc_str(old_line, old_p)) + " is not closed");
+          throw sid::exception(std::string("Comments starting " + loc_str(old_line, old_p))
+                               + " is not closed");
       }
       while ( *(_p+1) != '/' );
       _p += 2;
@@ -993,7 +1021,8 @@ bool json::parser::parse(const std::string& _value)
     else if ( ch == '[' )
       parse_array(m_jroot);
     else if ( ch != '\0' )
-      throw sid::exception(std::string("Invalid character [") + ch + "] " + loc_str() + ". Expecting { or [");
+      throw sid::exception(std::string("Invalid character [") + ch + "] " + loc_str()
+                           + ". Expecting { or [");
     else
       throw sid::exception(std::string("End of data reached ") + loc_str() + ". Expecting { or [");
 
@@ -1136,7 +1165,8 @@ void json::parser::parse_string(std::string& _str, bool _isKey)
   auto check_hex = [&](char ch)->char
     {
       if ( ch == '\0' )
-        throw sid::exception("Missing hexadecimal sequence characters at the end position " + loc_str());
+        throw sid::exception("Missing hexadecimal sequence characters at the end position "
+                             + loc_str());
       if ( ! ::isxdigit(ch) )
         throw sid::exception("Missing hexadecimal character at " + loc_str());
       return ch;
@@ -1171,7 +1201,8 @@ void json::parser::parse_string(std::string& _str, bool _isKey)
       // For a value , and the end of container key denotes end of the value
       if ( ( _isKey && ch == ':' ) || ( ! _isKey && (ch == ',' || ch == chContainer) ) )
         { --m_p; break; }
-      if ( ch == '\0' ) throw sid::exception("End of string character not found for string starting " + loc_str());
+      if ( ch == '\0' )
+        throw sid::exception("End of string character not found for string starting " + loc_str());
     }
     if ( ch != '\\' ) { _str += ch; continue; }
     // We're encountered an escape character. Process it
@@ -1199,7 +1230,8 @@ void json::parser::parse_string(std::string& _str, bool _isKey)
       case '\0':
         throw sid::exception("Missing escape sequence characters at the end position " + loc_str());
       default:
-        throw sid::exception("Invalid escape sequence (" + std::string(1, ch) + ") for string at " + loc_str());
+        throw sid::exception("Invalid escape sequence (" + std::string(1, ch) +
+                             ") for string at " + loc_str());
       }
     }
   }
@@ -1284,7 +1316,8 @@ void json::parser::parse_value(json::value& _jval)
         parse_string(_jval, false);
       }
       else
-        throw sid::exception("Invalid value [" + std::string(p_start, len) + "] " + loc_str() + ". Did you miss enclosing in \"\"?");
+        throw sid::exception("Invalid value [" + std::string(p_start, len) + "] " + loc_str()
+                             + ". Did you miss enclosing in \"\"?");
     }
   }
   // Set the statistics of non-container objects here
@@ -1360,7 +1393,8 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
       while ( (ch = *(++m_p)) >= '0' && ch <= '9'  )
         hasDigits = true;
       if ( !hasDigits )
-        throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for fraction " + loc_str());
+        throw sid::exception("Invalid digit (" + std::string(1, ch)
+                             + ") Expected a digit for fraction " + loc_str());
       num.hasFraction = true;
     }
     // Check whether it has an exponent and populate accordingly
@@ -1373,7 +1407,8 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
       while ( (ch = *(++m_p)) >= '0' && ch <= '9'  )
         hasDigits = true;
       if ( !hasDigits )
-        throw sid::exception("Invalid digit (" + std::string(1, ch) + ") Expected a digit for exponent " + loc_str());
+        throw sid::exception("Invalid digit (" + std::string(1, ch)
+                             + ") Expected a digit for exponent " + loc_str());
       num.hasExponent = true;
     }
 
@@ -1385,7 +1420,8 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
   REMOVE_LEADING_SPACES(m_p);
   char ch = *m_p;
   if ( ch != ',' && ch != '\0' && ch != chContainer )
-    throw sid::exception("Invalid character " + std::string(1, ch) + " Expected , or " + std::string(1, chContainer) + " " + loc_str());
+    throw sid::exception("Invalid character " + std::string(1, ch) + " Expected , or "
+                         + std::string(1, chContainer) + " " + loc_str());
 
   std::string numStr(p_start, p_end-p_start);
   if ( isDouble )
@@ -1400,15 +1436,137 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
     {
       int64_t v = 0;
       if ( ! sid::to_num(numStr, /*out*/ v, &errStr) )
-        throw sid::exception("Unable to convert (" + numStr + ") to numeric " + loc_str() + ": " + errStr);
+        throw sid::exception("Unable to convert (" + numStr + ") to numeric " + loc_str()
+                             + ": " + errStr);
       _jnum = v;
     }
     else
     {
       uint64_t v = 0;
       if ( ! sid::to_num(numStr, /*out*/ v, &errStr) )
-        throw sid::exception("Unable to convert (" + numStr + ") to numeric " + loc_str() + ": " + errStr);
+        throw sid::exception("Unable to convert (" + numStr + ") to numeric " + loc_str()
+                             + ": " + errStr);
       _jnum = v;
     }
   }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Implementation of json::schema
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void json::schema::types::add(const value& _value)
+{
+  if ( _value.is_string() )
+    this->add(type::null);
+  else if ( _value.is_array() )
+  {
+    // Each array element must be a string
+    this->add(type::null);
+  }
+  else
+    throw sid::exception("type parameter must be string or an array of unique string");
+}
+
+json::schema::schema()
+{
+}
+
+void json::schema::clear()
+{
+  _schema.clear();
+  _id.clear();
+  title.clear();
+  description.clear();
+  type.clear();
+  properties.clear();
+  required.clear();
+}
+
+/*static*/
+json::schema json::schema::parse_file(const std::string& schemaFile)
+{
+  std::ifstream in;
+  in.open(schemaFile);
+  if ( ! in.is_open() )
+    throw sid::exception("Failed to open schema file: " + schemaFile);
+  char buf[8096] = {0};
+  std::string jsonStr;
+  while ( ! in.eof() )
+  {
+    ::memset(buf, 0, sizeof(buf));
+    in.read(buf, sizeof(buf)-1);
+    if ( in.bad() )
+      throw sid::exception(sid::to_errno_str("Failed to read schema file"));
+    jsonStr += buf;
+  }
+  return parse(jsonStr);
+}
+
+/*static*/
+json::schema json::schema::parse(const std::string& schemaData)
+{
+  json::value jroot;
+  json::value::parse(jroot, schemaData);
+  return parse(jroot);
+}
+
+/*static*/
+json::schema json::schema::parse(const value& jroot)
+{
+  schema schema;
+  json::value jval;
+  if ( jroot.has_key("$schema", jval) && !jval.is_null() )
+    schema._schema = jval.get_str();
+  if ( jroot.has_key("$id", jval) && !jval.is_null() )
+    schema._id = jval.get_str();
+  if ( jroot.has_key("title", jval) && !jval.is_null() )
+    schema.title = jval.get_str();
+  if ( jroot.has_key("description", jval) && !jval.is_null() )
+    schema.description = jval.get_str();
+
+  if ( !jroot.has_key("type", jval) )
+    throw sid::exception("type missing in schema");
+  else
+    schema.type.add(jval);
+
+  return schema;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Implementation of json::schema::property
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////
+json::schema::property::property()
+{
+}
+
+void json::schema::property::clear()
+{
+  key.clear();
+  description.clear();
+  type.clear();
+  // For numbers
+  minimum.clear(0);
+  exclusiveMinimum.clear(0);
+  maximum.clear(0);
+  exclusiveMaximum.clear(0);
+  multipleOf.clear(0);
+  // For strings
+  minLength.clear(0);
+  maxLength.clear(0);
+  pattern.clear();
+  // For arrays
+  minItems.clear(0);
+  maxItems.clear(0);
+  uniqueItems.clear(false);
+  minContains.clear(0);
+  maxContains.clear(0);
+  // For objects
+  minProperties.clear(0);
+  maxProperties.clear(0);
+  required.clear();
+  properties.clear();
 }

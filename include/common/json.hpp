@@ -36,7 +36,9 @@ LICENSE: END
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 #include "exception.hpp"
+#include "optional.hpp"
 #include "smart_ptr.hpp"
 
 // ======================
@@ -48,11 +50,18 @@ LICENSE: END
 #endif
 // ======================
 
+namespace std {
+using strings = ::std::vector<std::string>;
+}
+
 namespace sid {
 namespace json {
 
 //! json element type
-enum class element : uint8_t { null, object, array, string, boolean, _signed, _unsigned, _double };
+enum class element : uint8_t {
+  null, object, array, string, boolean, _signed, _unsigned, _double
+};
+
 } // namespace json
 
 // to_str in the sid namespace
@@ -61,7 +70,9 @@ std::string to_str(const json::element& _type);
 namespace json {
 
 //! json formatter
-enum class format : uint8_t { compact, pretty };
+enum class format : uint8_t {
+  compact, pretty
+};
 
 //! json formatter for pretty formatting
 struct pretty_formatter
@@ -72,12 +83,27 @@ struct pretty_formatter
   bool     key_no_quotes;
   bool     string_no_quotes;
 
-  pretty_formatter()
-    : type(format::compact), sep_char(' '), sep_count(2), key_no_quotes(false), string_no_quotes(false)  {}
-  pretty_formatter(const format& _type, bool _key_no_quotes = false, bool _string_no_quotes = false)
-    : pretty_formatter() { type =_type; key_no_quotes = _key_no_quotes; string_no_quotes = _string_no_quotes; }
-  pretty_formatter(bool _key_no_quotes, bool _string_no_quotes)
-    : pretty_formatter() { key_no_quotes = _key_no_quotes; string_no_quotes = _string_no_quotes; }
+  pretty_formatter() :
+    type(format::compact), sep_char(' '),
+    sep_count(2),
+    key_no_quotes(false),
+    string_no_quotes(false)
+    {}
+  pretty_formatter(
+    const format& _type,
+    bool          _key_no_quotes = false,
+    bool          _string_no_quotes = false
+    ) :
+    pretty_formatter() {
+    type =_type; key_no_quotes = _key_no_quotes; string_no_quotes = _string_no_quotes;
+  }
+  pretty_formatter(
+    bool _key_no_quotes,
+    bool _string_no_quotes
+    ) :
+    pretty_formatter() {
+    key_no_quotes = _key_no_quotes; string_no_quotes = _string_no_quotes;
+  }
 };
 
 //! Forward declaration of parser (not exposed)
@@ -112,22 +138,29 @@ struct parser_stats
 //! Parser control parameters
 struct parser_control
 {
-  enum class dup_key : uint8_t { accept = 0, ignore, append, reject };
+  enum class dup_key : uint8_t {
+    accept = 0, ignore, append, reject
+  };
+
   union parse_mode
   {
     struct
     {
-      uint8_t allowFlexibleKeys    : 1; //! If set to 1, accept key names not enclosed within double-quotes
+      uint8_t allowFlexibleKeys    : 1; //! If set to 1, accept key names not enclosed
+                                        //!   within double-quotes
                                         //!   Must encode characters with unicode character (\u xxxx)
                                         //!     " -> \u
                                         //!     : -> \u
-      uint8_t allowFlexibleStrings : 1; //! If set to 1, accept string values not enclosed within double-quotes
+      uint8_t allowFlexibleStrings : 1; //! If set to 1, accept string values not enclosed
+                                        //!   within double-quotes
                                         //!     " -> \u
                                         //!     , -> \u
                                         //!     ] -> \u
                                         //!     } -> \u
-      uint8_t allowNocaseValues    : 1; //! If set to 1, it relaxes the parsing logic for boolean and null types by accepting
-                                        //!    True, TRUE, False, FALSE, Null, NULL (in addition to true, false, null)
+      uint8_t allowNocaseValues    : 1; //! If set to 1, it relaxes the parsing logic for
+                                        //!   boolean and null types by accepting
+                                        //!   True, TRUE, False, FALSE, Null, NULL
+                                        //!   (in addition to true, false, null)
     };
     uint8_t flags;
     parse_mode() : flags(0) {}
@@ -139,11 +172,17 @@ struct parser_control
   dup_key    dupKey;  //! Duplicate key handling
 
   //! Default constructor
-  parser_control(const parse_mode& _mode = parse_mode(), const dup_key& _dupKey = dup_key::accept)
-    : mode(_mode), dupKey(_dupKey) {}
+  parser_control(
+    const parse_mode& _mode = parse_mode(),
+    const dup_key&    _dupKey = dup_key::accept
+    ) : mode(_mode), dupKey(_dupKey)
+    {}
   //! One argment constructor
-  parser_control(const dup_key& _dupKey, const parse_mode& _mode = parse_mode())
-    : mode(_mode), dupKey(_dupKey) {}
+  parser_control(
+    const dup_key&    _dupKey,
+    const parse_mode& _mode = parse_mode()
+    ) : mode(_mode), dupKey(_dupKey)
+    {}
 };
 
 /**
@@ -155,7 +194,11 @@ class value
   friend class parser;
 public:
   /**
-   * @fn bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_control& _ctrl = parser_control());
+   * @fn bool parse(json::value&          _jout,
+   *                parser_stats&         _stats,
+   *                const std::string&    _value,
+   *                const parser_control& _ctrl = parser_control()
+   *               );
    * @brief Convert the given json string to json object
    *
    * @param _jout [out] json output
@@ -163,8 +206,17 @@ public:
    * @param _value [in] Input json string
    * @param _ctrl [in] Parser control flags
    */
-  static bool parse(json::value& _jout, const std::string& _value, const parser_control& _ctrl = parser_control());
-  static bool parse(json::value& _jout, parser_stats& _stats, const std::string& _value, const parser_control& _ctrl = parser_control());
+  static bool parse(
+    json::value&          _jout,
+    const std::string&    _value,
+    const parser_control& _ctrl = parser_control()
+    );
+  static bool parse(
+    json::value&          _jout,
+    parser_stats&         _stats,
+    const std::string&    _value,
+    const parser_control& _ctrl = parser_control()
+    );
 
   // Constructors
   value(const json::element _type = json::element::null);
@@ -323,7 +375,8 @@ private:
 
     //! Copy initializer routines
     json::element init(const json::element _type = json::element::null);
-    json::element init(const union_data& _obj, const bool _new = true, const json::element _type = json::element::null);
+    json::element init(const union_data& _obj, const bool _new = true,
+                       const json::element _type = json::element::null);
     json::element init(const int _val);
     json::element init(const int64_t _val);
     json::element init(const uint64_t _val);
@@ -350,59 +403,76 @@ private:
   union_data    m_data; //! The object
 };
 
-#ifdef SID_JSON_MAP_OPTIMIZE_FOR_SIZE
-#pragma pack(pop)
-#endif
-
-/*
-namespace std {
-using strings = std::vector<std::string>;
-}
 using opt_size_t = sid::optional<size_t>;
 using opt_int = sid::optional<int>;
 using opt_bool = sid::optional<bool>;
-using opt_string = sid::optional<std::string>;
- 
-enum class element : uint8_t { null, object, array, string, boolean, _signed, _unsigned, _double };
-
-enum class schema_type : uint8_t { null_, boolean, object, array, number, integer, string };
-
-struct property
-{
-  std::string           key;
-  std::string           description;
-  schema_type           type;
-  // For numbers
-  sid::optional<int>    minimum;
-  sid::optional<bool>   exclusiveMinimum;
-  sid::optional<int>    maximum;
-  sid::optional<bool>   exclusiveMaximum;
-  sid::optional<int>    multipleOf;
-  // For strings
-  sid::optional<size_t> maxLength;
-  sid::optional<size_t> minLength;
-  std::string           pattern;
-  // For arrays
-  sid::optional<size_t> maxItems;
-  sid::optional<size_t> minItems;
-  sid::optional<bool>   uniqueItems;
-  sid::optional<size_t> maxContains;
-  sid::optional<size_t> minContains;
-  // For objects
-  sid::optional<size_t> maxProperties;
-  sid::optional<size_t> minProperties;
-  std::strings          required;
-};
+using opt_string = sid::optional<::std::string>;
 
 struct schema
 {
-  std::string  schema;
-  std::string  title;
-  std::string  description;
-  schema_type  type;
-  properties   properties;
-  std::strings required;
+  enum class type : uint8_t {
+    null, object, array, string, boolean, number, integer
+  };
+
+  struct types : public std::set<type>
+  {
+    void add(const type& _type) { this->insert(_type); }
+    void add(const value& _value);
+  };
+
+  struct property;
+  using property_vec = std::vector<property>;
+
+  struct property
+  {
+    std::string           key;
+    std::string           description;
+    types                 type;
+    // For numbers
+    sid::optional<int>    minimum;
+    sid::optional<bool>   exclusiveMinimum;
+    sid::optional<int>    maximum;
+    sid::optional<bool>   exclusiveMaximum;
+    sid::optional<int>    multipleOf;
+    // For strings
+    sid::optional<size_t> minLength;
+    sid::optional<size_t> maxLength;
+    std::string           pattern;
+    // For arrays
+    sid::optional<size_t> minItems;
+    sid::optional<size_t> maxItems;
+    sid::optional<bool>   uniqueItems;
+    sid::optional<size_t> minContains;
+    sid::optional<size_t> maxContains;
+    // For objects
+    sid::optional<size_t> minProperties;
+    sid::optional<size_t> maxProperties;
+    std::strings          required;
+    property_vec          properties;
+
+    property();
+    void clear();
+  };
+
+  std::string    _schema;     //! Json schema URI
+  std::string    _id;         //! Identifier
+  std::string    title;       //! Schema title
+  std::string    description; //! Description of the schema
+  types          type;        //! Schema type
+  property_vec   properties;  //! Properties associated with the schema
+  std::strings   required;    //! Required properties
+
+  schema();
+  void clear();
+  static schema parse_file(const std::string& schemaFile);
+  static schema parse(const std::string& schemaData);
+  static schema parse(const value& jroot);
 };
+/*
+void schema::clear()
+{
+  this->schema = "https://json-schema.org/draft/2020-12/schema";
+}
 
 json::schema schema;
 
@@ -413,6 +483,10 @@ json::schema schema = json::schema::parse(schemaFile);
 
 
 */
+
+#ifdef SID_JSON_MAP_OPTIMIZE_FOR_SIZE
+#pragma pack(pop)
+#endif
 
 } // namespace json
 } // namespace sid
