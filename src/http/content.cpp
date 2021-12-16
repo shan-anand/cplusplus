@@ -106,7 +106,8 @@ void content::clear(bool _isFullReset/* = false*/)
       m_file.seekg(0);
       m_file.seekp(0);
       // Truncate the file using the file path
-      ::truncate(m_data.c_str(), 0);
+      if ( -1 == ::truncate(m_data.c_str(), 0) )
+	throw sid::exception("Unable to truncate file " + m_data);
       this->m_length = 0;
     }  
   }
