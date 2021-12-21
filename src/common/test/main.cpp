@@ -221,14 +221,23 @@ void regex_test(const std::string& _infoStr)
   }
 }
 
+void json_schema_test(const std::string& schemaFile)
+{
+  json::schema schema = json::schema::parse_file(schemaFile);
+  cout << schema.to_str() << endl;
+  return;
+}
+
 int main(int argc, char* argv[])
 {
   ::srand(::time(nullptr));
   try
   {
-    //if ( argc < 2 )
-    //  throw std::string("Need atleast one argument");
+    if ( argc < 2 )
+      throw std::string("Need atleast one argument");
 
+    json_schema_test(argv[1]);
+    return 0;
     //regex_test1(argv[1]);
     //return 0;
 
@@ -254,6 +263,8 @@ int main(int argc, char* argv[])
     return 0;
 */
     cout << "sizeof(json::value) = " << sizeof(json::value) << endl;
+    cout << "sizeof(json::schema) = " << sizeof(json::schema) << endl;
+    cout << "sizeof(json::schema::property) = " << sizeof(json::schema::property) << endl;
     json::parser_control ctrl;
     json::parser_stats stats;
     json::value jroot;

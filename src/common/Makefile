@@ -6,6 +6,7 @@ SOURCE_FILES = \
 	hash.cpp \
 	io_buffer.cpp \
 	json.cpp \
+	json_schema.cpp \
 	regex.cpp \
 	util.cpp \
 	uuid.cpp

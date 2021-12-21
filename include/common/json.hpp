@@ -51,7 +51,7 @@ LICENSE: END
 // ======================
 
 namespace std {
-using strings = ::std::vector<std::string>;
+using string_set = ::std::set<std::string>;
 }
 
 namespace sid {
@@ -246,12 +246,14 @@ public:
   bool is_string() const { return m_type == json::element::string; }
   bool is_signed() const { return m_type == json::element::_signed; }
   bool is_unsigned() const { return m_type == json::element::_unsigned; }
+  bool is_decimal() const { return is_signed() || is_unsigned(); }
   bool is_double() const { return m_type == json::element::_double; }
-  bool is_num() const { return is_signed() || is_unsigned() || is_double(); }
+  bool is_num() const { return is_decimal() || is_double(); }
   bool is_bool() const { return m_type == json::element::boolean; }
   bool is_array() const { return m_type == json::element::array; }
   bool is_object() const { return m_type == json::element::object; }
   bool is_basic_type() const { return ! ( is_array() || is_object() ); }
+  bool is_complex_type() const { return ( is_array() || is_object() ); }
 
   // operator= overloads
   value& operator=(const value& _obj);
@@ -408,32 +410,68 @@ using opt_int = sid::optional<int>;
 using opt_bool = sid::optional<bool>;
 using opt_string = sid::optional<::std::string>;
 
-struct schema
+struct schema_type
 {
-  enum class type : uint8_t {
+  enum ID : uint8_t {
     null, object, array, string, boolean, number, integer
   };
 
-  struct types : public std::set<type>
-  {
-    void add(const type& _type) { this->insert(_type); }
-    void add(const value& _value);
-  };
+public:
+  ID id() const { return m_id; }
+  std::string name() const;
 
+  static bool get(const std::string& _name, /*out*/ schema_type& _type);
+  static schema_type get(const std::string& _name);
+
+public:
+  schema_type() : m_id(schema_type::null) {}
+  schema_type(const schema_type&) = default;
+  schema_type(const schema_type::ID& _id) : m_id(_id) {}
+
+  schema_type& operator=(const schema_type&) = default;
+  schema_type& operator=(const schema_type::ID& _id) { m_id = _id; return *this; }
+  //bool operator==(const schema_type& _obj) const = { return (m_id == _obj.m_id); }
+  bool operator==(const schema_type::ID& _id) const { return (m_id == _id); }
+  bool operator<(const schema_type& _obj) const { return (m_id < _obj.m_id); }
+
+  void clear() { m_id = schema_type::null; }
+  bool empty() const { return (m_id == schema_type::null); }
+
+private:
+  ID m_id;
+};
+
+struct schema_types : public std::set<schema_type>
+{
+  void add(const schema_type& _type) { this->insert(_type); }
+  void add(const value& _value);
+  bool exists(const schema_type& _type) const { return this->find(_type) != this->end(); }
+  void remove(const schema_type& _type) { this->erase(_type); }
+  json::value to_json() const;
+};
+
+struct schema
+{
   struct property;
-  using property_vec = std::vector<property>;
+
+  struct property_vec : public std::vector<property>
+  {
+    void set(const value& _jproperties);
+    std::string to_str() const;
+    json::value to_json() const;
+  };
 
   struct property
   {
     std::string           key;
     std::string           description;
-    types                 type;
+    schema_types          type;
     // For numbers
-    sid::optional<int>    minimum;
-    sid::optional<bool>   exclusiveMinimum;
-    sid::optional<int>    maximum;
-    sid::optional<bool>   exclusiveMaximum;
-    sid::optional<int>    multipleOf;
+    sid::optional<int64_t> minimum;
+    sid::optional<int64_t> exclusiveMinimum;
+    sid::optional<int64_t> maximum;
+    sid::optional<int64_t> exclusiveMaximum;
+    sid::optional<int64_t> multipleOf;
     // For strings
     sid::optional<size_t> minLength;
     sid::optional<size_t> maxLength;
@@ -447,42 +485,34 @@ struct schema
     // For objects
     sid::optional<size_t> minProperties;
     sid::optional<size_t> maxProperties;
-    std::strings          required;
+    std::string_set       required;
     property_vec          properties;
 
     property();
     void clear();
+    void set(const value& _jproperties, const std::string& _key);
+    std::string to_str() const;
+    json::value to_json() const;
   };
 
-  std::string    _schema;     //! Json schema URI
-  std::string    _id;         //! Identifier
-  std::string    title;       //! Schema title
-  std::string    description; //! Description of the schema
-  types          type;        //! Schema type
-  property_vec   properties;  //! Properties associated with the schema
-  std::strings   required;    //! Required properties
+  std::string     _schema;     //! Json schema URI
+  std::string     _id;         //! Identifier
+  std::string     title;       //! Schema title
+  std::string     description; //! Description of the schema
+  schema_types    type;        //! Schema type
+  property_vec    properties;  //! Properties associated with the schema
+  std::string_set required;    //! Required properties
 
   schema();
   void clear();
-  static schema parse_file(const std::string& schemaFile);
-  static schema parse(const std::string& schemaData);
-  static schema parse(const value& jroot);
+  std::string to_str() const;
+  json::value to_json() const;
+
+  static schema parse_file(const std::string& _schemaFile);
+  static schema parse(const std::string& _schemaData);
+  static schema parse(const value& _jroot);
 };
-/*
-void schema::clear()
-{
-  this->schema = "https://json-schema.org/draft/2020-12/schema";
-}
 
-json::schema schema;
-
-json::parse(jsonFile, schemaFile);
-json::parse(jsonFile, schema);
-
-json::schema schema = json::schema::parse(schemaFile);
-
-
-*/
 
 #ifdef SID_JSON_MAP_OPTIMIZE_FOR_SIZE
 #pragma pack(pop)
