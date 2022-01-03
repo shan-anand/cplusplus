@@ -201,7 +201,7 @@ json::schema json::schema::parse_file(const std::string& _schemaFile)
   std::ifstream in;
   in.open(_schemaFile);
   if ( ! in.is_open() )
-    throw sid::exception("Failed to open schema file: " + _schemaFile);
+    throw sid::exception("Failed to open schema file: ") + _schemaFile;
   char buf[8096] = {0};
   std::string jsonStr;
   while ( ! in.eof() )
@@ -289,7 +289,7 @@ void json::schema::property::set(const value& _jproperties, const std::string& _
 
   this->key = _key;
   if ( ! jproperty.has_key("type", jval) )
-    throw sid::exception(std::string("property type missing for ") + this->key);
+    throw sid::exception("property type missing for ") + this->key;
   this->type.add(jval);
   if ( jproperty.has_key("description", jval) && !jval.is_null() )
     this->description = jval.get_str();
@@ -399,13 +399,13 @@ void json::schema::property::set(const value& _jproperties, const std::string& _
   if ( jproperty.has_key("properties", jval) )
   {
     if ( ! this->type.exists(schema_type::object) )
-      throw sid::exception("properties is applicable only for object types. Key: " + this->key);
+      throw sid::exception("properties is applicable only for object types. Key: ") + this->key;
     this->properties.set(jval);
   }
   if ( jproperty.has_key("required", jval) )
   {
     if ( ! this->type.exists(schema_type::object) )
-      throw sid::exception("required is applicable only for object types for key " + this->key);
+      throw sid::exception("required is applicable only for object types for key ") + this->key;
     local::fill_required(this->required, jval, this->properties);
   }
 }

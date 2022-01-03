@@ -67,6 +67,12 @@ public:
   void set(const std::string& _msg) { m_code = -1; m_msg = _msg; }
   void set(int _code, const std::string& _msg) { m_code = _code; m_msg = _msg; }
 
+  exception operator+(const std::string& _msg) const {
+    exception e(m_code, m_msg + _msg); return e;
+  }
+
+  exception& operator+=(const std::string& _msg) { m_msg += _msg; return *this; }
+
 protected:
   int         m_code;
   std::string m_msg;
