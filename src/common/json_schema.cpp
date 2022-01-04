@@ -51,7 +51,7 @@ using namespace sid::json;
 namespace local
 {
 void fill_required(
-  std::string_set&            _required,
+  std::set<std::string>&      _required,
   const value&                _jarray,
   const schema::property_vec& _properties
   );
@@ -535,7 +535,7 @@ void schema_types::add(const value& _value)
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void local::fill_required(
-  std::string_set&            _required,
+  std::set<std::string>&      _required,
   const value&                _jarray,
   const schema::property_vec& _properties
   )

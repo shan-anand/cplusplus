@@ -156,12 +156,12 @@ bool value::parse(
   return jparser.parse(_value);
 }
 
-void value::p_set(const value_type _type/* = value_type()*/)
+void value::p_set(const value_type _type/* = value_type::null*/)
 {
   m_type = m_data.init(_type);
 }
 
-value::value(const value_type _type/* = value_type()*/)
+value::value(const value_type _type/* = value_type::null*/)
 {
   m_type = m_data.init(_type);
 }
@@ -478,9 +478,13 @@ void value::p_write(std::ostream& _out, const format& _format, uint32_t _level) 
           output += "\\t";
           break;
         case '\\':
+	  if ( _input[i+1] != 'u' || _format.string_no_quotes )
+	    output += '\\';
+          output += ch;
+          break;
         case '\"': // Quotation mark
           output += '\\';
-          output += + ch;
+          output += ch;
           break;
           /*
             case '\u':
@@ -488,7 +492,10 @@ void value::p_write(std::ostream& _out, const format& _format, uint32_t _level) 
             break;
           */
         default:
-          output += ch;
+	  if ( ch == ',' && _format.string_no_quotes )
+	    output += "\\u002c";
+	  else
+	    output += ch;
           break;
         }
       }
@@ -665,7 +672,7 @@ value::union_data::~union_data()
 
 value_type value::union_data::clear(const value_type _type)
 {
-  switch ( _type.id() )
+  switch ( _type )
   {
   case value_type::string: _str.~string(); break;
   case value_type::array:  _arr.~array(); break;
@@ -679,12 +686,12 @@ value_type value::union_data::clear(const value_type _type)
   return value_type::null;
 }
 
-value_type value::union_data::init(const value_type _type/* = value_type()*/)
+value_type value::union_data::init(const value_type _type/* = value_type::null*/)
 {
-  switch ( _type.id() )
+  switch ( _type )
   {
   case value_type::null:      break;
-  case value_type::string:    new (&_str) string; break;
+  case value_type::string:    new (&_str) std::string; break;
   case value_type::_signed:   _i64 = 0; break;
   case value_type::_unsigned: _u64 = 0; break;
   case value_type::_double:   _dbl = 0; break;
@@ -702,10 +709,10 @@ value_type value::union_data::init(const value_type _type/* = value_type()*/)
 value_type value::union_data::init(
   const union_data& _obj,
   const bool        _new/* = true*/,
-  const value_type  _type/* = value_type()*/
+  const value_type  _type/* = value_type::null*/
   )
 {
-  switch ( _type.id() )
+  switch ( _type )
   {
   case value_type::null:      break;
   case value_type::string:    init(_obj._str);  break;
@@ -750,7 +757,7 @@ value_type value::union_data::init(const bool _val)
 
 value_type value::union_data::init(const std::string& _val)
 {
-  new (&_str) string(_val);
+  new (&_str) std::string(_val);
   return value_type::string;
 }
 
@@ -786,10 +793,10 @@ value_type value::union_data::init(const object& _val, const bool _new/* = true*
 //! Move initializer routine
 value_type value::union_data::init(union_data&& _obj, value_type _type) noexcept
 {
-  switch ( _type.id() )
+  switch ( _type )
   {
   case value_type::null:            break;
-  case value_type::string:          new (&_str) string(_obj._str); break;
+  case value_type::string:          new (&_str) std::string(_obj._str); break;
   case value_type::_signed:         _i64  = _obj._i64;  break;
   case value_type::_unsigned:       _u64  = _obj._u64;  break;
   case value_type::_double:         _dbl  = _obj._dbl;  break;
@@ -1168,7 +1175,7 @@ void parser::parse_string(std::string& _str, bool _isKey)
         // Must be followed by 4 hex digits
         for ( int i = 0; i < 4; i++ )
           check_hex(*(++m_p));
-        _str.append(p, (p-m_p));
+        _str.append(p-1, 6);
       }
       break;
       case '\0':
@@ -1441,8 +1448,8 @@ std::string parser_stats::to_str() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 struct json_value_type_map
 {
-  value_type::ID type;
-  const char*           name;
+  value_type  type;
+  const char* name;
 }
   static gValueTypeMap[] =
   {
@@ -1456,35 +1463,12 @@ struct json_value_type_map
     {value_type::array,     "array"}
   };
 
-/*static*/
-bool value_type::get(const std::string& _name, /*out*/ value_type& _type)
-{
-  for ( const auto& entry : gValueTypeMap )
-  {
-    if ( _name == entry.name )
-    {
-      _type = entry.type;
-      return true;
-    }
-  }
-  return false;
-}
-
-/*static*/
-value_type value_type::get(const std::string& _name)
-{
-  value_type type;
-  if ( !get(_name, /*out*/ type) )
-    throw sid::exception("Invalid value type [" + _name + "] encountered");
-  return type;
-}
-
-std::string value_type::name() const
+std::string sid::to_str(const json::value_type& _type)
 {
   std::string name;
   for ( const auto& entry : gValueTypeMap )
   {
-    if ( m_id == entry.type )
+    if ( _type == entry.type )
     {
       name = entry.name;
       break;
@@ -1505,7 +1489,7 @@ format format::get(const std::string& _value)
 
   if ( _value == "compact" )
     fmt.type = json::format_type::compact;
-  if ( _value == "xcompact" )
+  else if ( _value == "xcompact" )
   {
     fmt.type = json::format_type::compact;
     fmt.key_no_quotes = fmt.string_no_quotes = true;

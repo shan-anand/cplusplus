@@ -51,60 +51,12 @@ LICENSE: END
 #endif
 // ======================
 
-namespace std {
-using string_set = ::std::set<std::string>;
-}
-
 namespace sid {
 namespace json {
 
-/**
- * @class value_type
- * @brief json value_type
- */
-struct value_type
-{
-  enum ID : uint8_t {
-    null, object, array, string, boolean, _signed, _unsigned, _double
-  };
-
-public:
-  ID id() const { return m_id; }
-  std::string name() const;
-
-  static bool get(const std::string& _name, /*out*/ value_type& _type);
-  static value_type get(const std::string& _name);
-
-public:
-  value_type() : m_id(value_type::null) {}
-  value_type(const value_type&) = default;
-  value_type(const value_type::ID& _id) : m_id(_id) {}
-
-  value_type& operator=(const value_type&) = default;
-  value_type& operator=(const value_type::ID& _id) { m_id = _id; return *this; }
-  bool operator==(const value_type& _obj) const { return (m_id == _obj.m_id); }
-  bool operator!=(const value_type& _obj) const { return (m_id != _obj.m_id); }
-  bool operator==(const value_type::ID& _id) const { return (m_id == _id); }
-  bool operator!=(const value_type::ID& _id) const { return (m_id != _id); }
-
-  void clear() { m_id = value_type::null; }
-  bool empty() const { return (m_id == value_type::null); }
-
-  bool is_null() const { return m_id == value_type::null; }
-  bool is_string() const { return m_id == value_type::string; }
-  bool is_signed() const { return m_id == value_type::_signed; }
-  bool is_unsigned() const { return m_id == value_type::_unsigned; }
-  bool is_decimal() const { return is_signed() || is_unsigned(); }
-  bool is_double() const { return m_id == value_type::_double; }
-  bool is_num() const { return is_decimal() || is_double(); }
-  bool is_bool() const { return m_id == value_type::boolean; }
-  bool is_array() const { return m_id == value_type::array; }
-  bool is_object() const { return m_id == value_type::object; }
-  bool is_basic_type() const { return ! ( is_array() || is_object() ); }
-  bool is_complex_type() const { return ( is_array() || is_object() ); }
-
-private:
-  ID m_id;
+//! json value type
+enum value_type : uint8_t {
+  null, object, array, string, boolean, _signed, _unsigned, _double
 };
 
 //! json format type
@@ -261,7 +213,7 @@ public:
     );
 
   // Constructors
-  value(const value_type _type = value_type());
+  value(const value_type _type = value_type::null);
   value(const int64_t _val);
   value(const uint64_t _val);
   value(const double _val);
@@ -278,24 +230,24 @@ public:
   // Destructor
   ~value();
 
-  bool empty() const { return m_type.is_null(); }
+  bool empty() const { return m_type == value_type::null; }
   void clear();
 
   //! get the value_type
   value_type type() const { return m_type; }
   //! value_type check as functions
-  bool is_null() const { return m_type.is_null(); }
-  bool is_string() const { return m_type.is_string(); }
-  bool is_signed() const { return m_type.is_signed(); }
-  bool is_unsigned() const { return m_type.is_unsigned(); }
-  bool is_decimal() const { return m_type.is_decimal(); }
-  bool is_double() const { return m_type.is_double(); }
-  bool is_num() const { return m_type.is_num(); }
-  bool is_bool() const { return m_type.is_bool(); }
-  bool is_array() const { return m_type.is_array(); }
-  bool is_object() const { return m_type.is_object(); }
-  bool is_basic_type() const { return m_type.is_basic_type(); }
-  bool is_complex_type() const { return m_type.is_complex_type(); }
+  bool is_null() const { return m_type == value_type::null; }
+  bool is_string() const { return m_type == value_type::string; }
+  bool is_signed() const { return m_type == value_type::_signed; }
+  bool is_unsigned() const { return m_type == value_type::_unsigned; }
+  bool is_decimal() const { return is_signed() || is_unsigned(); }
+  bool is_double() const { return m_type == value_type::_double; }
+  bool is_num() const { return is_decimal() || is_double(); }
+  bool is_bool() const { return m_type == value_type::boolean; }
+  bool is_array() const { return m_type == value_type::array; }
+  bool is_object() const { return m_type == value_type::object; }
+  bool is_basic_type() const { return ! ( is_array() || is_object() ); }
+  bool is_complex_type() const { return ( is_array() || is_object() ); }
 
   // operator= overloads
   value& operator=(const value& _obj);
@@ -386,7 +338,7 @@ public:
 
 private:
   void p_write(std::ostream& _out, const format& _format, uint32_t _level) const;
-  void p_set(const value_type _type = value_type());
+  void p_set(const value_type _type = value_type::null);
 
 private:
   using array = std::vector<value>;
@@ -406,11 +358,11 @@ private:
     object      _map;
 #endif
     //! Default constructor
-    union_data(const value_type _type = value_type());
+    union_data(const value_type _type = value_type::null);
     //! Copy constructor
-    union_data(const union_data& _obj, const value_type _type = value_type());
+    union_data(const union_data& _obj, const value_type _type = value_type::null);
     //! Move constructor
-    union_data(union_data&& _obj, const value_type _type = value_type()) noexcept;
+    union_data(union_data&& _obj, const value_type _type = value_type::null) noexcept;
     //! Destructor
     ~union_data();
 
@@ -418,9 +370,9 @@ private:
     value_type clear(const value_type _type);
 
     //! Copy initializer routines
-    value_type init(const value_type _type = value_type());
+    value_type init(const value_type _type = value_type::null);
     value_type init(const union_data& _obj, const bool _new = true,
-                       const value_type _type = value_type());
+                       const value_type _type = value_type::null);
     value_type init(const int _val);
     value_type init(const int64_t _val);
     value_type init(const uint64_t _val);
@@ -531,7 +483,7 @@ public:
     // For objects
     sid::optional<size_t> minProperties;
     sid::optional<size_t> maxProperties;
-    std::string_set       required;
+    std::set<std::string> required;
     property_vec          properties;
 
     property();
@@ -542,13 +494,13 @@ public:
   };
 
   //! Schema members
-  std::string     _schema;     //! Json schema URI
-  std::string     _id;         //! Identifier
-  std::string     title;       //! Schema title
-  std::string     description; //! Description of the schema
-  schema_types    type;        //! Schema type
-  property_vec    properties;  //! Properties associated with the schema
-  std::string_set required;    //! Required properties
+  std::string           _schema;     //! Json schema URI
+  std::string           _id;         //! Identifier
+  std::string           title;       //! Schema title
+  std::string           description; //! Description of the schema
+  schema_types          type;        //! Schema type
+  property_vec          properties;  //! Properties associated with the schema
+  std::set<std::string> required;    //! Required properties
 
   schema();
   void clear();
@@ -566,4 +518,7 @@ public:
 #endif
 
 } // namespace json
+
+std::string to_str(const json::value_type& _type);
+
 } // namespace sid

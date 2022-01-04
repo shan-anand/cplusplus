@@ -224,6 +224,7 @@ void regex_test(const std::string& _infoStr)
 void json_schema_test(const std::string& schemaFile)
 {
   json::schema schema = json::schema::parse_file(schemaFile);
+  json::value jroot;
   cout << schema.to_str() << endl;
   return;
 }
@@ -236,8 +237,8 @@ int main(int argc, char* argv[])
     if ( argc < 2 )
       throw std::string("Need atleast one argument");
 
-    json_schema_test(argv[1]);
-    return 0;
+    //json_schema_test(argv[1]);
+    //return 0;
     //regex_test1(argv[1]);
     //return 0;
 
