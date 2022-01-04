@@ -38,6 +38,7 @@ LICENSE: END
 #include <map>
 #include <set>
 #include "exception.hpp"
+
 #include "optional.hpp"
 #include "smart_ptr.hpp"
 
@@ -57,53 +58,93 @@ using string_set = ::std::set<std::string>;
 namespace sid {
 namespace json {
 
-//! json element type
-enum class element : uint8_t {
-  null, object, array, string, boolean, _signed, _unsigned, _double
+/**
+ * @class value_type
+ * @brief json value_type
+ */
+struct value_type
+{
+  enum ID : uint8_t {
+    null, object, array, string, boolean, _signed, _unsigned, _double
+  };
+
+public:
+  ID id() const { return m_id; }
+  std::string name() const;
+
+  static bool get(const std::string& _name, /*out*/ value_type& _type);
+  static value_type get(const std::string& _name);
+
+public:
+  value_type() : m_id(value_type::null) {}
+  value_type(const value_type&) = default;
+  value_type(const value_type::ID& _id) : m_id(_id) {}
+
+  value_type& operator=(const value_type&) = default;
+  value_type& operator=(const value_type::ID& _id) { m_id = _id; return *this; }
+  bool operator==(const value_type& _obj) const { return (m_id == _obj.m_id); }
+  bool operator!=(const value_type& _obj) const { return (m_id != _obj.m_id); }
+  bool operator==(const value_type::ID& _id) const { return (m_id == _id); }
+  bool operator!=(const value_type::ID& _id) const { return (m_id != _id); }
+
+  void clear() { m_id = value_type::null; }
+  bool empty() const { return (m_id == value_type::null); }
+
+  bool is_null() const { return m_id == value_type::null; }
+  bool is_string() const { return m_id == value_type::string; }
+  bool is_signed() const { return m_id == value_type::_signed; }
+  bool is_unsigned() const { return m_id == value_type::_unsigned; }
+  bool is_decimal() const { return is_signed() || is_unsigned(); }
+  bool is_double() const { return m_id == value_type::_double; }
+  bool is_num() const { return is_decimal() || is_double(); }
+  bool is_bool() const { return m_id == value_type::boolean; }
+  bool is_array() const { return m_id == value_type::array; }
+  bool is_object() const { return m_id == value_type::object; }
+  bool is_basic_type() const { return ! ( is_array() || is_object() ); }
+  bool is_complex_type() const { return ( is_array() || is_object() ); }
+
+private:
+  ID m_id;
 };
 
-} // namespace json
-
-// to_str in the sid namespace
-std::string to_str(const json::element& _type);
-
-namespace json {
-
-//! json formatter
-enum class format : uint8_t {
+//! json format type
+enum class format_type : uint8_t {
   compact, pretty
 };
 
-//! json formatter for pretty formatting
-struct pretty_formatter
+//! json format stucture
+struct format
 {
-  format   type;
-  char     sep_char;
-  uint32_t sep_count;
-  bool     key_no_quotes;
-  bool     string_no_quotes;
+  format_type type;
+  char        separator;
+  uint32_t    indent;
+  bool        key_no_quotes;
+  bool        string_no_quotes;
 
-  pretty_formatter() :
-    type(format::compact), sep_char(' '),
-    sep_count(2),
+  format() :
+    type(format_type::compact), separator(' '),
+    indent(2),
     key_no_quotes(false),
     string_no_quotes(false)
     {}
-  pretty_formatter(
-    const format& _type,
-    bool          _key_no_quotes = false,
-    bool          _string_no_quotes = false
+  format(
+    const format_type& _type,
+    bool               _key_no_quotes = false,
+    bool               _string_no_quotes = false
     ) :
-    pretty_formatter() {
-    type =_type; key_no_quotes = _key_no_quotes; string_no_quotes = _string_no_quotes;
+    format() {
+      type =_type; key_no_quotes = _key_no_quotes; string_no_quotes = _string_no_quotes;
   }
-  pretty_formatter(
+  format(
     bool _key_no_quotes,
     bool _string_no_quotes
     ) :
-    pretty_formatter() {
+    format() {
     key_no_quotes = _key_no_quotes; string_no_quotes = _string_no_quotes;
   }
+
+  std::string to_str() const;
+  static format get(const std::string& _value);
 };
 
 //! Forward declaration of parser (not exposed)
@@ -148,7 +189,8 @@ struct parser_control
     {
       uint8_t allowFlexibleKeys    : 1; //! If set to 1, accept key names not enclosed
                                         //!   within double-quotes
-                                        //!   Must encode characters with unicode character (\u xxxx)
+                                        //!   Must encode characters with unicode character
+                                        //    (\u xxxx)
                                         //!     " -> \u
                                         //!     : -> \u
       uint8_t allowFlexibleStrings : 1; //! If set to 1, accept string values not enclosed
@@ -194,7 +236,7 @@ class value
   friend class parser;
 public:
   /**
-   * @fn bool parse(json::value&          _jout,
+   * @fn bool parse(value&                _jout,
    *                parser_stats&         _stats,
    *                const std::string&    _value,
    *                const parser_control& _ctrl = parser_control()
@@ -207,19 +249,19 @@ public:
    * @param _ctrl [in] Parser control flags
    */
   static bool parse(
-    json::value&          _jout,
+    value&                _jout,
     const std::string&    _value,
     const parser_control& _ctrl = parser_control()
     );
   static bool parse(
-    json::value&          _jout,
+    value&                _jout,
     parser_stats&         _stats,
     const std::string&    _value,
     const parser_control& _ctrl = parser_control()
     );
 
   // Constructors
-  value(const json::element _type = json::element::null);
+  value(const value_type _type = value_type());
   value(const int64_t _val);
   value(const uint64_t _val);
   value(const double _val);
@@ -236,24 +278,24 @@ public:
   // Destructor
   ~value();
 
-  bool empty() const { return m_type == json::element::null; }
+  bool empty() const { return m_type.is_null(); }
   void clear();
 
-  //! get the element type
-  json::element type() const { return m_type; }
-  //! element type check as functions
-  bool is_null() const { return m_type == json::element::null; }
-  bool is_string() const { return m_type == json::element::string; }
-  bool is_signed() const { return m_type == json::element::_signed; }
-  bool is_unsigned() const { return m_type == json::element::_unsigned; }
-  bool is_decimal() const { return is_signed() || is_unsigned(); }
-  bool is_double() const { return m_type == json::element::_double; }
-  bool is_num() const { return is_decimal() || is_double(); }
-  bool is_bool() const { return m_type == json::element::boolean; }
-  bool is_array() const { return m_type == json::element::array; }
-  bool is_object() const { return m_type == json::element::object; }
-  bool is_basic_type() const { return ! ( is_array() || is_object() ); }
-  bool is_complex_type() const { return ( is_array() || is_object() ); }
+  //! get the value_type
+  value_type type() const { return m_type; }
+  //! value_type check as functions
+  bool is_null() const { return m_type.is_null(); }
+  bool is_string() const { return m_type.is_string(); }
+  bool is_signed() const { return m_type.is_signed(); }
+  bool is_unsigned() const { return m_type.is_unsigned(); }
+  bool is_decimal() const { return m_type.is_decimal(); }
+  bool is_double() const { return m_type.is_double(); }
+  bool is_num() const { return m_type.is_num(); }
+  bool is_bool() const { return m_type.is_bool(); }
+  bool is_array() const { return m_type.is_array(); }
+  bool is_object() const { return m_type.is_object(); }
+  bool is_basic_type() const { return m_type.is_basic_type(); }
+  bool is_complex_type() const { return m_type.is_complex_type(); }
 
   // operator= overloads
   value& operator=(const value& _obj);
@@ -325,26 +367,26 @@ public:
     if ( ! is_array() )
     {
       clear();
-      m_type = m_data.init(json::element::array);
+      m_type = m_data.init(value_type::array);
     }
     value& jval = append();
     jval.m_type = jval.m_data.init(_val);
     return jval;
   }
 
-  //! Convert json to string format
-  std::string to_str(json::format _format = json::format::compact) const;
-  //! Convert json to string format using pretty formatter
-  std::string to_str(const pretty_formatter& _formatter) const;
+  //! Convert json to string using the given format type
+  std::string to_str(const format_type _type = format_type::compact) const;
+  //! Convert json to string using the given format
+  std::string to_str(const format& _format) const;
 
   //! Write json to the given output stream
-  void write(std::ostream& _out, json::format _format = json::format::compact) const;
+  void write(std::ostream& _out, const format_type _type = format_type::compact) const;
   //! Write json to the given output stream using pretty format
-  void write(std::ostream& _out, const pretty_formatter& _formatter) const;
+  void write(std::ostream& _out, const format& _format) const;
 
 private:
-  void p_write(std::ostream& _out, const pretty_formatter& _formatter, uint32_t _level) const;
-  void p_set(const json::element _type = json::element::null);
+  void p_write(std::ostream& _out, const format& _format, uint32_t _level) const;
+  void p_set(const value_type _type = value_type());
 
 private:
   using array = std::vector<value>;
@@ -364,32 +406,32 @@ private:
     object      _map;
 #endif
     //! Default constructor
-    union_data(const json::element _type = json::element::null);
+    union_data(const value_type _type = value_type());
     //! Copy constructor
-    union_data(const union_data& _obj, const json::element _type = json::element::null);
+    union_data(const union_data& _obj, const value_type _type = value_type());
     //! Move constructor
-    union_data(union_data&& _obj, const json::element _type = json::element::null) noexcept;
+    union_data(union_data&& _obj, const value_type _type = value_type()) noexcept;
     //! Destructor
     ~union_data();
 
     //! Clear the memory used by the object
-    json::element clear(const json::element _type);
+    value_type clear(const value_type _type);
 
     //! Copy initializer routines
-    json::element init(const json::element _type = json::element::null);
-    json::element init(const union_data& _obj, const bool _new = true,
-                       const json::element _type = json::element::null);
-    json::element init(const int _val);
-    json::element init(const int64_t _val);
-    json::element init(const uint64_t _val);
-    json::element init(const long double _val);
-    json::element init(const bool _val);
-    json::element init(const std::string& _val);
-    json::element init(const char* _val);
-    json::element init(const array& _val);
-    json::element init(const object& _val, const bool _new = true);
+    value_type init(const value_type _type = value_type());
+    value_type init(const union_data& _obj, const bool _new = true,
+                       const value_type _type = value_type());
+    value_type init(const int _val);
+    value_type init(const int64_t _val);
+    value_type init(const uint64_t _val);
+    value_type init(const long double _val);
+    value_type init(const bool _val);
+    value_type init(const std::string& _val);
+    value_type init(const char* _val);
+    value_type init(const array& _val);
+    value_type init(const object& _val, const bool _new = true);
     //! Move initializer routine
-    json::element init(union_data&& _obj, json::element _type) noexcept;
+    value_type init(union_data&& _obj, value_type _type) noexcept;
 
     union_data& operator=(const union_data& _obj) { *this = std::move(_obj); return *this; }
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
@@ -401,15 +443,14 @@ private:
 #endif
   };
 
-  json::element m_type; //! Type of the object
-  union_data    m_data; //! The object
+  value_type m_type; //! Type of the object
+  union_data m_data; //! The object
 };
 
-using opt_size_t = sid::optional<size_t>;
-using opt_int = sid::optional<int>;
-using opt_bool = sid::optional<bool>;
-using opt_string = sid::optional<::std::string>;
-
+/**
+ * @class schema_type
+ * @brief json schema_type
+ */
 struct schema_type
 {
   enum ID : uint8_t {
@@ -447,18 +488,23 @@ struct schema_types : public std::set<schema_type>
   void add(const value& _value);
   bool exists(const schema_type& _type) const { return this->find(_type) != this->end(); }
   void remove(const schema_type& _type) { this->erase(_type); }
-  json::value to_json() const;
+  value to_json() const;
 };
 
-struct schema
+/**
+ * @class schema
+ * @brief json schema class
+ */
+class schema
 {
+public:
   struct property;
 
   struct property_vec : public std::vector<property>
   {
     void set(const value& _jproperties);
     std::string to_str() const;
-    json::value to_json() const;
+    value to_json() const;
   };
 
   struct property
@@ -492,9 +538,10 @@ struct schema
     void clear();
     void set(const value& _jproperties, const std::string& _key);
     std::string to_str() const;
-    json::value to_json() const;
+    value to_json() const;
   };
 
+  //! Schema members
   std::string     _schema;     //! Json schema URI
   std::string     _id;         //! Identifier
   std::string     title;       //! Schema title
@@ -506,7 +553,7 @@ struct schema
   schema();
   void clear();
   std::string to_str() const;
-  json::value to_json() const;
+  value to_json() const;
 
   static schema parse_file(const std::string& _schemaFile);
   static schema parse(const std::string& _schemaData);

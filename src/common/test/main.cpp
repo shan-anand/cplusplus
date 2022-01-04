@@ -54,8 +54,8 @@ void parser_test(std::string jsonStr)
     cout << jnumbers[i].as_str() << " ";
   */
   cout << endl<< endl;
-  //jroot.write(cout, json::format::pretty);
-  cout << jroot.to_str(json::format::pretty) << endl << endl;
+  //jroot.write(cout, json::format_type::pretty);
+  cout << jroot.to_str(json::format_type::pretty) << endl << endl;
 }
 
 template <typename T>
@@ -268,7 +268,7 @@ int main(int argc, char* argv[])
     json::parser_control ctrl;
     json::parser_stats stats;
     json::value jroot;
-    sid::optional<json::pretty_formatter> outputFmt;
+    sid::optional<json::format> outputFmt;
     if ( argc > 1 )
     {
       std::string jsonStr = get_file_contents(argv[1]);
@@ -311,24 +311,7 @@ int main(int argc, char* argv[])
         else if ( key == "--show-output" )
         {
           if ( ! value.empty() && value != "false" )
-          {
-            json::pretty_formatter fmt;
-            if ( value == "compact" )
-              fmt.type = json::format::compact;
-            if ( value == "xcompact" )
-            {
-              fmt.type = json::format::compact;
-              fmt.key_no_quotes = fmt.string_no_quotes = true;
-            }
-            else if ( value == "pretty" )
-              fmt.type = json::format::pretty;
-            else if ( value == "xpretty" )
-            {
-              fmt.type = json::format::pretty;
-              fmt.key_no_quotes = fmt.string_no_quotes = true;
-            }
-            outputFmt = fmt;
-          }
+            outputFmt = json::format::get(value);
         }
         else
           throw sid::exception("Invalid key: " + key);
@@ -339,7 +322,7 @@ int main(int argc, char* argv[])
       if ( outputFmt.exists() )
         cout << jroot.to_str(outputFmt()) << endl;
 
-      //cout << jroot.to_str(json::format::pretty) << endl;
+      //cout << jroot.to_str(json::format_type::pretty) << endl;
       //json::value j1 = jroot;
       //cout << stats.to_str() << endl;
       //cout << "*** Before clear() " << endl;
@@ -353,17 +336,17 @@ int main(int argc, char* argv[])
       jname["id"] = 1;
       jname["first"] = "Shan";
       jname["last"] = "Anand";
-      json::value jmeta = json::element::object;
+      json::value jmeta = json::value_type::object;
       jmeta["storage_group_id"] = "1";
       jmeta["policy_id"] = nullptr;
       jmeta["written_size"] = 32423423;
       jmeta["pi"] = 3.14159L;
       //jroot["meta"] = jmeta.to_str();
       jroot["meta"] = jmeta;
-      //std::string jsonStr = jroot.to_str(json::pretty_formatter(json::format::pretty, true));
+      //std::string jsonStr = jroot.to_str(json::format(json::format_type::pretty, true));
 
       bool flexibleKey = true;
-      std::string jsonStr = jroot.to_str(json::pretty_formatter(json::format::compact, flexibleKey));
+      std::string jsonStr = jroot.to_str(json::format(json::format_type::compact, flexibleKey));
       cout << jsonStr << endl;
  
       cout << "=====================================================" << endl;
@@ -372,7 +355,7 @@ int main(int argc, char* argv[])
       json::parser_control ctrl;
       ctrl.mode.allowFlexibleKeys = flexibleKey? 1 : 0;
       json::value::parse(jsecond, jsonStr, ctrl);
-      jsonStr = jsecond.to_str(json::format::pretty);
+      jsonStr = jsecond.to_str(json::format_type::pretty);
       cout << jsonStr << endl;
       return 0;
 
@@ -399,9 +382,9 @@ int main(int argc, char* argv[])
         jarray.append(-200);
         jarray.append(300);
         jarray.append(-400);
-        jtest["empty_array"] = json::value(json::element::array);
-        jtest["empty_object"] = json::value(json::element::object);
-        json::value& jaoa = jtest["array_of_arrays"] = json::value(json::element::array);
+        jtest["empty_array"] = json::value(json::value_type::array);
+        jtest["empty_object"] = json::value(json::value_type::object);
+        json::value& jaoa = jtest["array_of_arrays"] = json::value(json::value_type::array);
         json::value& jmetadata = jperson["metadata"];
         for ( size_t j = 0; j < (i%5)+1; j++ )
         {
@@ -414,14 +397,14 @@ int main(int argc, char* argv[])
           jentry["value"] = "value-" + sid::to_str(j);
         }
       }
-      cout << jroot.to_str(json::format::pretty) << endl;
+      cout << jroot.to_str(json::format_type::pretty) << endl;
       return 0;
     }
 
     struct New1
     {
       std::string   m_data;
-      json::element m_type;
+      json::value_type m_type;
     }new1;
     struct New3
     {
@@ -437,7 +420,7 @@ int main(int argc, char* argv[])
         ~union_data() {}
       };
       union_data   m_data;
-      json::element m_type;
+      json::value_type m_type;
     }new3;
 
     cout << "sizeof(json::value) = " << sizeof(json::value) << endl;
@@ -448,7 +431,7 @@ int main(int argc, char* argv[])
     cout << "sizeof(std::vector<>) = " << sizeof(std::vector<json::value>) << endl;
     cout << "sizeof(int*) = " << sizeof(int*) << endl;
     //cout << "sizeof(json::value::union_data) = " << sizeof(json::value::union_data) << endl;
-    cout << "sizeof(json::element) = " << sizeof(json::element) << endl;
+    cout << "sizeof(json::value_type) = " << sizeof(json::value_type) << endl;
     cout << "sizeof(New1) = " << sizeof(new1.m_data) << " + " << sizeof(new1.m_type) << " = " << sizeof(new1) << endl;
     cout << "sizeof(New3) = " << sizeof(new3.m_data) << " + " << sizeof(new3.m_type) << " = " << sizeof(new3) << endl;
     cout << endl;
@@ -457,8 +440,8 @@ int main(int argc, char* argv[])
     //cout << "str-3: " << jtest["str-3"]["k1"].as_str() << " : " << jtest["str-3"]["k1"].to_str() << endl;
     //cout << jroot.to_str() << endl;
     parser_test(jroot.to_str());
-    //json::pretty_formatter formatter(' ', 0);
-    //parser_test(jroot.to_str(formatter));
+    //json::format format(' ', 0);
+    //parser_test(jroot.to_str(format));
     //parser_test("[\t\n{  \n \t }\n\t]");
   }
   catch (const std::string& err)

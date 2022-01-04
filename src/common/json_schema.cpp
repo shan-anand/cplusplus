@@ -5,7 +5,7 @@ LICENSE: BEGIN
 @email anand.gs@gmail.com
 @source https://github.com/shan-anand
 @file json.cpp
-@brief Json handling using c++
+@brief Json schema handling using c++
 ===============================================================================
 MIT License
 
@@ -46,106 +46,27 @@ LICENSE: END
 #include <unistd.h>
 
 using namespace sid;
+using namespace sid::json;
 
 namespace local
 {
 void fill_required(
-  std::string_set&                  _required,
-  const json::value&                _jarray,
-  const json::schema::property_vec& _properties
+  std::string_set&            _required,
+  const value&                _jarray,
+  const schema::property_vec& _properties
   );
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Implementation of json::schema_type
+// Implementation of schema::property
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-struct json_schema_type_map
-{
-  json::schema_type::ID type;
-  const char*           name;
-}
-  static gSchemaTypeMap[] =
-  {
-    {json::schema_type::null, "null"},
-    {json::schema_type::object, "object"},
-    {json::schema_type::array, "array"},
-    {json::schema_type::string, "string"},
-    {json::schema_type::boolean, "boolean"},
-    {json::schema_type::number, "number"},
-    {json::schema_type::integer, "integer"}
-  };
-
-/*static*/
-bool json::schema_type::get(const std::string& _name, /*out*/ schema_type& _type)
-{
-  for ( const auto& entry : gSchemaTypeMap )
-  {
-    if ( _name == entry.name )
-    {
-      _type = entry.type;
-      return true;
-    }
-  }
-  return false;
-}
-
-/*static*/
-json::schema_type json::schema_type::get(const std::string& _name)
-{
-  schema_type type;
-  if ( !get(_name, /*out*/ type) )
-    throw sid::exception("Invalid schema type [" + _name + "] encountered");
-  return type;
-}
-
-std::string json::schema_type::name() const
-{
-  std::string name;
-  for ( const auto& entry : gSchemaTypeMap )
-  {
-    if ( m_id == entry.type )
-    {
-      name = entry.name;
-      break;
-    }
-  }
-  return name;
-}
-
-void json::schema_types::add(const value& _value)
-{
-  if ( _value.is_string() )
-    this->insert(json::schema_type::get(_value.get_str()));
-  else if ( _value.is_array() )
-  {
-    // Each array element must be a string
-    for ( size_t i = 0; i < _value.size(); i++ )
-    {
-      const json::value& jval = _value[i];
-      if ( !jval.is_string() )
-	throw sid::exception("type parameter must be strings within the array");
-      schema_type type = json::schema_type::get(jval.get_str());
-      if ( this->exists(type) )
-	throw sid::exception("type parameters must be unique within the array");
-      this->insert(type);
-    }
-  }
-  else
-    throw sid::exception("type parameter must be string or an array of unique string");
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// Implementation of json::schema::property
-//
-///////////////////////////////////////////////////////////////////////////////////////////////////
-json::schema::property::property()
+schema::property::property()
 {
 }
 
-void json::schema::property::clear()
+void schema::property::clear()
 {
   key.clear();
   description.clear();
@@ -175,15 +96,15 @@ void json::schema::property::clear()
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Implementation of json::schema
+// Implementation of schema
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-json::schema::schema()
+schema::schema()
 {
   clear();
 }
 
-void json::schema::clear()
+void schema::clear()
 {
   this->_schema = "https://json-schema.org/draft/2020-12/schema";
   //_schema.clear();
@@ -196,7 +117,7 @@ void json::schema::clear()
 }
 
 /*static*/
-json::schema json::schema::parse_file(const std::string& _schemaFile)
+schema schema::parse_file(const std::string& _schemaFile)
 {
   std::ifstream in;
   in.open(_schemaFile);
@@ -216,18 +137,18 @@ json::schema json::schema::parse_file(const std::string& _schemaFile)
 }
 
 /*static*/
-json::schema json::schema::parse(const std::string& _schemaData)
+schema schema::parse(const std::string& _schemaData)
 {
-  json::value jroot;
-  json::value::parse(jroot, _schemaData);
+  value jroot;
+  value::parse(jroot, _schemaData);
   return parse(jroot);
 }
 
 /*static*/
-json::schema json::schema::parse(const value& _jroot)
+schema schema::parse(const value& _jroot)
 {
   schema schema;
-  json::value jval;
+  value jval;
   if ( _jroot.has_key("$schema", jval) && !jval.is_null() )
     schema._schema = jval.get_str();
   if ( _jroot.has_key("$id", jval) && !jval.is_null() )
@@ -269,7 +190,7 @@ json::schema json::schema::parse(const value& _jroot)
   return schema;
 }
 
-void json::schema::property_vec::set(const value& _jproperties)
+void schema::property_vec::set(const value& _jproperties)
 {
   if ( ! _jproperties.is_object() )
     throw sid::exception("properties must be an object");
@@ -282,10 +203,10 @@ void json::schema::property_vec::set(const value& _jproperties)
   }
 }
 
-void json::schema::property::set(const value& _jproperties, const std::string& _key)
+void schema::property::set(const value& _jproperties, const std::string& _key)
 {
-  const json::value& jproperty = _jproperties[_key];
-  json::value jval;
+  const value& jproperty = _jproperties[_key];
+  value jval;
 
   this->key = _key;
   if ( ! jproperty.has_key("type", jval) )
@@ -410,14 +331,14 @@ void json::schema::property::set(const value& _jproperties, const std::string& _
   }
 }
 
-std::string json::schema::to_str() const
+std::string schema::to_str() const
 {
-  return to_json().to_str(json::format::pretty);
+  return to_json().to_str(format_type::pretty);
 }
 
-json::value json::schema::to_json() const
+value schema::to_json() const
 {
-  json::value jroot;
+  value jroot;
   if ( ! this->_schema.empty() )
     jroot["$schema"] = this->_schema;
   if ( ! this->_id.empty() )
@@ -437,28 +358,28 @@ json::value json::schema::to_json() const
   return jroot;
 }
 
-std::string json::schema::property_vec::to_str() const
+std::string schema::property_vec::to_str() const
 {
-  return to_json().to_str(json::format::pretty);
+  return to_json().to_str(format_type::pretty);
 }
 
-json::value json::schema::property_vec::to_json() const
+value schema::property_vec::to_json() const
 {
-  json::value jroot;
+  value jroot;
 
-  for ( const json::schema::property& property : *this )
+  for ( const schema::property& property : *this )
     jroot[property.key] = property.to_json();
   return jroot;
 }
 
-std::string json::schema::property::to_str() const
+std::string schema::property::to_str() const
 {
-  return to_json().to_str(json::format::pretty);
+  return to_json().to_str(format_type::pretty);
 }
 
-json::value json::schema::property::to_json() const
+value schema::property::to_json() const
 {
-  json::value jroot;
+  value jroot;
   
   if ( ! this->description.empty() )
     jroot["description"] = this->description;
@@ -515,23 +436,108 @@ json::value json::schema::property::to_json() const
   return jroot;
 }
 
-json::value json::schema_types::to_json() const
+value schema_types::to_json() const
 {
-  json::value jroot;
+  value jroot;
   if ( this->size() == 1 )
     jroot = (*(this->begin())).name();
   else
   {
-    for ( const json::schema_type& type : *this )
+    for ( const schema_type& type : *this )
       jroot.append(type.name());
   }
   return jroot;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Implementation of schema_type
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////
+struct json_schema_type_map
+{
+  schema_type::ID type;
+  const char*           name;
+}
+  static gSchemaTypeMap[] =
+  {
+    {schema_type::null,    "null"},
+    {schema_type::object,  "object"},
+    {schema_type::array,   "array"},
+    {schema_type::string,  "string"},
+    {schema_type::boolean, "boolean"},
+    {schema_type::number,  "number"},
+    {schema_type::integer, "integer"}
+  };
+
+/*static*/
+bool schema_type::get(const std::string& _name, /*out*/ schema_type& _type)
+{
+  for ( const auto& entry : gSchemaTypeMap )
+  {
+    if ( _name == entry.name )
+    {
+      _type = entry.type;
+      return true;
+    }
+  }
+  return false;
+}
+
+/*static*/
+schema_type schema_type::get(const std::string& _name)
+{
+  schema_type type;
+  if ( !get(_name, /*out*/ type) )
+    throw sid::exception("Invalid schema type [" + _name + "] encountered");
+  return type;
+}
+
+std::string schema_type::name() const
+{
+  std::string name;
+  for ( const auto& entry : gSchemaTypeMap )
+  {
+    if ( m_id == entry.type )
+    {
+      name = entry.name;
+      break;
+    }
+  }
+  return name;
+}
+
+void schema_types::add(const value& _value)
+{
+  if ( _value.is_string() )
+    this->insert(schema_type::get(_value.get_str()));
+  else if ( _value.is_array() )
+  {
+    // Each array element must be a string
+    for ( size_t i = 0; i < _value.size(); i++ )
+    {
+      const value& jval = _value[i];
+      if ( !jval.is_string() )
+	throw sid::exception("type parameter must be strings within the array");
+      schema_type type = schema_type::get(jval.get_str());
+      if ( this->exists(type) )
+	throw sid::exception("type parameters must be unique within the array");
+      this->insert(type);
+    }
+  }
+  else
+    throw sid::exception("type parameter must be string or an array of unique string");
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Implementation of local namespace
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////
 void local::fill_required(
-  std::string_set&                  _required,
-  const json::value&                _jarray,
-  const json::schema::property_vec& _properties
+  std::string_set&            _required,
+  const value&                _jarray,
+  const schema::property_vec& _properties
   )
 {
   if ( ! _jarray.is_array() )
@@ -539,7 +545,7 @@ void local::fill_required(
 
   for ( size_t i = 0; i < _jarray.size(); i++ )
   {
-    const json::value& jval = _jarray[i];
+    const value& jval = _jarray[i];
     if ( !jval.is_string() )
       throw sid::exception("required parameter must be strings within the array");
 
@@ -547,7 +553,7 @@ void local::fill_required(
     if ( _required.find(key) == _required.end() )
     {
       bool found = false;
-      for ( const json::schema::property& property : _properties )
+      for ( const schema::property& property : _properties )
       {
 	if ( key == property.key )
 	{

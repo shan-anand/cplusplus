@@ -46,8 +46,11 @@ LICENSE: END
 #include <unistd.h>
 
 using namespace sid;
+using namespace sid::json;
 
 //#define REMOVE_LEADING_SPACES(p)  for (; ::isspace(*p) && *p != '\0'; p++ );
+
+static uint64_t gobjects_alloc = 0;
 
 namespace sid {
 namespace json {
@@ -58,14 +61,14 @@ namespace json {
  */
 struct parser
 {
-  json::value&         m_jroot;  //! json::value output object
-  json::parser_stats&  m_stats;  //! statistics object
-  json::parser_control m_ctrl;   //! Parser control flags
-  std::string          m_input;  //! The Json string to be parsed
-  std::stack<sid::json::element> m_containerStack; //! Container stack
+  value&         m_jroot;  //! value output object
+  parser_stats&  m_stats;  //! statistics object
+  parser_control m_ctrl;   //! Parser control flags
+  std::string    m_input;  //! The Json string to be parsed
+  std::stack<value_type> m_containerStack; //! Container stack
 
   // constructor
-  parser(json::value& _jout, json::parser_stats& _stats) : m_jroot(_jout), m_stats(_stats) {}
+  parser(value& _jout, parser_stats& _stats) : m_jroot(_jout), m_stats(_stats) {}
 
   //! parse the string and convert it to json object
   bool parse(const std::string& _value);
@@ -90,18 +93,18 @@ private:
   std::string loc_str() const { return loc_str(m_line, m_p); }
 
   //! parse object
-  void parse_object(json::value& _jobj);
+  void parse_object(value& _jobj);
   //! parse array
-  void parse_array(json::value& _jarr);
+  void parse_array(value& _jarr);
   //! parse key
   void parse_key(std::string& _str);
   //! parse string
   void parse_string(std::string& _str, bool _isKey);
-  void parse_string(json::value& _jstr, bool _isKey);
+  void parse_string(value& _jstr, bool _isKey);
   //! parser number
-  void parse_number(json::value& _jnum, bool bFullCheck);
+  void parse_number(value& _jnum, bool bFullCheck);
   //! parse json value
-  void parse_value(json::value& _jval);
+  void parse_value(value& _jval);
 
   //! check for space character
   bool is_space(const char* _p);
@@ -114,70 +117,11 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Implementation of json::parser_stats
+// Implementation of value
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-json::parser_stats::parser_stats()
-{
-  clear();
-}
-
-uint64_t gobjects_alloc = 0;
-
-void json::parser_stats::clear()
-{
-  objects = 0;
-  arrays = 0;
-  strings = 0;
-  numbers = 0;
-  booleans = 0;
-  nulls = 0;
-  keys = 0;
-  time_ms = 0;
-}
-
-std::string json::parser_stats::to_str() const
-{
-  std::ostringstream out;
-  out << "objects.......: " << sid::get_sep(objects)
-      << " (" << sid::get_sep(gobjects_alloc) << ")" << endl
-      << "arrays........: " << sid::get_sep(arrays) << endl
-      << "strings.......: " << sid::get_sep(strings) << endl
-      << "numbers.......: " << sid::get_sep(numbers) << endl
-      << "booleans......: " << sid::get_sep(booleans) << endl
-      << "nulls.........: " << sid::get_sep(nulls) << endl
-      << "(keys)........: " << sid::get_sep(keys) << endl
-      << "(time taken)..: " << sid::get_sep(time_ms/1000)
-      << "." << std::setfill('0') << std::setw(3) << (time_ms % 1000) << " seconds" << endl
-    ;
-  return out.str();
-}
-
-std::string sid::to_str(const json::element& _type)
-{
-  std::string out;
-  switch ( _type )
-  {
-  case json::element::null:      out = "null";     break;
-  case json::element::string:    out = "string";   break;
-  case json::element::_signed:   out = "signed";   break;
-  case json::element::_unsigned: out = "unsigned"; break;
-  case json::element::_double:   out = "double";   break;
-  case json::element::boolean:   out = "boolean";  break;
-  case json::element::array:     out = "array";    break;
-  case json::element::object:    out = "object";   break;
-  }
-  return out;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// Implementation of json::value
-//
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
 /**
- * @fn bool parse(json::value&          _jout,
+ * @fn bool parse(value&                _jout,
  *                parser_stats&         _stats,
  *                const std::string&    _value,
  *                const parser_control& _ctrl = parser_control()
@@ -190,104 +134,104 @@ std::string sid::to_str(const json::element& _type)
  * @param _ctrl [in] Parser control flags
  */
 /*static*/
-bool json::value::parse(
-  json::value&          _jout,
+bool value::parse(
+  value&                _jout,
   const std::string&    _value,
   const parser_control& _ctrl /*= parser_control()*/
   )
 {
-  json::parser_stats stats;
-  return json::value::parse(_jout, stats, _value, _ctrl);
+  parser_stats stats;
+  return value::parse(_jout, stats, _value, _ctrl);
 }
 
-bool json::value::parse(
-  json::value&          _jout,
+bool value::parse(
+  value&                _jout,
   parser_stats&         _stats,
   const std::string&    _value,
   const parser_control& _ctrl /*= parser_control()*/
   )
 {
-  json::parser jparser(_jout, _stats);
+  parser jparser(_jout, _stats);
   jparser.m_ctrl = _ctrl;
   return jparser.parse(_value);
 }
 
-void json::value::p_set(const json::element _type/* = json::element::null*/)
+void value::p_set(const value_type _type/* = value_type()*/)
 {
   m_type = m_data.init(_type);
 }
 
-json::value::value(const json::element _type/* = json::element::null*/)
+value::value(const value_type _type/* = value_type()*/)
 {
   m_type = m_data.init(_type);
 }
 
-json::value::value(const value& _obj)
+value::value(const value& _obj)
 {
   m_type = m_data.init(_obj.m_data, true, _obj.m_type);
 }
 
 // Move constructor
-json::value::value(value&& _obj) noexcept
+value::value(value&& _obj) noexcept
 {
   m_type = m_data.init(std::move(_obj.m_data), _obj.m_type);
-  _obj.m_type = json::element::null;
+  _obj.m_type = value_type::null;
 }
 
-json::value::value(const int64_t _val)
+value::value(const int64_t _val)
 {
   m_type = m_data.init(_val);
 }
 
-json::value::value(const uint64_t _val)
+value::value(const uint64_t _val)
 {
   m_type = m_data.init(_val);
 }
 
-json::value::value(const double _val)
+value::value(const double _val)
 {
   m_type = m_data.init(static_cast<long double>(_val));
 }
 
-json::value::value(const long double _val)
+value::value(const long double _val)
 {
   m_type = m_data.init(_val);
 }
 
-json::value::value(const bool _val)
+value::value(const bool _val)
 {
   m_type = m_data.init(_val);
 }
 
-json::value::value(const std::string& _val)
+value::value(const std::string& _val)
 {
   m_type = m_data.init(_val);
 }
 
-json::value::value(const char* _val)
+value::value(const char* _val)
 {
   m_type = m_data.init(_val);
 }
 
-json::value::value(const int _val)
+value::value(const int _val)
 {
   m_type = m_data.init(_val);
 }
 
-json::value::~value()
+value::~value()
 {
   clear();
 }
 
-void json::value::clear()
+void value::clear()
 {
   m_type = m_data.clear(m_type);
 }
 
-json::value& json::value::operator=(const value& _obj)
+value& value::operator=(const value& _obj)
 {
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
-  const bool is_new = ( m_type != _obj.m_type || m_type != json::element::object );
+  const bool is_new = ( m_type != _obj.m_type || m_type != value_type::object );
 #else
   const bool is_new = true;
 #endif
@@ -297,75 +241,75 @@ json::value& json::value::operator=(const value& _obj)
   return *this;
 }
 
-json::value& json::value::operator=(const int64_t _val)
+value& value::operator=(const int64_t _val)
 {
   this->clear();
   m_type = m_data.init(_val);
   return *this;
 }
 
-json::value& json::value::operator=(const uint64_t _val)
+value& value::operator=(const uint64_t _val)
 {
   this->clear();
   m_type = m_data.init(_val);
   return *this;
 }
 
-json::value& json::value::operator=(const double _val)
+value& value::operator=(const double _val)
 {
   return operator=(static_cast<long double>(_val));
 }
 
-json::value& json::value::operator=(const long double _val)
+value& value::operator=(const long double _val)
 {
   this->clear();
   m_type = m_data.init(_val);
   return *this;
 }
 
-json::value& json::value::operator=(const bool _val)
+value& value::operator=(const bool _val)
 {
   this->clear();
   m_type = m_data.init(_val);
   return *this;
 }
 
-json::value& json::value::operator=(const std::string& _val)
+value& value::operator=(const std::string& _val)
 {
   this->clear();
   m_type = m_data.init(_val);
   return *this;
 }
 
-json::value& json::value::operator=(const char* _val)
+value& value::operator=(const char* _val)
 {
   this->clear();
   if ( _val != nullptr )
     m_type = m_data.init(std::string(_val));
   else
-    m_type = m_data.init(json::element::null);
+    m_type = m_data.init(value_type::null);
   return *this;
 }
 
-json::value& json::value::operator=(const int _val)
+value& value::operator=(const int _val)
 {
   return operator=(static_cast<int64_t>(_val));
 }
 
-bool json::value::has_index(const size_t _index) const
+bool value::has_index(const size_t _index) const
 {
   if ( ! is_array() )
     throw sid::exception(__func__ + std::string("() can be used only for array type"));
   return ( _index < m_data._arr.size() );
 }
 
-bool json::value::has_key(const std::string& _key) const
+bool value::has_key(const std::string& _key) const
 {
-  json::value jval;
+  value jval;
   return has_key(_key, jval);
 }
 
-bool json::value::has_key(const std::string& _key, value& _obj) const
+bool value::has_key(const std::string& _key, value& _obj) const
 {
   if ( ! is_object() )
     throw sid::exception(__func__ + std::string("() can be used only for object type"));
@@ -380,7 +324,7 @@ bool json::value::has_key(const std::string& _key, value& _obj) const
   return false;
 }
 
-std::vector<std::string> json::value::get_keys() const
+std::vector<std::string> value::get_keys() const
 {
   if ( ! is_object() )
     throw sid::exception(__func__ + std::string("() can be used only for object type"));
@@ -390,7 +334,7 @@ std::vector<std::string> json::value::get_keys() const
   return keys;
 }
 
-size_t json::value::size() const
+size_t value::size() const
 {
   if ( is_array() )
     return m_data._arr.size();
@@ -399,42 +343,42 @@ size_t json::value::size() const
   throw sid::exception(__func__ + std::string("() can be used only for array and object types"));
 }
 
-int64_t json::value::get_int64() const
+int64_t value::get_int64() const
 {
   if ( is_num() )
     return m_data._i64;
   throw sid::exception(__func__ + std::string("() can be used only for number type"));
 }
 
-uint64_t json::value::get_uint64() const
+uint64_t value::get_uint64() const
 {
   if ( is_num() )
     return m_data._u64;
   throw sid::exception(__func__ + std::string("() can be used only for number type"));
 }
 
-long double json::value::get_double() const
+long double value::get_double() const
 {
   if ( is_num() )
     return m_data._dbl;
   throw sid::exception(__func__ + std::string("() can be used only for number type"));
 }
 
-bool json::value::get_bool() const
+bool value::get_bool() const
 {
   if ( is_bool() )
     return m_data._bval;
   throw sid::exception(__func__ + std::string("() can be used only for boolean type"));
 }
 
-std::string json::value::get_str() const
+std::string value::get_str() const
 {
   if ( is_string() )
     return m_data._str;
   throw sid::exception(__func__ + std::string("() can be used only for string type"));
 }
 
-std::string json::value::as_str() const
+std::string value::as_str() const
 {
   if ( is_string() )
     return m_data._str;
@@ -450,7 +394,7 @@ std::string json::value::as_str() const
     __func__ + std::string("() can be used only for string, number or boolean types"));
 }
 
-int json::value::get_value(bool& _val) const
+int value::get_value(bool& _val) const
 {
   if ( is_null() )
     return -1;
@@ -458,7 +402,7 @@ int json::value::get_value(bool& _val) const
   return 1;
 }
 
-int json::value::get_value(std::string& _val) const
+int value::get_value(std::string& _val) const
 {
   if ( is_null() )
     return -1;
@@ -466,45 +410,45 @@ int json::value::get_value(std::string& _val) const
   return 1;
 }
 
-//! Convert json to string format
-std::string json::value::to_str(json::format _format/* = json::format::compact*/) const
+//! Convert json to string using the given format type
+std::string value::to_str(const format_type _type/* = format_type::compact*/) const
+{
+  std::ostringstream out;
+  this->write(out, _type);
+  return out.str();
+}
+
+//! Convert json to string using the given format
+std::string value::to_str(const format& _format) const
 {
   std::ostringstream out;
   this->write(out, _format);
   return out.str();
 }
 
-//! Convert json to string format using pretty formatter
-std::string json::value::to_str(const pretty_formatter& _formatter) const
-{
-  std::ostringstream out;
-  this->write(out, _formatter);
-  return out.str();
-}
-
 //! Write json to the given output stream
-void json::value::write(std::ostream& _out, json::format _format/* = json::format::compact*/) const
+void value::write(std::ostream& _out, const format_type _type/* = format_type::compact*/) const
 {
   if ( ! is_object() && ! is_array() )
     throw sid::exception("Can be applied only on a object or array");
 
-  this->p_write(_out, pretty_formatter(_format), 0);
+  this->p_write(_out, format(_type), 0);
 }
 
 //! Write json to the given output stream using pretty format
-void json::value::write(std::ostream& _out, const pretty_formatter& _formatter) const
+void value::write(std::ostream& _out, const format& _format) const
 {
   if ( ! is_object() && ! is_array() )
     throw sid::exception("Can be applied only on a object or array");
 
-  if ( ! ::isspace(_formatter.sep_char) && _formatter.sep_char != '\0' )
-    throw sid::exception("Formatter must be a valid space character. It cannot be \""
-                         + std::string(1, _formatter.sep_char) + "\"");
+  if ( ! ::isspace(_format.separator) && _format.separator != '\0' )
+    throw sid::exception("Format separator must be a valid space character. It cannot be \""
+                         + std::string(1, _format.separator) + "\"");
 
-  this->p_write(_out, _formatter, 0);
+  this->p_write(_out, _format, 0);
 }
 
-void json::value::p_write(std::ostream& _out, const pretty_formatter& _formatter, uint32_t _level) const
+void value::p_write(std::ostream& _out, const format& _format, uint32_t _level) const
 {
   auto escape_string =[&](const std::string& _input)->std::string
     {
@@ -553,10 +497,10 @@ void json::value::p_write(std::ostream& _out, const pretty_formatter& _formatter
 
   std::string padding;
   const char* final_padding = padding.c_str();;
-  if ( _formatter.type == json::format::pretty && _formatter.sep_char != '\0' )
+  if ( _format.type == format_type::pretty && _format.separator != '\0' )
   {
-    padding = std::string((_level+1) * _formatter.sep_count, _formatter.sep_char);
-    final_padding = (padding.c_str() + _formatter.sep_count);
+    padding = std::string((_level+1) * _format.indent, _format.separator);
+    final_padding = (padding.c_str() + _format.indent);
   }
 
   if ( is_object() )
@@ -568,30 +512,30 @@ void json::value::p_write(std::ostream& _out, const pretty_formatter& _formatter
       if ( ! isFirst )
       {
         _out << ",";
-        if ( _formatter.type == json::format::pretty )
+        if ( _format.type == format_type::pretty )
           _out << endl;
       }
-      else if ( _formatter.type == json::format::pretty )
+      else if ( _format.type == format_type::pretty )
         _out << endl;
       isFirst = false;
-      if ( _formatter.type == json::format::compact )
+      if ( _format.type == format_type::compact )
       {
-        if ( ! _formatter.key_no_quotes )
+        if ( ! _format.key_no_quotes )
           _out << "\"" << entry.first << "\":";
         else
           _out << entry.first << ":";
-        entry.second.p_write(_out, _formatter, _level+1);
+        entry.second.p_write(_out, _format, _level+1);
       }
-      else if ( _formatter.type == json::format::pretty )
+      else if ( _format.type == format_type::pretty )
       {
-        if ( ! _formatter.key_no_quotes )
+        if ( ! _format.key_no_quotes )
           _out << padding << "\"" << entry.first << "\" : ";
         else
           _out << padding << entry.first << " : ";
-        entry.second.p_write(_out, _formatter, _level+1);
+        entry.second.p_write(_out, _format, _level+1);
       }
     }
-    if ( !isFirst && _formatter.type == json::format::pretty )
+    if ( !isFirst && _format.type == format_type::pretty )
       _out << endl << final_padding;
     _out << "}";
   }
@@ -604,23 +548,23 @@ void json::value::p_write(std::ostream& _out, const pretty_formatter& _formatter
       if ( ! isFirst )
       {
         _out << ",";
-        if ( _formatter.type == json::format::pretty )
+        if ( _format.type == format_type::pretty )
           _out << endl;
       }
-      else if ( _formatter.type == json::format::pretty )
+      else if ( _format.type == format_type::pretty )
         _out << endl;
       isFirst = false;
-      if ( _formatter.type == json::format::pretty )
+      if ( _format.type == format_type::pretty )
         _out << padding;
-      (*this)[i].p_write(_out, _formatter, _level+1);
+      (*this)[i].p_write(_out, _format, _level+1);
     }
-    if ( !isFirst && _formatter.type == json::format::pretty )
+    if ( !isFirst && _format.type == format_type::pretty )
       _out << endl << final_padding;
     _out << "]";
   }
   else if ( is_string() )
   {
-    if ( ! _formatter.string_no_quotes
+    if ( ! _format.string_no_quotes
          || ( m_data._str.length() == 4 && (m_data._str == "true" || m_data._str == "null") )
          || ( m_data._str.length() == 5 && m_data._str == "false") )
      _out << "\"" << escape_string(m_data._str) << "\"";
@@ -633,7 +577,7 @@ void json::value::p_write(std::ostream& _out, const pretty_formatter& _formatter
     _out << this->as_str();
 }
 
-const json::value& json::value::operator[](const size_t _index) const
+const value& value::operator[](const size_t _index) const
 {
   if ( ! is_array() )
     throw sid::exception(__func__ + std::string(": can be used only for array type"));
@@ -643,7 +587,7 @@ const json::value& json::value::operator[](const size_t _index) const
   return m_data._arr[_index];
 }
 
-json::value& json::value::operator[](const size_t _index)
+value& value::operator[](const size_t _index)
 {
   if ( ! is_array() )
     throw sid::exception(__func__ + std::string(": can be used only for array type"));
@@ -653,7 +597,7 @@ json::value& json::value::operator[](const size_t _index)
   return m_data._arr[_index];
 }
 
-const json::value& json::value::operator[](const std::string& _key) const
+const value& value::operator[](const std::string& _key) const
 {
   if ( ! is_object() )
     throw sid::exception(__func__ + std::string(": can be used only for object type"));
@@ -662,168 +606,168 @@ const json::value& json::value::operator[](const std::string& _key) const
   throw sid::exception(__func__ + std::string(": key(") + _key + ") not found");
 }
 
-json::value& json::value::operator[](const std::string& _key)
+value& value::operator[](const std::string& _key)
 {
   if ( ! is_object() )
   {
     this->clear();
-    m_type = m_data.init(json::element::object);
+    m_type = m_data.init(value_type::object);
   }
   return (m_data.map())[_key];
 }
 
-json::value& json::value::append(const value& _obj)
+value& value::append(const value& _obj)
 {
   if ( ! is_array() )
   {
     this->clear();
-    m_type = m_data.init(json::element::array);
+    m_type = m_data.init(value_type::array);
   }
   m_data._arr.push_back(_obj);
   return m_data._arr[m_data._arr.size()-1];
 }
 
-json::value& json::value::append()
+value& value::append()
 {
   if ( ! is_array() )
   {
     this->clear();
-    m_type = m_data.init(json::element::array);
+    m_type = m_data.init(value_type::array);
   }
-  json::value jval;
+  value jval;
   m_data._arr.push_back(std::move(jval));
   return m_data._arr[m_data._arr.size()-1];
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Implementation of json::value::union_data
+// Implementation of value::union_data
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-json::value::union_data::union_data(const json::element _type)
+value::union_data::union_data(const value_type _type)
 {
   init(_type);
 }
 
-json::value::union_data::union_data(const union_data& _obj, const json::element _type)
+value::union_data::union_data(const union_data& _obj, const value_type _type)
 {
   init(_obj, true, _type);
 }
 
-json::value::union_data::union_data(union_data&& _obj, const json::element _type) noexcept
+value::union_data::union_data(union_data&& _obj, const value_type _type) noexcept
 {
   init(std::move(_obj), _type);
 }
 
-json::value::union_data::~union_data()
+value::union_data::~union_data()
 {
 }
 
-json::element json::value::union_data::clear(const json::element _type)
+value_type value::union_data::clear(const value_type _type)
 {
-  switch ( _type )
+  switch ( _type.id() )
   {
-  case json::element::string: _str.~string(); break;
-  case json::element::array:  _arr.~array(); break;
+  case value_type::string: _str.~string(); break;
+  case value_type::array:  _arr.~array(); break;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
-  case json::element::object: delete _map; _map = nullptr; break;
+  case value_type::object: delete _map; _map = nullptr; break;
 #else
-  case json::element::object: _map.~object(); break;    
+  case value_type::object: _map.~object(); break;    
 #endif
   default: break;
   }
-  return json::element::null;
+  return value_type::null;
 }
 
-json::element json::value::union_data::init(const json::element _type/* = json::element::null*/)
+value_type value::union_data::init(const value_type _type/* = value_type()*/)
 {
-  switch ( _type )
+  switch ( _type.id() )
   {
-  case json::element::null:      break;
-  case json::element::string:    new (&_str) string; break;
-  case json::element::_signed:   _i64 = 0; break;
-  case json::element::_unsigned: _u64 = 0; break;
-  case json::element::_double:   _dbl = 0; break;
-  case json::element::boolean:   _bval = false; break;
-  case json::element::array:     new (&_arr) array; break;
+  case value_type::null:      break;
+  case value_type::string:    new (&_str) string; break;
+  case value_type::_signed:   _i64 = 0; break;
+  case value_type::_unsigned: _u64 = 0; break;
+  case value_type::_double:   _dbl = 0; break;
+  case value_type::boolean:   _bval = false; break;
+  case value_type::array:     new (&_arr) array; break;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
-  case json::element::object:    _map = new object; ++gobjects_alloc; break;
+  case value_type::object:    _map = new object; ++gobjects_alloc; break;
 #else
-  case json::element::object:    new (&_map) object; break;
+  case value_type::object:    new (&_map) object; break;
 #endif
   }
   return _type;
 }
 
-json::element json::value::union_data::init(
-  const union_data&   _obj,
-  const bool          _new/* = true*/,
-  const json::element _type/* = json::element::null*/
+value_type value::union_data::init(
+  const union_data& _obj,
+  const bool        _new/* = true*/,
+  const value_type  _type/* = value_type()*/
   )
 {
-  switch ( _type )
+  switch ( _type.id() )
   {
-  case json::element::null:      break;
-  case json::element::string:    init(_obj._str);  break;
-  case json::element::_signed:   init(_obj._i64);  break;
-  case json::element::_unsigned: init(_obj._u64);  break;
-  case json::element::_double:   init(_obj._dbl);  break;
-  case json::element::boolean:   init(_obj._bval); break;
-  case json::element::array:     init(_obj._arr);  break;
-  case json::element::object:    init(_obj.map(), _new); break;
+  case value_type::null:      break;
+  case value_type::string:    init(_obj._str);  break;
+  case value_type::_signed:   init(_obj._i64);  break;
+  case value_type::_unsigned: init(_obj._u64);  break;
+  case value_type::_double:   init(_obj._dbl);  break;
+  case value_type::boolean:   init(_obj._bval); break;
+  case value_type::array:     init(_obj._arr);  break;
+  case value_type::object:    init(_obj.map(), _new); break;
   }
   return _type;
 }
 
-json::element json::value::union_data::init(const int _val)
+value_type value::union_data::init(const int _val)
 {
   return this->init(static_cast<int64_t>(_val));
 }
 
-json::element json::value::union_data::init(const int64_t _val)
+value_type value::union_data::init(const int64_t _val)
 {
   _i64 = _val;
-  return json::element::_signed;
+  return value_type::_signed;
 }
 
-json::element json::value::union_data::init(const uint64_t _val)
+value_type value::union_data::init(const uint64_t _val)
 {
   _u64 = _val;
-  return json::element::_unsigned;
+  return value_type::_unsigned;
 }
 
-json::element json::value::union_data::init(const long double _val)
+value_type value::union_data::init(const long double _val)
 {
   _dbl = _val;
-  return json::element::_double;
+  return value_type::_double;
 }
 
-json::element json::value::union_data::init(const bool _val)
+value_type value::union_data::init(const bool _val)
 {
   _bval = _val;
-  return json::element::boolean;
+  return value_type::boolean;
 }
 
-json::element json::value::union_data::init(const std::string& _val)
+value_type value::union_data::init(const std::string& _val)
 {
   new (&_str) string(_val);
-  return json::element::string;
+  return value_type::string;
 }
 
-json::element json::value::union_data::init(const char* _val)
+value_type value::union_data::init(const char* _val)
 {
   if ( _val != nullptr )
     return init(std::string(_val));
-  return init(json::element::null);
+  return init(value_type::null);
 }
 
-json::element json::value::union_data::init(const array& _val)
+value_type value::union_data::init(const array& _val)
 {
   new (&_arr) array(_val);
-  return json::element::array;
+  return value_type::array;
 }
 
-json::element json::value::union_data::init(const object& _val, const bool _new/* = true*/)
+value_type value::union_data::init(const object& _val, const bool _new/* = true*/)
 {
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
   if ( _new )
@@ -836,32 +780,32 @@ json::element json::value::union_data::init(const object& _val, const bool _new/
 #else
   new (&_map) object(_val);
 #endif
-  return json::element::object;
+  return value_type::object;
 }
 
 //! Move initializer routine
-json::element json::value::union_data::init(union_data&& _obj, json::element _type) noexcept
+value_type value::union_data::init(union_data&& _obj, value_type _type) noexcept
 {
-  switch ( _type )
+  switch ( _type.id() )
   {
-  case json::element::null:            break;
-  case json::element::string:          new (&_str) string(_obj._str); break;
-  case json::element::_signed:         _i64  = _obj._i64;  break;
-  case json::element::_unsigned:       _u64  = _obj._u64;  break;
-  case json::element::_double:         _dbl  = _obj._dbl;  break;
-  case json::element::boolean:         _bval = _obj._bval; break;
-  case json::element::array:           new (&_arr) array(_obj._arr); break;
+  case value_type::null:            break;
+  case value_type::string:          new (&_str) string(_obj._str); break;
+  case value_type::_signed:         _i64  = _obj._i64;  break;
+  case value_type::_unsigned:       _u64  = _obj._u64;  break;
+  case value_type::_double:         _dbl  = _obj._dbl;  break;
+  case value_type::boolean:         _bval = _obj._bval; break;
+  case value_type::array:           new (&_arr) array(_obj._arr); break;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
-  case json::element::object:          _map  = _obj._map;  break;
+  case value_type::object:          _map  = _obj._map;  break;
 #else
-  case json::element::object:          new (&_map) object(_obj._map); break;
+  case value_type::object:          new (&_map) object(_obj._map); break;
 #endif
   }
   // We've made a copy of the string and array objects.
   // So, we need to clear them from _obj
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
   // object uses a pointer. We don't want to clear the object type alone
-  if ( _type != json::element::object )
+  if ( _type != value_type::object )
     _obj.clear(_type);
 #else
     _obj.clear(_type);
@@ -871,7 +815,7 @@ json::element json::value::union_data::init(union_data&& _obj, json::element _ty
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Implementation of json::parser
+// Implementation of parser
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /*
@@ -950,7 +894,7 @@ private:
 };
 
 //! check for space character
-bool json::parser::is_space(const char* _p)
+bool parser::is_space(const char* _p)
 {
   if ( *_p == '\n' )
   {
@@ -961,7 +905,7 @@ bool json::parser::is_space(const char* _p)
   return ::isspace(*_p);
 }
 
-void json::parser::REMOVE_LEADING_SPACES(const char*& _p)
+void parser::REMOVE_LEADING_SPACES(const char*& _p)
 {
   do
   {
@@ -1000,7 +944,7 @@ void json::parser::REMOVE_LEADING_SPACES(const char*& _p)
   while ( true );
 }
 
-bool json::parser::parse(const std::string& _value)
+bool parser::parse(const std::string& _value)
 {
   time_calc tc;
 
@@ -1041,13 +985,13 @@ bool json::parser::parse(const std::string& _value)
   return true;
 }
 
-void json::parser::parse_object(json::value& _jobj)
+void parser::parse_object(value& _jobj)
 {
   char ch = 0;
   if ( ! _jobj.is_object() )
-    _jobj.p_set(json::element::object);
+    _jobj.p_set(value_type::object);
 
-  m_containerStack.push(json::element::object);
+  m_containerStack.push(value_type::object);
   m_stats.objects++;
   while ( true )
   {
@@ -1086,7 +1030,7 @@ void json::parser::parse_object(json::value& _jobj)
     else if ( m_ctrl.dupKey == parser_control::dup_key::ignore )
     {
       // Parse the value, but ignore it
-      json::value jignore;
+      value jignore;
       parse_value(jignore);
     }
     else if ( m_ctrl.dupKey == parser_control::dup_key::append )
@@ -1095,15 +1039,15 @@ void json::parser::parse_object(json::value& _jobj)
       if ( ! _jobj[m_key].is_array() )
       {
         // make a copy of the existing key's value
-        json::value jcopy = _jobj[m_key];
+        value jcopy = _jobj[m_key];
         // make they key as an array
         _jobj[m_key].clear();
-        _jobj[m_key].p_set(json::element::array);
+        _jobj[m_key].p_set(value_type::array);
         // append the copied value to the array
         _jobj[m_key].append(jcopy);
       }
       // Append the new value to the array
-      json::value& jval = _jobj[m_key].append();
+      value& jval = _jobj[m_key].append();
       parse_value(jval);
     }
     ch = *m_p;
@@ -1116,13 +1060,13 @@ void json::parser::parse_object(json::value& _jobj)
   m_containerStack.pop();
 }
 
-void json::parser::parse_array(json::value& _jarr)
+void parser::parse_array(value& _jarr)
 {
   char ch = 0;
   if ( ! _jarr.is_array() )
-    _jarr.p_set(json::element::array);
+    _jarr.p_set(value_type::array);
 
-  m_containerStack.push(json::element::array);
+  m_containerStack.push(value_type::array);
   m_stats.arrays++;
   while ( true )
   {
@@ -1132,7 +1076,7 @@ void json::parser::parse_array(json::value& _jarr)
     // This is the case where there are no elements in the array (An empty array)
     if ( *m_p == ']' ) { ++m_p; break; }
 
-    json::value& jval = _jarr.append();
+    value& jval = _jarr.append();
     parse_value(jval);
     ch = *m_p;
     // Can have a ,
@@ -1144,15 +1088,15 @@ void json::parser::parse_array(json::value& _jarr)
   m_containerStack.pop();
 }
 
-void json::parser::parse_key(std::string& _str)
+void parser::parse_key(std::string& _str)
 {
   parse_string(_str, true);
 }
 
-void json::parser::parse_string(std::string& _str, bool _isKey)
+void parser::parse_string(std::string& _str, bool _isKey)
 {
   _str.clear();
-  const char chContainer = (m_containerStack.top() == json::element::object)? '}' : ']' ;
+  const char chContainer = (m_containerStack.top() == value_type::object)? '}' : ']' ;
   bool hasQuotes = true;
   if ( ( _isKey && m_ctrl.mode.allowFlexibleKeys ) || ( ! _isKey && m_ctrl.mode.allowFlexibleStrings ) )
     hasQuotes = (*m_p == '\"');
@@ -1238,14 +1182,14 @@ void json::parser::parse_string(std::string& _str, bool _isKey)
   ++m_p;
 }
 
-void json::parser::parse_string(json::value& _jstr, bool _isKey)
+void parser::parse_string(value& _jstr, bool _isKey)
 {
   std::string str;
   parse_string(str, _isKey);
   _jstr = str;
 }
 
-void json::parser::parse_value(json::value& _jval)
+void parser::parse_value(value& _jval)
 {
   char ch = *m_p;
   if ( ch == '{' )
@@ -1260,7 +1204,7 @@ void json::parser::parse_value(json::value& _jval)
     throw sid::exception("Unexpected end of data while expecting a value");
   else
   {
-    const char chContainer = (m_containerStack.top() == json::element::object)? '}' : ']' ;
+    const char chContainer = (m_containerStack.top() == value_type::object)? '}' : ']' ;
     const char* p_start = m_p;
     const line_info old_line = m_line;
     for ( char ch; (ch = *m_p) != '\0'; ++m_p )
@@ -1322,24 +1266,24 @@ void json::parser::parse_value(json::value& _jval)
   }
   // Set the statistics of non-container objects here
   if ( _jval.is_string() )
-      m_stats.strings++;
+    m_stats.strings++;
   else if ( _jval.is_num() )
-      m_stats.numbers++;
+    m_stats.numbers++;
   else if ( _jval.is_bool() )
-      m_stats.booleans++;
+    m_stats.booleans++;
   else if ( _jval.is_null() )
-      m_stats.nulls++;
+    m_stats.nulls++;
 
   REMOVE_LEADING_SPACES(m_p);
 }
 
-void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
+void parser::parse_number(value& _jnum, bool bFullCheck)
 {
   REMOVE_LEADING_SPACES(m_p);
   const char* p_start = m_p;
   bool isDouble = false;
   bool isNegative = false;
-  const char chContainer = (m_containerStack.top() == json::element::object)? '}' : ']' ;
+  const char chContainer = (m_containerStack.top() == value_type::object)? '}' : ']' ;
 
   if ( ! bFullCheck )
   {
@@ -1449,4 +1393,148 @@ void json::parser::parse_number(json::value& _jnum, bool bFullCheck)
       _jnum = v;
     }
   }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Implementation of parser_stats
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////
+parser_stats::parser_stats()
+{
+  clear();
+}
+
+void parser_stats::clear()
+{
+  objects = 0;
+  arrays = 0;
+  strings = 0;
+  numbers = 0;
+  booleans = 0;
+  nulls = 0;
+  keys = 0;
+  time_ms = 0;
+}
+
+std::string parser_stats::to_str() const
+{
+  std::ostringstream out;
+  out << "objects.......: " << sid::get_sep(objects)
+      << " (" << sid::get_sep(gobjects_alloc) << ")" << endl
+      << "arrays........: " << sid::get_sep(arrays) << endl
+      << "strings.......: " << sid::get_sep(strings) << endl
+      << "numbers.......: " << sid::get_sep(numbers) << endl
+      << "booleans......: " << sid::get_sep(booleans) << endl
+      << "nulls.........: " << sid::get_sep(nulls) << endl
+      << "(keys)........: " << sid::get_sep(keys) << endl
+      << "(time taken)..: " << sid::get_sep(time_ms/1000)
+      << "." << std::setfill('0') << std::setw(3) << (time_ms % 1000) << " seconds" << endl
+    ;
+  return out.str();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Implementation of value_type
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////
+struct json_value_type_map
+{
+  value_type::ID type;
+  const char*           name;
+}
+  static gValueTypeMap[] =
+  {
+    {value_type::null,      "null"},
+    {value_type::string,    "string"},
+    {value_type::_signed,   "signed"},
+    {value_type::_unsigned, "unsigned"},
+    {value_type::_double,   "double"},
+    {value_type::boolean,   "boolean"},
+    {value_type::object,    "object"},
+    {value_type::array,     "array"}
+  };
+
+/*static*/
+bool value_type::get(const std::string& _name, /*out*/ value_type& _type)
+{
+  for ( const auto& entry : gValueTypeMap )
+  {
+    if ( _name == entry.name )
+    {
+      _type = entry.type;
+      return true;
+    }
+  }
+  return false;
+}
+
+/*static*/
+value_type value_type::get(const std::string& _name)
+{
+  value_type type;
+  if ( !get(_name, /*out*/ type) )
+    throw sid::exception("Invalid value type [" + _name + "] encountered");
+  return type;
+}
+
+std::string value_type::name() const
+{
+  std::string name;
+  for ( const auto& entry : gValueTypeMap )
+  {
+    if ( m_id == entry.type )
+    {
+      name = entry.name;
+      break;
+    }
+  }
+  return name;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Implementation of format
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/*static*/
+format format::get(const std::string& _value)
+{
+  format fmt;
+
+  if ( _value == "compact" )
+    fmt.type = json::format_type::compact;
+  if ( _value == "xcompact" )
+  {
+    fmt.type = json::format_type::compact;
+    fmt.key_no_quotes = fmt.string_no_quotes = true;
+  }
+  else if ( _value == "pretty" )
+    fmt.type = json::format_type::pretty;
+  else if ( _value == "xpretty" )
+  {
+    fmt.type = json::format_type::pretty;
+    fmt.key_no_quotes = fmt.string_no_quotes = true;
+  }
+  else
+    throw sid::exception("Invalid format");
+
+  return fmt;
+}
+
+std::string format::to_str() const
+{
+  std::ostringstream out;
+  out << ((this->type == format_type::compact)? "compact":"pretty");
+  if ( this->type == format_type::pretty )
+  {
+    out << ";sep=" << this->separator;
+    out << ";indent=" << this->indent;
+    if ( this->key_no_quotes )
+      out << ";key_no_quotes=" << sid::to_str(this->key_no_quotes);
+    if ( this->string_no_quotes )
+      out << ";string_no_quotes=" << sid::to_str(this->string_no_quotes);
+  }
+  return out.str();
 }
