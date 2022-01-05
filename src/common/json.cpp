@@ -1487,23 +1487,83 @@ format format::get(const std::string& _value)
 {
   format fmt;
 
-  if ( _value == "compact" )
-    fmt.type = json::format_type::compact;
-  else if ( _value == "xcompact" )
+  std::vector<std::string> others;
+  std::string typeStr = _value;
+  size_t pos = _value.find(':');
+  if ( pos != std::string::npos )
   {
-    fmt.type = json::format_type::compact;
-    fmt.key_no_quotes = fmt.string_no_quotes = true;
+    typeStr = _value.substr(0, pos);
+    sid::split(others, _value.substr(pos+1), ':', SPLIT_TRIM_SKIP_EMPTY);
   }
-  else if ( _value == "pretty" )
+  if ( typeStr == "compact" )
+    fmt.type = json::format_type::compact;
+  else if ( typeStr == "xcompact" )
+  {
+    fmt.type = json::format_type::compact;
+    fmt.key_no_quotes = true;
+    //fmt.string_no_quotes = true;
+  }
+  else if ( typeStr == "pretty" )
     fmt.type = json::format_type::pretty;
-  else if ( _value == "xpretty" )
+  else if ( typeStr == "xpretty" )
   {
     fmt.type = json::format_type::pretty;
-    fmt.key_no_quotes = fmt.string_no_quotes = true;
+    fmt.key_no_quotes = true;
+    //fmt.string_no_quotes = true;
   }
   else
     throw sid::exception("Invalid format");
 
+  std::string key, value, error;
+  bool valueFound = false;
+  for ( const std::string& other : others )
+  {
+    pos = other.find('=');
+    key = other.substr(0, pos);
+    valueFound = false;
+    if ( pos != std::string::npos )
+    {
+      value = other.substr(pos+1);
+      valueFound = true;
+    }
+    if ( key == "key-no-quotes" )
+    {
+      if ( ! valueFound )
+	fmt.key_no_quotes = true;
+      else if ( !sid::to_bool(value, sid::match_case::exact, fmt.key_no_quotes, &error) )
+	throw sid::exception("format " + key + " error: ") + error;
+    }
+    else if ( key == "string-no-quotes" )
+    {
+      if ( ! valueFound )
+	fmt.string_no_quotes = true;
+      else if ( ! sid::to_bool(value, sid::match_case::exact, fmt.string_no_quotes, &error) )
+	throw sid::exception("Format " + key + " error: ") + error;
+    }
+    else if ( key == "sep" || key == "separator" )
+    {
+      if ( fmt.type != json::format_type::pretty )
+	throw sid::exception("Format separator is applicable only for pretty type") + error;
+      if ( !valueFound || value.empty() || value == "s" || value == "space")
+	value = " ";
+      else if ( value == "t" || value == "tab" )
+	value = "\t";
+      if ( value.length() != 1 || ! ::isspace(value[0]) || value[0] == '\0' )
+	throw sid::exception("Format separator must be a valid single space character");
+      fmt.separator = value[0];
+    }
+    else if ( key == "indent" )
+    {
+      if ( fmt.type != json::format_type::pretty )
+	throw sid::exception("Format indent is applicable only for pretty type");
+      if ( ! valueFound )
+	throw sid::exception("Format indent value is required");
+      if ( ! sid::to_num(value, fmt.indent, &error) )
+	throw sid::exception("Format " + key + " error: ") + error;
+    }
+    else
+      throw sid::exception("Invalid format parameter: " + key);
+  }
   return fmt;
 }
 
@@ -1513,12 +1573,12 @@ std::string format::to_str() const
   out << ((this->type == format_type::compact)? "compact":"pretty");
   if ( this->type == format_type::pretty )
   {
-    out << ";sep=" << this->separator;
-    out << ";indent=" << this->indent;
-    if ( this->key_no_quotes )
-      out << ";key_no_quotes=" << sid::to_str(this->key_no_quotes);
-    if ( this->string_no_quotes )
-      out << ";string_no_quotes=" << sid::to_str(this->string_no_quotes);
+    out << ":sep=" << this->separator;
+    out << ":indent=" << this->indent;
   }
+  if ( this->key_no_quotes )
+    out << ":key_no_quotes=" << sid::to_str(this->key_no_quotes);
+  if ( this->string_no_quotes )
+    out << ":string_no_quotes=" << sid::to_str(this->string_no_quotes);
   return out.str();
 }
