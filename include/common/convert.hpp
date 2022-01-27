@@ -229,9 +229,9 @@ T to_num(const char* _nptr, const num_base& _baseType)
     {
       // An unsigned number cannot be negative. If it starts with a minus sign set the range error
       if ( csVal[0] == '-' )
-	errno = ERANGE;
+        errno = ERANGE;
       else
-	res = ::strtoull(csVal.c_str(), nullptr, static_cast<int>(base));
+        res = ::strtoull(csVal.c_str(), nullptr, static_cast<int>(base));
     }
     else
       res = ::strtoll(csVal.c_str(), nullptr, static_cast<int>(base));
@@ -381,65 +381,66 @@ bool to_size(const std::string& _input, uint64_t& _outVal, const size_unit _eMax
 bool to_size(const std::string& _input, uint64_t& _outVal, const uint64_t _defaultSize, std::string* _pcsError = nullptr);
 bool to_size(const std::string& _input, uint64_t& _outVal, const uint64_t _defaultSize, const size_unit _eMaxUnitSize, std::string* _pcsError = nullptr);
 
-  /**
-   * @fn size_t split(T& _out, const std::string& _input, const char _sep, int _splitFlag);
-   * @brief Splits the given string into tokens and stores it in one of the following containers
-   *        (1) std::vector<std::string>
-   *        (2) std::set<std::string>
-   *
-   * @param [OUT] _out : One of the above containers
-   * @param [IN] _input : Input string that needs to be split
-   * @param [IN] _sep : Character separator
-   * @param [IN] _splitFlag : Split control flags. See SPLIT_xxx
-   *
-   * @return The number of values added to the container
-   *       
-   */
-  //template <typename T> size_t split(T& out, const std::string& input, const char sep, int splitFlag = 0);
-  size_t split(std::vector<std::string>& _out, const std::string& _input, const char _sep, int _splitFlag = 0);
-  size_t split(std::set<std::string>& _out, const std::string& _input, const char _sep, int _splitFlag = 0);
+/**
+ * @fn size_t split(T& _out, const std::string& _input, const char _sep, int _splitFlag);
+ * @brief Splits the given string into tokens and stores it in one of the following containers
+ *        (1) std::vector<std::string>
+ *        (2) std::set<std::string>
+ *
+ * @param [OUT] _out : One of the above containers
+ * @param [IN] _input : Input string that needs to be split
+ * @param [IN] _sep : Character separator
+ * @param [IN] _splitFlag : Split control flags. See SPLIT_xxx
+ *
+ * @return The number of values added to the container
+ *
+ */
+//template <typename T> size_t split(T& out, const std::string& input, const char sep, int splitFlag = 0);
+size_t split(std::vector<std::string>& _out, const std::string& _input, const char _sep, int _splitFlag = 0);
+size_t split(std::set<std::string>& _out, const std::string& _input, const char _sep, int _splitFlag = 0);
 
-  /**
-   * @brief split the string to an array of strings using the given separator
-   */
-  int split(
-    std::vector<std::string>& _result,   // the resulting vector array
-    const std::string&        _input,    // the input string to be split
-    const char&               _sep,      // the character separator
-    std::string::size_type    _start = 0 // position in string to start
-	);
+/**
+ * @brief split the string to an array of strings using the given separator
+ */
+int split(
+  std::vector<std::string>& _result,   // the resulting vector array
+  const std::string&        _input,    // the input string to be split
+  const char&               _sep,      // the character separator
+  std::string::size_type    _start = 0 // position in string to start
+  );
 
 #define JOIN_WITH_SPACE 1
 #define JOIN_SKIP_EMPTY 2
 #define JOIN_WITH_SPACE_SKIP_EMPTY (JOIN_WITH_SPACE | JOIN_SKIP_EMPTY)
 
-  std::string join(const std::vector<std::string>& _input, const char& _sep = ',', int _joinFlag = 0);
-  std::string join(const std::set<std::string>& _input, const char& _sep = ',', int _joinFlag = 0);
+std::string join(const std::vector<std::string>& _input, const char& _sep = ',', int _joinFlag = 0);
+std::string join(const std::set<std::string>& _input, const char& _sep = ',', int _joinFlag = 0);
 
-  // Input functions
-  int get_char_no_return(const char* _validChars = nullptr);
-  int get_char_no_return_silent(const char* _validChars = nullptr);
+// Input functions
+int get_char_no_return(const char* _validChars = nullptr);
+int get_char_no_return_silent(const char* _validChars = nullptr);
 
-  int get_char();
-  int get_char(const char* _validChars);
-  int get_char(const std::string& message, const char* _validChars);
-  int get_char_silent();
+int get_char();
+int get_char(const char* _validChars);
+int get_char(const std::string& message, const char* _validChars);
+int get_char_silent();
 
-  std::string get_string(int _maxLength = -1);
-  std::string get_string_silent(int _maxLength = -1);
+std::string get_string(int _maxLength = -1);
+std::string get_string_silent(int _maxLength = -1);
 
-  // conversion functions
-  std::string get_sep(size_t _number);
+// conversion functions
+std::string get_sep(size_t _number);
 
-  // string manipulation functions
-  std::string trim(const std::string& _input);
-  std::string to_lower(const std::string& _input);
-  std::string to_upper(const std::string& _input);
+// string manipulation functions
+std::string trim(const std::string& _input);
+std::string to_lower(const std::string& _input);
+std::string to_upper(const std::string& _input);
 
-  std::string bytes_to_hex(const std::string& _input);
-  bool bytes_to_hex(const std::string& _input, std::string& _output, std::string* _pcsError = nullptr) noexcept;
-  std::string hex_to_bytes(const std::string& _input);
-  bool hex_to_bytes(const std::string& _input, std::string& _output, std::string* _pcsError = nullptr) noexcept;
+std::string bytes_to_hex(const std::string& _input);
+bool bytes_to_hex(const std::string& _input, std::string& _output, std::string* _pcsError = nullptr) noexcept;
+std::string hex_to_bytes(const std::string& _input);
+bool hex_to_bytes(const std::string& _input, std::string& _output, std::string* _pcsError = nullptr) noexcept;
+
 } // namespace sid
 
 #endif // _SID_CONVERT_H_

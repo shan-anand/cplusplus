@@ -412,43 +412,44 @@ bool sid::equals(const char* _primary, const char* _secondary, const match_case&
 //
 // base64 conversion functions
 //
-const static char encodeLookup[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-const static char padCharacter = '=';
+const static char b64Lookup[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const static char b64PadChar = '=';
+union b64Value
+{
+  struct
+  {
+    uint32_t d : 6;
+    uint32_t c : 6;
+    uint32_t b : 6;
+    uint32_t a : 6;
+    uint32_t   : 8; // Unused
+  };
+  struct
+  {
+    uint8_t z[4];
+  };
+  uint32_t num;
+  b64Value() : num(0) {}
+  void clear() { num = 0; }
+};
 
 std::string sid::base64::encode(const std::string& _input)
 {
   std::ostringstream out;
 
-  uint32_t temp;
-  size_t i = 0;
-  for ( size_t idx = 0; idx < _input.size()/3; idx++ )
+  char arr[5] = {0};
+  b64Value val;
+  int j = 0;
+  for ( size_t i = 0; i < _input.length(); )
   {
-    temp  = ( (unsigned char) _input[i++]) << 16; // Convert to big endian
-    temp += ( (unsigned char) _input[i++]) << 8;
-    temp += ( (unsigned char) _input[i++]);
-    out << encodeLookup[(temp & 0x00FC0000) >> 18]
-        << encodeLookup[(temp & 0x0003F000) >> 12]
-        << encodeLookup[(temp & 0x00000FC0) >> 6 ]
-        << encodeLookup[(temp & 0x0000003F)      ];
-  }
-
-  switch( _input.size() % 3 )
-  {
-  case 1:
-    temp  = ( (unsigned char) _input[i++]) << 16; // Convert to big endian
-    out << encodeLookup[(temp & 0x00FC0000) >> 18]
-        << encodeLookup[(temp & 0x0003F000) >> 12]
-        << padCharacter
-        << padCharacter;
-    break;
-  case 2:
-    temp  = ( (unsigned char) _input[i++]) << 16; // Convert to big endian
-    temp += ( (unsigned char) _input[i++]) << 8;
-    out << encodeLookup[(temp & 0x00FC0000) >> 18]
-        << encodeLookup[(temp & 0x0003F000) >> 12]
-        << encodeLookup[(temp & 0x00000FC0) >> 6 ]
-        << padCharacter;
-    break;
+    val.clear();
+    for ( j = 2; j >= 0 && i != _input.length(); )
+      val.z[j--] = _input[i++];
+    arr[0] = b64Lookup[val.a];
+    arr[1] = b64Lookup[val.b];
+    arr[2] = ( j < 1 )? b64Lookup[val.c] : b64PadChar;
+    arr[3] = ( j < 0 )? b64Lookup[val.d] : b64PadChar;
+    out << arr;
   }
 
   return out.str();
@@ -456,7 +457,8 @@ std::string sid::base64::encode(const std::string& _input)
 
 std::string sid::base64::encode(const char* _input, size_t _inputLen)
 {
-  if ( _input && _inputLen == std::string::npos )
+  if ( ! _input ) return std::string();
+  if ( _inputLen == std::string::npos )
     _inputLen = ::strlen(_input);
   std::string csInput(_input, _inputLen);
   return encode(csInput);
@@ -467,36 +469,43 @@ std::string sid::base64::decode(const std::string& _input)
   std::ostringstream out;
 
   if ( _input.length() % 4 != 0 )
-    throw sid::exception(EINVAL, "base64::decode: Invalid input");
+    throw sid::exception(EINVAL, "base64::decode: Invalid input length");
 
-  // allocate memory on the stack
+  // Allocate memory on the stack for the decoding table
   char* decoding_table = (char *) alloca(256);
-  if ( decoding_table == NULL )
+  if ( decoding_table == nullptr )
     throw sid::exception(ENOMEM, "base64::decode: Unable to allocate memory");
-
+  // Populate the decoding table
+  memset(decoding_table, 0, 256);
   for ( size_t x = 0; x < 64; x++ )
-    decoding_table[(unsigned char) encodeLookup[x]] = x;
+    decoding_table[(unsigned char) b64Lookup[x]] = x;
 
-  size_t input_length = _input.length();
-  size_t output_length = _input.length() / 4 * 3;
-  if ( _input[input_length - 1] == padCharacter ) (output_length)--;
-  if ( _input[input_length - 2] == padCharacter ) (output_length)--;
+  auto get_index = [&](size_t& _i, const bool _allowPad, bool* _ignore = nullptr)->uint8_t
+    {
+      const char ch = _input[_i];
+      const bool isPadChar = ( ch == b64PadChar );
+      uint8_t index = 0;
+      if ( ( isPadChar && !_allowPad ) ||
+	   ( !isPadChar && ( index = decoding_table[(unsigned char) ch] ) == 0 ) )
+	throw sid::exception(EINVAL, "base64::decode: Invalid input character");
+      if ( _ignore )
+	*_ignore = ( isPadChar && _allowPad );
+      _i++;
+      return index;
+    };
 
-  for ( size_t i = 0, j = 0; i < input_length; )
+  b64Value val;
+  bool ignore1, ignore0;
+  for ( size_t i = 0; i < _input.length(); )
   {
-    uint32_t sextet_a = (_input[i] == padCharacter)? 0 & i++ : decoding_table[(unsigned char) _input[i++]];
-    uint32_t sextet_b = (_input[i] == padCharacter)? 0 & i++ : decoding_table[(unsigned char) _input[i++]];
-    uint32_t sextet_c = (_input[i] == padCharacter)? 0 & i++ : decoding_table[(unsigned char) _input[i++]];
-    uint32_t sextet_d = (_input[i] == padCharacter)? 0 & i++ : decoding_table[(unsigned char) _input[i++]];
-
-    uint32_t triple = (sextet_a << 3 * 6)
-      + (sextet_b << 2 * 6)
-      + (sextet_c << 1 * 6)
-      + (sextet_d << 0 * 6);
-
-    if ( j < output_length ) { ++j; out << (char) ((triple >> 2 * 8) & 0xFF); }
-    if ( j < output_length ) { ++j; out << (char) ((triple >> 1 * 8) & 0xFF); }
-    if ( j < output_length ) { ++j; out << (char) ((triple >> 0 * 8) & 0xFF); }
+    val.clear();
+    val.a = get_index(i, false);
+    val.b = get_index(i, false);
+    val.c = get_index(i, (i == _input.length()-2), &ignore1);
+    val.d = get_index(i, (i == _input.length()-1), &ignore0);
+    out << val.z[2];
+    if ( ! ignore1 ) { out << val.z[1]; }
+    if ( ! ignore0 ) { out << val.z[0]; }
   }
 
   return out.str();

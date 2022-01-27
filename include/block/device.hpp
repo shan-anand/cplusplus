@@ -196,20 +196,25 @@ struct device_detail
     bool empty() const { return type.empty(); }
   };
 
-  std::string    name;
-  std::string    path;
-  uint64_t       size;
-  uint16_t       blockSize;
-  bool           isReadOnly;
-  std::string    uuid;
-  std::string    model;
-  std::string    serial;
-  std::string    wwn;
-  std::string    label;
-  std::string    mountPoint;
-  filesystem     fs;
-  partition      part;
+  std::string    name;        //! Name of the device
+  std::string    path;        //! Device path
+  std::string    type;        //! Device type
+  uint64_t       size;        //! Size in bytes
+  uint16_t       blockSize;   //! Block size
+  bool           isReadOnly;  //! Is device read-only?
+  std::string    uuid;        //! Device UUID
+  std::string    model;       //! Device model number
+  std::string    serial;      //! Serial number
+  std::string    wwn;         //! Unique WWN
+  std::string    label;       //! Device label
+  std::string    mountPoint;  //! Mount point of the devcie
+  filesystem     fs;          //! File system information
+  partition      part;        //! Partition information
+  bool           isFloppy;    //! Is Floppy device?
   device_details children;
+
+  bool isDisk() const { return type == "disk"; }
+  bool isLoop() const { return type == "loop"; }
 
   static device_detail get(const std::string& _path);
 

@@ -37,3 +37,4 @@ LICENSE: END
 #include "device.hpp"
 #include "scsi.hpp"
 #include "nvme.hpp"
+#include "block_disk.hpp"

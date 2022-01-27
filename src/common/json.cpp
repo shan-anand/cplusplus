@@ -968,9 +968,23 @@ bool parser::parse(const std::string& _value)
     REMOVE_LEADING_SPACES(m_p);
     char ch = *m_p;
     if ( ch == '{' )
+    {
       parse_object(m_jroot);
+      REMOVE_LEADING_SPACES(m_p);
+      ch = *m_p;
+      if ( ch != '\0' )
+	throw sid::exception(std::string("Invalid character [") + ch + "] " + loc_str()
+                           + " after the root object is closed");
+    }
     else if ( ch == '[' )
+    {
       parse_array(m_jroot);
+      REMOVE_LEADING_SPACES(m_p);
+      ch = *m_p;
+      if ( ch != '\0' )
+	throw sid::exception(std::string("Invalid character [") + ch + "] " + loc_str()
+                           + " after the root array is closed");
+    }
     else if ( ch != '\0' )
       throw sid::exception(std::string("Invalid character [") + ch + "] " + loc_str()
                            + ". Expecting { or [");

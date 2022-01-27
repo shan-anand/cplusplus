@@ -51,7 +51,7 @@ namespace block {
 struct device_type
 {
   //! Datatype definitions
-  enum id : uint8_t { invalid = 0, scsi_disk, iscsi, nvme };
+  enum id : uint8_t { invalid = 0, block_disk, scsi_disk, iscsi, nvme };
 
 private:
   //! Member variables
@@ -76,6 +76,7 @@ public:
 
   bool is_scsi() const { return (m_id == device_type::scsi_disk || m_id == device_type::iscsi); }
   bool is_nvme() const { return (m_id == device_type::nvme); }
+  bool is_aio() const { return (m_id == device_type::block_disk); }
 };
 
 //! block data state

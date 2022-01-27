@@ -237,6 +237,11 @@ int main(int argc, char* argv[])
     if ( argc < 2 )
       throw std::string("Need atleast one argument");
 
+    std::string out = base64::encode(argv[1]);
+    cout << out.length() << ": " << out << endl;
+    out = base64::decode(out);
+    cout << out.length() << ": " << out << endl;
+    return 0;
     //json_schema_test(argv[1]);
     //return 0;
     //regex_test1(argv[1]);
