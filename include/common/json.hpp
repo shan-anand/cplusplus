@@ -39,7 +39,7 @@ LICENSE: END
 #include <set>
 #include "exception.hpp"
 
-#include "optional.hpp"
+#include "opt.hpp"
 #include "smart_ptr.hpp"
 
 // ======================
@@ -47,7 +47,7 @@ LICENSE: END
 #define SID_JSON_MAP_OPTIMIZE_FOR_SIZE
 
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
-#pragma message "Compiler flag set to optimize json for size"
+//#pragma message "Compiler flag set to optimize json for size"
 #endif
 // ======================
 
@@ -99,6 +99,8 @@ struct format
   static format get(const std::string& _value);
 };
 
+//! Forward declaration of json schema
+class schema;
 //! Forward declaration of parser (not exposed)
 struct parser;
 
@@ -191,6 +193,7 @@ public:
    * @fn bool parse(value&                _jout,
    *                parser_stats&         _stats,
    *                const std::string&    _value,
+   *                const schema&         _schema,
    *                const parser_control& _ctrl = parser_control()
    *               );
    * @brief Convert the given json string to json object
@@ -198,6 +201,7 @@ public:
    * @param _jout [out] json output
    * @param _stats [out] Parser statistics
    * @param _value [in] Input json string
+   * @param _schema [in] Json schema to validate against
    * @param _ctrl [in] Parser control flags
    */
   static bool parse(
@@ -207,8 +211,21 @@ public:
     );
   static bool parse(
     value&                _jout,
+    const std::string&    _value,
+    const schema&         _schema,
+    const parser_control& _ctrl = parser_control()
+    );
+  static bool parse(
+    value&                _jout,
     parser_stats&         _stats,
     const std::string&    _value,
+    const parser_control& _ctrl = parser_control()
+    );
+  static bool parse(
+    value&                _jout,
+    parser_stats&         _stats,
+    const std::string&    _value,
+    const schema&         _schema,
     const parser_control& _ctrl = parser_control()
     );
 
@@ -429,6 +446,9 @@ public:
 
   void clear() { m_id = schema_type::null; }
   bool empty() const { return (m_id == schema_type::null); }
+  bool is_container() const {
+    return (m_id == schema_type::object || m_id == schema_type::array);
+  }
 
 private:
   ID m_id;
@@ -465,24 +485,24 @@ public:
     std::string           description;
     schema_types          type;
     // For numbers
-    sid::optional<int64_t> minimum;
-    sid::optional<int64_t> exclusiveMinimum;
-    sid::optional<int64_t> maximum;
-    sid::optional<int64_t> exclusiveMaximum;
-    sid::optional<int64_t> multipleOf;
+    sid::opt<int64_t>     minimum;
+    sid::opt<int64_t>     exclusiveMinimum;
+    sid::opt<int64_t>     maximum;
+    sid::opt<int64_t>     exclusiveMaximum;
+    sid::opt<int64_t>     multipleOf;
     // For strings
-    sid::optional<size_t> minLength;
-    sid::optional<size_t> maxLength;
+    sid::opt<size_t>      minLength;
+    sid::opt<size_t>      maxLength;
     std::string           pattern;
     // For arrays
-    sid::optional<size_t> minItems;
-    sid::optional<size_t> maxItems;
-    sid::optional<bool>   uniqueItems;
-    sid::optional<size_t> minContains;
-    sid::optional<size_t> maxContains;
+    sid::opt<size_t>      minItems;
+    sid::opt<size_t>      maxItems;
+    sid::opt<bool>        uniqueItems;
+    sid::opt<size_t>      minContains;
+    sid::opt<size_t>      maxContains;
     // For objects
-    sid::optional<size_t> minProperties;
-    sid::optional<size_t> maxProperties;
+    sid::opt<size_t>      minProperties;
+    sid::opt<size_t>      maxProperties;
     std::set<std::string> required;
     property_vec          properties;
 
@@ -504,6 +524,7 @@ public:
 
   schema();
   void clear();
+  bool empty() const;
   std::string to_str() const;
   value to_json() const;
 

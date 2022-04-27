@@ -32,31 +32,31 @@ LICENSE: END
 */
 
 /**
- * @file  optional.hpp
+ * @file  opt.hpp
  * @brief Template class for handling optional parameters
  */
 
-#ifndef _SID_OPTIONAL_HPP_
-#define _SID_OPTIONAL_HPP_
+#ifndef _SID_OPT_HPP_
+#define _SID_OPT_HPP_
 
 namespace sid {
 
 /**
- * @class optional
+ * @class opt
  * @brief Template class for having optional parameters in a structure or in a function
  */
-template <typename T> struct optional
+template <typename T> struct opt
 {
 private:
   T    m_value;
   bool m_exists;
 public:
   //! Default constructor
-  optional() { clear(); }
+  opt() { clear(); }
   //! Copy constructor
-  optional(const optional& _obj) { *this = _obj; }
+  opt(const opt& _obj) { *this = _obj; }
   //! Constructor with template type
-  optional(const T& _v) { *this = _v; }
+  opt(const T& _v) { *this = _v; }
 
   //! Set the object exists
   void set() { m_exists = true; }
@@ -65,11 +65,13 @@ public:
   //! Clear the object with a given value
   void clear(const T& _v) { m_exists = false; m_value = _v; }
   //! Assignment operators
-  const optional& operator=(const optional& _obj) { m_value = _obj.m_value; m_exists = _obj.m_exists; return *this; }
-  const optional& operator=(const T& _v) { m_value = _v; m_exists = true; return *this; }
+  const opt& operator=(const opt& _obj) { m_value = _obj.m_value; m_exists = _obj.m_exists; return *this; }
+  const opt& operator=(const T& _v) { m_value = _v; m_exists = true; return *this; }
   //! Value getter
   const T& operator()() const { return m_value; }
   T& operator()() { return m_value; }
+  //! Check for exists
+  operator bool() const { return m_exists; }
   //! Return the default value if it doesn't exist
   const T& operator()(const T& _defaultIfNotExists) const { return m_exists? m_value : _defaultIfNotExists; }
   //! Check for existence
@@ -78,4 +80,4 @@ public:
 
 } // namespace sid
 
-#endif // _SID_OPTIONAL_HPP_
+#endif // _SID_OPT_HPP_

@@ -315,9 +315,9 @@ http::content_range headers::content_range(bool* _pisFound/* = nullptr*/) const
   std::string value;
   if ( _pisFound ) *_pisFound = false;
 
-  auto get_num = [&](const std::string& str)->sid::optional<uint64_t>
+  auto get_num = [&](const std::string& str)->sid::opt<uint64_t>
     {
-      sid::optional<uint64_t> ret;
+      sid::opt<uint64_t> ret;
       if ( str != "*" && sid::to_num(str, ret()) )
         ret.set();
       return ret;

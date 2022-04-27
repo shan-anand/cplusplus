@@ -38,7 +38,7 @@ LICENSE: END
  */
 #include <common/json.hpp>
 #include <common/convert.hpp>
-#include <common/optional.hpp>
+#include <common/opt.hpp>
 #include <fstream>
 #include <stack>
 #include <iomanip>
@@ -65,9 +65,10 @@ struct parser
   parser_stats&  m_stats;  //! statistics object
   parser_control m_ctrl;   //! Parser control flags
   std::string    m_input;  //! The Json string to be parsed
+  schema*        m_schema; //! Optional schema to validate against
   std::stack<value_type> m_containerStack; //! Container stack
 
-  // constructor
+  //! constructor
   parser(value& _jout, parser_stats& _stats) : m_jroot(_jout), m_stats(_stats) {}
 
   //! parse the string and convert it to json object
@@ -124,6 +125,7 @@ private:
  * @fn bool parse(value&                _jout,
  *                parser_stats&         _stats,
  *                const std::string&    _value,
+ *                const schema&         _schema,
  *                const parser_control& _ctrl = parser_control()
  *               );
  * @brief Convert the given json string to json object
@@ -131,6 +133,7 @@ private:
  * @param _jout [out] json output
  * @param _value [in] Input json string
  * @param _stats [out] Parser statistics
+ * @param _schema [in] Json schema to validate against
  * @param _ctrl [in] Parser control flags
  */
 /*static*/
@@ -144,6 +147,19 @@ bool value::parse(
   return value::parse(_jout, stats, _value, _ctrl);
 }
 
+/*static*/
+bool value::parse(
+  value&                _jout,
+  const std::string&    _value,
+  const schema&         _schema,
+  const parser_control& _ctrl /*= parser_control()*/
+  )
+{
+  parser_stats stats;
+  //jparser.m_schema = &_schema;
+  return value::parse(_jout, stats, _value, _ctrl);
+}
+
 bool value::parse(
   value&                _jout,
   parser_stats&         _stats,
@@ -152,6 +168,20 @@ bool value::parse(
   )
 {
   parser jparser(_jout, _stats);
+  jparser.m_ctrl = _ctrl;
+  return jparser.parse(_value);
+}
+
+bool value::parse(
+  value&                _jout,
+  parser_stats&         _stats,
+  const std::string&    _value,
+  const schema&         _schema,
+  const parser_control& _ctrl /*= parser_control()*/
+  )
+{
+  parser jparser(_jout, _stats);
+  //jparser.m_schema = &_schema;
   jparser.m_ctrl = _ctrl;
   return jparser.parse(_value);
 }
@@ -957,6 +987,9 @@ bool parser::parse(const std::string& _value)
 
   try
   {
+    if ( m_schema && m_schema->empty() )
+      throw sid::exception("Invalid schema given for validation");
+
     tc.start();
 
     m_jroot.clear();

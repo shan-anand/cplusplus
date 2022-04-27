@@ -42,44 +42,44 @@ LICENSE: END
 #include <vector>
 #include <common/simple_types.hpp>
 #include <common/exception.hpp>
-#include <common/optional.hpp>
+#include <common/opt.hpp>
 
 namespace sid {
 namespace http {
 
 //! content encoding
 enum class content_encoding : uint8_t { identity, gzip, compress, deflate, br };
-using content_encoding_opt = sid::optional<content_encoding>;
+using content_encoding_opt = sid::opt<content_encoding>;
 
 //! Transfer encoding method
 enum class transfer_encoding : uint8_t { none = 0, chunked, compress, deflate, gzip, identity };
-using transfer_encoding_opt = sid::optional<transfer_encoding>;
+using transfer_encoding_opt = sid::opt<transfer_encoding>;
 
 //! Connection header
 enum class header_connection : uint8_t { close = 0, keep_alive };
-using header_connection_opt = sid::optional<header_connection>;
+using header_connection_opt = sid::opt<header_connection>;
 
 //! Content-Range header
 struct content_range
 {
   struct range_pos
   {
-    sid::optional<uint64_t> start; //! If this is empty, it means "*"
-    sid::optional<uint64_t> end;   //! If this is empty, it means "*"
+    sid::opt<uint64_t> start; //! If this is empty, it means "*"
+    sid::opt<uint64_t> end;   //! If this is empty, it means "*"
     range_pos() {}
     void clear() { start.clear(0); end.clear(0); }
     bool empty() const { return !start.exists() && !end.exists(); }
   };
   //! variables members
-  std::string             unit;
-  range_pos               range;
-  sid::optional<uint64_t> length; //! If this is empty, it means "*"
+  std::string        unit;
+  range_pos          range;
+  sid::opt<uint64_t> length; //! If this is empty, it means "*"
 
   // member functions
   content_range() : unit(std::string()), range(), length() {}
   void clear() { unit.clear(); range.clear(); length.clear(0); }
 };
-using content_range_opt = sid::optional<content_range>;
+using content_range_opt = sid::opt<content_range>;
 
 //! Content-Type header
 struct content_type
@@ -89,14 +89,14 @@ struct content_type
     std::string type, subtype;
     void clear() { type.clear(); subtype.clear(); }
   };
-  mime_type                  mime;
-  sid::optional<std::string> charset;
-  sid::optional<std::string> boundary;
+  mime_type             mime;
+  sid::opt<std::string> charset;
+  sid::opt<std::string> boundary;
 
   bool is_multipart() const;
 };
 
-using uint64_opt = sid::optional<uint64_t>;
+using uint64_opt = sid::opt<uint64_t>;
 
 //! header action
 enum class header_action : uint8_t { replace, skip };

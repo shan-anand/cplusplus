@@ -7,7 +7,7 @@
 #include <atomic>
 #include <http/http.hpp>
 #include "common/uuid.hpp"
-#include "common/optional.hpp"
+#include "common/opt.hpp"
 
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -390,8 +390,8 @@ void parseCommandLine(const std::vector<std::string>& _args)
 
   struct Cmd
   {
-    sid::optional<http::connection_type> type;
-    sid::optional<uint16_t> port;
+    sid::opt<http::connection_type> type;
+    sid::opt<uint16_t> port;
     Cmd() { clear(); }
     void clear() { type.clear(global.type()); port.clear(global.port()); }
   } cmd;
@@ -419,7 +419,7 @@ void parseCommandLine(const std::vector<std::string>& _args)
     }
     else if ( param.key == "--type" )
     {
-      if ( cmd.type.exists() )
+      if ( cmd.type )
 	sid::exception(param.key + " cannot be repeated");
       if ( !param.hasData )
 	sid::exception(param.key + " must have data");
@@ -432,7 +432,7 @@ void parseCommandLine(const std::vector<std::string>& _args)
     }
     else if ( param.key == "--port" )
     {
-      if ( cmd.port.exists() )
+      if ( cmd.port )
 	sid::exception(param.key + " cannot be repeated");
       if ( !param.hasData )
 	sid::exception(param.key + " must have data");
@@ -449,8 +449,8 @@ void parseCommandLine(const std::vector<std::string>& _args)
   } // end of for loop
 
   // set the global variables
-  if ( cmd.type.exists() )
+  if ( cmd.type )
     global.set_type(cmd.type());
-  if ( cmd.port.exists() )
+  if ( cmd.port )
     global.set_port(cmd.port());
 }

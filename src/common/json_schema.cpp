@@ -38,7 +38,7 @@ LICENSE: END
  */
 #include <common/json.hpp>
 #include <common/convert.hpp>
-#include <common/optional.hpp>
+#include <common/opt.hpp>
 #include <fstream>
 #include <stack>
 #include <iomanip>
@@ -114,6 +114,14 @@ void schema::clear()
   type.clear();
   properties.clear();
   required.clear();
+}
+
+bool schema::empty() const
+{
+  for ( const schema_type& t : this->type )
+    if ( ! t.is_container() )
+      return true;
+  return this->type.empty();
 }
 
 /*static*/
@@ -389,44 +397,44 @@ value schema::property::to_json() const
 
   if ( this->type.exists(schema_type::number) || this->type.exists(schema_type::integer) )
   {
-    if ( this->minimum.exists() )
+    if ( this->minimum )
       jroot["minimum"] = this->minimum();
-    if ( this->exclusiveMinimum.exists() )
+    if ( this->exclusiveMinimum )
       jroot["exclusiveMinimum"] = this->exclusiveMinimum();
-    if ( this->maximum.exists() )
+    if ( this->maximum )
       jroot["maximum"] = this->maximum();
-    if ( this->exclusiveMaximum.exists() )
+    if ( this->exclusiveMaximum )
       jroot["exclusiveMaximum"] = this->exclusiveMaximum();
-    if ( this->multipleOf.exists() )
+    if ( this->multipleOf )
       jroot["multipleOf"] = this->maximum();
   }
   if ( this->type.exists(schema_type::string) )
   {
-    if ( this->minLength.exists() )
+    if ( this->minLength )
       jroot["minLength"] = this->minLength();
-    if ( this->maxLength.exists() )
+    if ( this->maxLength )
       jroot["maxLength"] = this->maxLength();
     if ( ! this->pattern.empty() )
       jroot["pattern"] = this->pattern;
   }
   if ( this->type.exists(schema_type::array) )
   {
-    if ( this->minItems.exists() )
+    if ( this->minItems )
       jroot["minItems"] = this->minItems();
-    if ( this->maxItems.exists() )
+    if ( this->maxItems )
       jroot["maxItems"] = this->maxItems();
-    if ( this->uniqueItems.exists() )
+    if ( this->uniqueItems )
       jroot["uniqueItems"] = this->uniqueItems();
-    if ( this->minContains.exists() )
+    if ( this->minContains )
       jroot["minContains"] = this->minContains();
-    if ( this->maxContains.exists() )
+    if ( this->maxContains )
       jroot["maxContains"] = this->maxContains();
   }
   if ( this->type.exists(schema_type::object) )
   {
-    if ( this->minProperties.exists() )
+    if ( this->minProperties )
       jroot["minProperties"] = this->minProperties();
-    if ( this->maxProperties.exists() )
+    if ( this->maxProperties )
       jroot["maxProperties"] = this->maxProperties();
     if ( ! this->properties.empty() )
       jroot["jproperties"] = this->properties.to_json();

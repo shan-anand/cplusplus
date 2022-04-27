@@ -4,14 +4,17 @@
 #include <cstring>
 #include <vector>
 #include <limits>
+#include <iomanip>
 #include <stdlib.h>
-#include "common/optional.hpp"
+#include "common/opt.hpp"
 #include "common/uuid.hpp"
 #include "common/json.hpp"
 #include "common/convert.hpp"
 #include "common/uuid.hpp"
 #include "common/regex.hpp"
 #include "common/simple_types.hpp"
+
+#include <jsoncpp/json/json.h>
 
 using namespace std;
 using namespace sid;
@@ -237,11 +240,6 @@ int main(int argc, char* argv[])
     if ( argc < 2 )
       throw std::string("Need atleast one argument");
 
-    std::string out = base64::encode(argv[1]);
-    cout << out.length() << ": " << out << endl;
-    out = base64::decode(out);
-    cout << out.length() << ": " << out << endl;
-    return 0;
     //json_schema_test(argv[1]);
     //return 0;
     //regex_test1(argv[1]);
@@ -268,13 +266,11 @@ int main(int argc, char* argv[])
     cout << typeid(char).name() << endl;
     return 0;
 */
-    cout << "sizeof(json::value) = " << sizeof(json::value) << endl;
-    cout << "sizeof(json::schema) = " << sizeof(json::schema) << endl;
-    cout << "sizeof(json::schema::property) = " << sizeof(json::schema::property) << endl;
     json::parser_control ctrl;
     json::parser_stats stats;
     json::value jroot;
-    sid::optional<json::format> outputFmt;
+    sid::opt<json::format> outputFmt;
+    bool isDefaultMethod = true;
     if ( argc > 1 )
     {
       std::string jsonStr = get_file_contents(argv[1]);
@@ -319,14 +315,67 @@ int main(int argc, char* argv[])
           if ( ! value.empty() && value != "false" )
             outputFmt = json::format::get(value);
         }
+        else if ( key == "--method" )
+	{
+          if ( value == "default" )
+	    isDefaultMethod = true;
+	  else if ( value == "jsoncpp" )
+	    isDefaultMethod = false;
+	  else
+	    throw sid::exception("Invalid method. Use default|jsoncpp");
+	}
         else
           throw sid::exception("Invalid key: " + key);
       }
-      json::value::parse(jroot, stats, jsonStr, ctrl);
-      cout << stats.to_str() << endl;
-      //cout << jsonStr << endl;
-      if ( outputFmt.exists() )
-        cout << jroot.to_str(outputFmt()) << endl;
+      if ( isDefaultMethod )
+      {
+	cout << "sizeof(json::value) = " << sizeof(json::value) << endl;
+	cout << "sizeof(json::schema) = " << sizeof(json::schema) << endl;
+	cout << "sizeof(json::schema::property) = " << sizeof(json::schema::property) << endl;
+	json::value::parse(jroot, stats, jsonStr, ctrl);
+	cout << stats.to_str() << endl;
+	//cout << jsonStr << endl;
+	if ( outputFmt )
+	  cout << jroot.to_str(outputFmt()) << endl;
+      }
+      else
+      {
+	cout << "sizeof(Json::Value) = " << sizeof(Json::Value) << endl;
+	Json::Value jroot;
+	Json::CharReaderBuilder builder;
+	Json::CharReader* reader = builder.newCharReader();
+	Json::String errs;
+	struct timespec t_start = {0};
+	struct timespec t_end = {0};
+	clock_gettime(CLOCK_REALTIME, &t_start); // CLOCK_PROCESS_CPUTIME_ID
+
+	if ( !reader->parse(jsonStr.c_str(), jsonStr.c_str()+jsonStr.length(), &jroot, &errs) )
+	  throw sid::exception("Failed to parse json");
+	clock_gettime(CLOCK_REALTIME, &t_end); // CLOCK_PROCESS_CPUTIME_ID
+	delete reader;
+
+	auto diff = [&]()->uint64_t
+	  {
+	    if ( t_end.tv_sec > t_start.tv_sec ||
+		 (t_end.tv_sec == t_start.tv_sec && t_end.tv_nsec >= t_start.tv_nsec) )
+	    {
+	      uint64_t s = (t_end.tv_sec - t_start.tv_sec) * 1000000;
+	      uint64_t x = t_end.tv_nsec / 1000;
+	      uint64_t y = t_start.tv_nsec / 1000;
+	      if ( x < y )
+	       {
+		 --s;
+		 x += 1000000;
+	       }
+	      s += x;
+	      return (s / 1000);
+	    }
+	    return 0;
+	  };
+	uint64_t time_ms = diff();
+	cout << "(time taken)..: " << sid::get_sep(time_ms/1000)
+	     << "." << std::setfill('0') << std::setw(3) << (time_ms % 1000) << " seconds" << endl;
+      }
 
       //cout << jroot.to_str(json::format_type::pretty) << endl;
       //json::value j1 = jroot;
