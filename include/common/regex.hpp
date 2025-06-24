@@ -30,8 +30,8 @@ SOFTWARE.
 ===============================================================================
 LICENSE: END
 */
-#ifndef _SID_REGEX_H_
-#define _SID_REGEX_H_
+
+#pragma once
 
 #include <sys/types.h>
 #include <regex.h>
@@ -172,5 +172,3 @@ private:
 };
 
 } // sid
-
-#endif // _SID_REGEX_H_

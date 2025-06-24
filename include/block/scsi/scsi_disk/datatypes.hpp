@@ -37,16 +37,10 @@ LICENSE: END
  * @brief Definition of scsi disk datatypes
  */
 
-#ifndef _SID_SCSI_DISK_DATATYPES_H_
-#define _SID_SCSI_DISK_DATATYPES_H_
+#pragma once
 
-namespace sid {
-namespace block {
-namespace scsi_disk {
+namespace sid::block::scsi_disk {
 
 
-} // namespace scsi_disk
-} // namespace block
-} // namespace sid
+} // namespace sid::block::scsi_disk
 
-#endif // _SID_SCSI_DISK_DATATYPES_H_

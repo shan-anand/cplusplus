@@ -35,8 +35,8 @@ LICENSE: END
  * @file response.hpp
  * @brief Defines the HTTP response object.
  */
-#ifndef _SID_HTTP_RESPONSE_H_
-#define _SID_HTTP_RESPONSE_H_
+
+#pragma once
 
 #include "version.hpp"
 #include "status.hpp"
@@ -46,8 +46,7 @@ LICENSE: END
 #include "connection.hpp"
 #include <string>
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 /**
  * @class response
@@ -90,7 +89,4 @@ public:
   std::string   error;
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_RESPONSE_H_
+} // namespace sid::http

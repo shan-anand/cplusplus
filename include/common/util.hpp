@@ -31,8 +31,7 @@ SOFTWARE.
 LICENSE: END
 */
 
-#ifndef _SID_UTIL_H_
-#define _SID_UTIL_H_
+#pragma once
 
 #include <string>
 #include <vector>
@@ -67,5 +66,3 @@ private:
 
 } // namespace util
 } // namespace sid
-
-#endif // _SID_UTIL_H_

@@ -260,20 +260,16 @@ bool device::p_open()
     if ( (! S_ISCHR(s.st_mode)) && (! S_ISBLK(s.st_mode)) )
       throw sid::exception("Not a character or block device");
 
-    int ioFlags = O_RDWR;
-    if ( m_info.mode.is_read_only() )
-      ioFlags = O_RDONLY;
-    else if ( m_info.mode.is_write_only() )
-      ioFlags = O_WRONLY;
-
-    m_fd = ::open(m_info.path.c_str(), ioFlags);
+    m_fd = ::open(m_info.path.c_str(), m_info.mode.flag());
     if ( m_fd == -1 )
       throw sid::exception("Failed to open device. " + sid::to_errno_str(errno));
+
+    m_devMode = s.st_mode;
 
     this->fd(m_fd);
     this->mode(m_devMode);
 
-    m_devMode = s.st_mode;
+    //m_devMode = s.st_mode;
 
     //cout << "Mode...: " << std::hex << m_devMode << std::dec
     //     << " " << (this->is_char_device()? "char_dev":"")
@@ -578,7 +574,8 @@ void device::p_read(scsi::read16& _read16)
       //   1. Set the offet to the place where we want to read the data from
       ::lseek(m_fd, SEEK_SET, _read16.lba*this->capacity().block_size);
       //   2. Read the data at the set position
-      int retVal = ::read(m_fd, _read16.data, _read16.transfer_length * this->capacity().block_size);
+      int retVal = ::read(m_fd, _read16.data,
+                          _read16.transfer_length * this->capacity().block_size);
       if ( retVal < 0 )
         throw sid::exception(sid::to_errno_str(errno,
           "read() failed with retVal(" + sid::to_str(retVal) + ")"));

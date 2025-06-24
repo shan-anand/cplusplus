@@ -37,13 +37,13 @@ LICENSE: END
  * @brief Definition of scsi datatypes
  */
 
-#ifndef _SID_SCSI_DATATYPES_H_
-#define _SID_SCSI_DATATYPES_H_
+#pragma once
 
 #include <cstdint>
 #include <string>
 #include <vector>
 #include <set>
+#include <cstdint>
 #include "constants.hpp"
 #include <common/io_buffer.hpp>
 
@@ -413,5 +413,3 @@ struct data_blocks : public std::vector<data_block>
 
 } // namespace scsi
 } // namespace sid
-
-#endif // _SID_SCSI_DATATYPES_H_

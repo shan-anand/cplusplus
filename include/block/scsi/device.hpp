@@ -37,17 +37,14 @@ LICENSE: END
  * @brief Constant values in SCSI
  */
 
-#ifndef _SID_SCSI_DEVICE_H_
-#define _SID_SCSI_DEVICE_H_
+#pragma once
 
 #include <string>
 #include <common/smart_ptr.hpp>
 #include "datatypes.hpp"
 #include "../device.hpp"
 
-namespace sid {
-namespace block {
-namespace scsi {
+namespace sid::block::scsi {
 
 class device;
 using device_ptr = smart_ptr<device>;
@@ -76,7 +73,7 @@ public:
   //! Create new device object
   static device_ptr create(const device_info& _deviceInfo);
 
-  device_ptr to_scsi_device_ptr() const { return dynamic_cast<device*>(const_cast<device*>(this)); }
+  device_ptr to_scsi_device_ptr() const;
 
   //=============================================================================
   //! Override functions from block::device
@@ -108,8 +105,4 @@ private:
   void p_fill(write16_vec& _write16_vec, const write16& _write16);
 };
 
-} // namespace scsi
-} // namespace block
-} // namespace sid
-
-#endif // _SID_SCSI_DEVICE_H_
+} // namespace sid::block::scsi

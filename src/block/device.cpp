@@ -62,13 +62,6 @@ namespace local
 // device
 //
 
-//! Create new block device object
-/*static*/
-device_ptr device::create(const device_info& _deviceInfo)
-{
-  return dynamic_cast<device*>(_deviceInfo.create().ptr());
-}
-
 device::device() : smart_ref()
 {
   //m_verbose = Verbose::None;
@@ -76,6 +69,20 @@ device::device() : smart_ref()
 
 device::~device()
 {
+}
+
+//! Create new block device object
+/*static*/
+device_ptr device::create(const device_info& _deviceInfo)
+{
+  return _deviceInfo.create()->to_block_device_ptr();
+}
+
+device_ptr device::to_block_device_ptr() const
+{
+  device_ptr dev = dynamic_cast<device*>(const_cast<device*>(this));
+  if ( ! dev ) throw sid::exception("Cannot convert to block::device_ptr");
+  return dev;
 }
 
 bool device::read(io_byte_unit& _io_byte_unit)

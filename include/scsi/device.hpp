@@ -37,12 +37,12 @@ LICENSE: END
  * @brief Constant values in SCSI
  */
 
-#ifndef _SID_SCSI_DEVICE_H_
-#define _SID_SCSI_DEVICE_H_
+#pragma once
 
 #include <string>
+#include <cstdint>
 #include <common/exception.hpp>
-#include <common/optional.hpp>
+#include <common/opt.hpp>
 #include <common/smart_ptr.hpp>
 
 namespace sid {
@@ -103,5 +103,3 @@ private:
 
 } // namespace scsi
 } // namespace sid
-
-#endif // _SID_SCSI_DEVICE_H_

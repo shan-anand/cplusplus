@@ -37,16 +37,14 @@ LICENSE: END
  * @brief Constant values in block
  */
 
-#ifndef _SID_BLOCK_DEVICE_H_
-#define _SID_BLOCK_DEVICE_H_
+#pragma once
 
 #include <string>
 #include <functional>
 #include <common/smart_ptr.hpp>
 #include "datatypes.hpp"
 
-namespace sid {
-namespace block {
+namespace sid::block {
 
 //! Forward declaration of device
 class device;
@@ -92,7 +90,7 @@ public:
   //! Create new block device object
   static device_ptr create(const device_info& _deviceInfo);
 
-  device_ptr to_block_device_ptr() const { return dynamic_cast<device*>(const_cast<device*>(this)); }
+  device_ptr to_block_device_ptr() const;
 
   //! Virtual functions to be overwritten in the derived classes
   virtual device_type type() const = 0;
@@ -222,7 +220,4 @@ struct device_detail
   void clear();
 };
 
-} // namespace block
-} // namespace sid
-
-#endif // _SID_BLOCK_DEVICE_H_
+} // namespace sid::block

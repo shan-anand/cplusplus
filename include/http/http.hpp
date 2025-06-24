@@ -37,8 +37,8 @@ LICENSE: END
  *
  * It is enough to include just this file for applications to use.
  */
-#ifndef _SID_HTTP_H_
-#define _SID_HTTP_H_
+
+#pragma once
 
 #include "method.hpp"
 #include "version.hpp"
@@ -55,10 +55,9 @@ LICENSE: END
 #include "server.hpp"
 #include "common.hpp"
 
-namespace sid {
-namespace http {
+namespace sid::http {
   bool library_init();
-}}
+}
 
 /*
   Usage: HTTP connection
@@ -91,5 +90,3 @@ namespace http {
   // [5] process response object that contains the response from the server
   // response will be in cmd.response
 */
-
-#endif // _SID_HTTP_H_

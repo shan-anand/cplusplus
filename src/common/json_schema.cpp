@@ -168,8 +168,9 @@ schema schema::parse(const value& _jroot)
 
   if ( !_jroot.has_key("type", jval) )
     throw sid::exception("type missing in schema");
-  else
-    schema.type.add(jval);
+
+  // set the schema type
+  schema.type.add(jval);
   // Top level type must be an object or an array
   {
     schema_types type = schema.type;
@@ -228,31 +229,31 @@ void schema::property::set(const value& _jproperties, const std::string& _key)
     if ( jproperty.has_key("minimum", jval) )
     {
       if ( ! jval.is_decimal() )
-	throw sid::exception("minimum must be a decimal value");
+        throw sid::exception("minimum must be a decimal value");
       this->minimum = jval.get_int64();
     }
     if ( jproperty.has_key("exclusiveMinimum", jval) )
     {
       if ( ! jval.is_decimal() )
-	throw sid::exception("exclusiveMinimum must be a decimal value");
+        throw sid::exception("exclusiveMinimum must be a decimal value");
       this->minimum = jval.get_int64();
     }
     if ( jproperty.has_key("maximum", jval) )
     {
       if ( ! jval.is_decimal() )
-	throw sid::exception("maximum must be a decimal value");
+        throw sid::exception("maximum must be a decimal value");
       this->minimum = jval.get_int64();
     }
     if ( jproperty.has_key("exclusiveMaximum", jval) )
     {
       if ( ! jval.is_decimal() )
-	throw sid::exception("exclusiveMaximum must be a decimal value");
+        throw sid::exception("exclusiveMaximum must be a decimal value");
       this->minimum = jval.get_int64();
     }
     if ( jproperty.has_key("multipleOf", jval) )
     {
       if ( ! jval.is_decimal() )
-	throw sid::exception("multipleOf must be a decimal value");
+        throw sid::exception("multipleOf must be a decimal value");
       this->minimum = jval.get_int64();
     }
   }
@@ -261,19 +262,19 @@ void schema::property::set(const value& _jproperties, const std::string& _key)
     if ( jproperty.has_key("minLength", jval) )
     {
       if ( ! jval.is_unsigned() )
-	throw sid::exception("minLength must be an unsigned value");
+        throw sid::exception("minLength must be an unsigned value");
       this->minLength = jval.get_uint64();
     }
     if ( jproperty.has_key("maxLength", jval) )
     {
       if ( ! jval.is_unsigned() )
-	throw sid::exception("maxLength must be an unsigned value");
+        throw sid::exception("maxLength must be an unsigned value");
       this->maxLength = jval.get_uint64();
     }
     if ( jproperty.has_key("pattern", jval) )
     {
       if ( ! jval.is_string() )
-	throw sid::exception("pattern must be a string");
+        throw sid::exception("pattern must be a string");
       this->pattern = jval.get_str();
     }
   }
@@ -282,31 +283,31 @@ void schema::property::set(const value& _jproperties, const std::string& _key)
     if ( jproperty.has_key("minItems", jval) )
     {
       if ( ! jval.is_unsigned() )
-	throw sid::exception("minItems must be an unsigned value");
+        throw sid::exception("minItems must be an unsigned value");
       this->minItems = jval.get_uint64();
     }
     if ( jproperty.has_key("maxItems", jval) )
     {
       if ( ! jval.is_unsigned() )
-	throw sid::exception("maxItems must be an unsigned value");
+        throw sid::exception("maxItems must be an unsigned value");
       this->maxItems = jval.get_uint64();
     }
     if ( jproperty.has_key("uniqueItems", jval) )
     {
-      if ( ! jval.is_unsigned() )
-	throw sid::exception("uniqueItems must be a boolean value");
+      if ( ! jval.is_bool() )
+        throw sid::exception("uniqueItems must be a boolean value");
       this->uniqueItems = jval.get_bool();
     }
     if ( jproperty.has_key("minContains", jval) )
     {
       if ( ! jval.is_unsigned() )
-	throw sid::exception("minContains must be an unsigned value");
+        throw sid::exception("minContains must be an unsigned value");
       this->minContains = jval.get_uint64();
     }
     if ( jproperty.has_key("maxContains", jval) )
     {
       if ( ! jval.is_unsigned() )
-	throw sid::exception("maxContains must be an unsigned value");
+        throw sid::exception("maxContains must be an unsigned value");
       this->maxContains = jval.get_uint64();
     }
   }
@@ -315,13 +316,13 @@ void schema::property::set(const value& _jproperties, const std::string& _key)
     if ( jproperty.has_key("minProperties", jval) )
     {
       if ( ! jval.is_unsigned() )
-	throw sid::exception("minProperties must be an unsigned value");
+        throw sid::exception("minProperties must be an unsigned value");
       this->minProperties = jval.get_uint64();
     }
     if ( jproperty.has_key("maxProperties", jval) )
     {
       if ( ! jval.is_unsigned() )
-	throw sid::exception("maxProperties must be an unsigned value");
+        throw sid::exception("maxProperties must be an unsigned value");
       this->maxProperties = jval.get_uint64();
     }
   }
@@ -526,10 +527,10 @@ void schema_types::add(const value& _value)
     {
       const value& jval = _value[i];
       if ( !jval.is_string() )
-	throw sid::exception("type parameter must be strings within the array");
+        throw sid::exception("type parameter must be strings within the array");
       schema_type type = schema_type::get(jval.get_str());
       if ( this->exists(type) )
-	throw sid::exception("type parameters must be unique within the array");
+        throw sid::exception("type parameters must be unique within the array");
       this->insert(type);
     }
   }
@@ -563,14 +564,14 @@ void local::fill_required(
       bool found = false;
       for ( const schema::property& property : _properties )
       {
-	if ( key == property.key )
-	{
-	  found = true;
-	  break;
-	}
+        if ( key == property.key )
+        {
+          found = true;
+          break;
+        }
       }
       if ( ! found )
-	throw sid::exception("key (" + key + ") marked as required is not found in properties");
+        throw sid::exception("key (" + key + ") marked as required is not found in properties");
       _required.insert(key);
     }
   }

@@ -35,8 +35,8 @@ LICENSE: END
  * @file client.hpp
  * @brief Defines the HTTP Client command object.
  */
-#ifndef _SID_HTTP_CLIENT_H_
-#define _SID_HTTP_CLIENT_H_
+
+#pragma once
 
 #include "connection.hpp"
 #include "request.hpp"
@@ -44,8 +44,7 @@ LICENSE: END
 #include <string>
 #include <functional>
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 // A lambda function for redirect callback
 using FNRedirectCallback = std::function<void(request&)>;
@@ -108,7 +107,4 @@ public:
   bool run(FNRedirectCallback& _fnRedirectCallback, bool _followRedirects = false);
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_CLIENT_H_
+} // namespace sid::http

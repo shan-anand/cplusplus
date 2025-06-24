@@ -79,8 +79,8 @@ LICENSE: END
  *                                          Both p1 and p2 will try destroying the same pointer, the second delete will crash.
  *
  */
-#ifndef _SID_SMART_PTR_
-#define _SID_SMART_PTR_
+
+#pragma once
 
 #include <type_traits>
 #include <typeinfo>
@@ -343,5 +343,3 @@ private:
 using smart_ref_ptr = smart_ptr<smart_ref>;
 
 } // namespace sid
-
-#endif // _SID_SMART_PTR_

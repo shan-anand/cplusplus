@@ -35,19 +35,19 @@ LICENSE: END
  * @file cookies.hpp
  * @brief Defines data type for HTTP Cookie entry.
  */
-#ifndef _SID_HTTP_COOKIES_H_
-#define _SID_HTTP_COOKIES_H_
+
+#pragma once
 
 #include <string>
 #include <vector>
 #include <map>
+#include <cstdint>
 #include "connection.hpp"
 #include "request.hpp"
 #include "response.hpp"
 #include <mutex>
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 //! Cookie expiration type
 enum class cookie_expiration : uint8_t { none = 0, expire, max_age };
@@ -85,7 +85,7 @@ public:
     {
       time_t       time;
       unsigned int max_age;
-    };
+   };
   };
 
   name_value       entry;
@@ -136,7 +136,4 @@ private:
   mutable std::recursive_mutex m_mutex;
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_COOKIES_H_
+} // namespace sid::http

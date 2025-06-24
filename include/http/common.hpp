@@ -35,8 +35,8 @@ LICENSE: END
  * @file common.hpp
  * @brief Defines the common http functions
  */
-#ifndef _SID_HTTP_COMMON_
-#define _SID_HTTP_COMMON_
+
+#pragma once
 
 #define CRLF "\r\n"
 
@@ -46,8 +46,7 @@ LICENSE: END
 
 using namespace std;
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 bool library_init();
 void library_cleanup();
@@ -65,8 +64,4 @@ bool date_from_str(const std::string& _input, time_t& _tt);
 std::string url_encode(const std::string& _input);
 std::string url_decode(const std::string& _input);
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_COMMON_
-
+} // namespace sid::http

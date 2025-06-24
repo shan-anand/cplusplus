@@ -37,15 +37,13 @@ LICENSE: END
  * @brief Definition of block datatypes
  */
 
-#ifndef _SID_BLOCK_DATATYPES_H_
-#define _SID_BLOCK_DATATYPES_H_
+#pragma once
 
 #include <string>
 #include <vector>
 #include <common/io_buffer.hpp>
 
-namespace sid {
-namespace block {
+namespace sid::block {
 
 //! block device types
 struct device_type
@@ -255,7 +253,4 @@ struct io_byte_units : public std::vector<io_byte_unit>
   void validate(const uint32_t _blockSize) const;
 };
 
-} // namespace block
-} // namespace sid
-
-#endif // _SID_BLOCK_DATATYPES_H_
+} // namespace sid::block

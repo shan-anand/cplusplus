@@ -38,24 +38,23 @@ LICENSE: END
  * This is an abstract class that cannot be instantiated directly. You must use
  * the create() method to create an instance of httpconnection or httpsconnection.
  */
-#ifndef _SID_HTTP_CONNECTION_H_
-#define _SID_HTTP_CONNECTION_H_
+
+#pragma once
 
 #include "method.hpp"
 #include "status.hpp"
 #include <common/smart_ptr.hpp>
 #include <string>
 #include <unistd.h>
+#include <cstdint>
 
 #define DEFAULT_PORT_HTTP  80
 #define DEFAULT_PORT_HTTPS 443
 
 #define DEFAULT_IO_TIMEOUT_SECS 30 // seconds
 
-namespace sid {
+namespace sid::ssl {
 
-namespace ssl
-{
 //! SSL Certificate type
 enum class certificate_type : uint8_t { none = 0, client, server };
 
@@ -92,9 +91,9 @@ struct certificate
   server_certificate server;
 };
 
-} // namespace ssl
+} // namespace sid::ssl
 
-namespace http {
+namespace sid::http {
 
 class connection;
 class request;
@@ -336,7 +335,4 @@ protected:
   ssl::certificate  m_sslCert;       //! SSL Certificate to be used for https
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_CONNECTION_H_
+} // namespace sid::http

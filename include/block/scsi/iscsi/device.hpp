@@ -37,8 +37,7 @@ LICENSE: END
  * @brief Device definition for ISCSI
  */
 
-#ifndef _SID_ISCSI_DEVICE_H_
-#define _SID_ISCSI_DEVICE_H_
+#pragma once
 
 #include <string>
 #include <common/smart_ptr.hpp>
@@ -47,9 +46,7 @@ LICENSE: END
 #include <common/simple_types.hpp>
 #include <common/convert.hpp>
 
-namespace sid {
-namespace block {
-namespace iscsi {
+namespace sid::block::iscsi {
 
 class device;
 using device_ptr = smart_ptr<device>;
@@ -146,8 +143,4 @@ private:
   //  if ( scsi_device->type() == block::device_type::iscsi )
   //dynamic_cast<iscsi::device*>(scsi_device.ptr())->set_lun(lun_id);
 
-} // namespace iscsi
-} // namespace block
-} // namespace sid
-
-#endif // _SID_ISCSI_DEVICE_H_
+} // namespace sid::block::iscsi

@@ -36,8 +36,7 @@ LICENSE: END
  *        Handling Univerally Unique Identifier
  */
 
-#ifndef _SID_UUID_H_
-#define _SID_UUID_H_
+#pragma once
 
 #include <uuid/uuid.h>
 #include <string>
@@ -103,5 +102,3 @@ private:
 };
 
 } // sid
-
-#endif // _SID_UUID_H_

@@ -35,8 +35,8 @@ LICENSE: END
  * @file request.hpp
  * @brief Defines the HTTP request object.
  */
-#ifndef _SID_HTTP_REQUEST_H_
-#define _SID_HTTP_REQUEST_H_
+
+#pragma once
 
 #include "method.hpp"
 #include "version.hpp"
@@ -45,8 +45,7 @@ LICENSE: END
 #include "connection.hpp"
 #include <string>
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 /**
  * @class request
@@ -124,7 +123,4 @@ public:
   std::string   error;
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_REQUEST_H_
+} // namespace sid::http

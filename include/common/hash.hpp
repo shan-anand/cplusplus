@@ -35,8 +35,7 @@ LICENSE: END
  * @brief Class implementations of Message digest algorithms
  */
 
-#ifndef _SID_HASH_H_
-#define _SID_HASH_H_
+#pragma once
 
 #include <string>
 #include <openssl/rsa.h>
@@ -119,5 +118,3 @@ define_md_algorithm(md5, NID_md5);
 
 } // namespace hash
 } // namespace sid
-
-#endif // _SID_HASH_H_

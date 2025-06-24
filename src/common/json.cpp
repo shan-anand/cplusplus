@@ -69,7 +69,9 @@ struct parser
   std::stack<value_type> m_containerStack; //! Container stack
 
   //! constructor
-  parser(value& _jout, parser_stats& _stats) : m_jroot(_jout), m_stats(_stats) {}
+  parser(value& _jout, parser_stats& _stats)
+    : m_jroot(_jout), m_stats(_stats), m_ctrl(), m_input(), m_schema(nullptr) {
+  }
 
   //! parse the string and convert it to json object
   bool parse(const std::string& _value);
@@ -342,7 +344,7 @@ bool value::has_key(const std::string& _key) const
 bool value::has_key(const std::string& _key, value& _obj) const
 {
   if ( ! is_object() )
-    throw sid::exception(__func__ + std::string("() can be used only for object type"));
+    throw sid::exception(__func__ + std::string("() can be used only for object type. ") + _key);
   for ( const auto& entry : m_data.map() )
   {
     if ( entry.first == _key )
@@ -1530,7 +1532,7 @@ std::string sid::to_str(const json::value_type& _type)
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /*static*/
-format format::get(const std::string& _value)
+sid::json::format format::get(const std::string& _value)
 {
   format fmt;
 

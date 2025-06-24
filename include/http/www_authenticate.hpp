@@ -35,15 +35,14 @@ LICENSE: END
  * @file www_authenticate.hpp
  * @brief Defines the HTTP response object.
  */
-#ifndef _SID_HTTP_WWW_AUTHENTICATE_H_
-#define _SID_HTTP_WWW_AUTHENTICATE_H_
+
+#pragma once
 
 #include <string>
 #include <vector>
 #include <map>
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 /**
  * @struct www_authenticate
@@ -72,7 +71,4 @@ public:
 };
 
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_WWW_AUTHENTICATE_H_
+} // namespace sid::http

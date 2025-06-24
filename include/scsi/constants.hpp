@@ -37,10 +37,10 @@ LICENSE: END
  * @brief Constant values in SCSI
  */
 
-#ifndef _SID_SCSI_CONSTANTS_H_
-#define _SID_SCSI_CONSTANTS_H_
+#pragma once
 
 #include <string>
+#include <cstdint>
 
 namespace sid {
 namespace scsi {
@@ -957,5 +957,3 @@ std::string to_str(const ascq& e);
 
 } // namespace scsi
 } // namespace sid
-
-#endif // _SID_SCSI_CONSTANTS_H_

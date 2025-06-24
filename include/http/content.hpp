@@ -35,14 +35,13 @@ LICENSE: END
  * @file content.hpp
  * @brief Defines the HTTP content object.
  */
-#ifndef _SID_HTTP_CONTENT_H_
-#define _SID_HTTP_CONTENT_H_
+
+#pragma once
 
 #include <string>
 #include <fstream>
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 /**
  * @class content
@@ -129,7 +128,4 @@ private:
   std::fstream m_file;           //! File stream (used when file path is used)
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_CONTENT_H_
+} // namespace sid::http

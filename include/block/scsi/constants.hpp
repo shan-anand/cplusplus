@@ -37,14 +37,12 @@ LICENSE: END
  * @brief Constant values in SCSI
  */
 
-#ifndef _SID_SCSI_CONSTANTS_H_
-#define _SID_SCSI_CONSTANTS_H_
+#pragma once
 
 #include <string>
+#include <cstdint>
 
-namespace sid {
-namespace block {
-namespace scsi {
+namespace sid::block::scsi {
 
 
 //! Sense keys
@@ -956,8 +954,4 @@ enum class ascq : uint16_t
 };
 std::string to_str(const ascq& _e);
 
-} // namespace scsi
-} // namespace block
-} // namespace sid
-
-#endif // _SID_SCSI_CONSTANTS_H_
+} // namespace sid::block::scsi

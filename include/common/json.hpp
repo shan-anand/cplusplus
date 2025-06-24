@@ -37,6 +37,7 @@ LICENSE: END
 #include <vector>
 #include <map>
 #include <set>
+#include <cstdint>
 #include "exception.hpp"
 
 #include "opt.hpp"

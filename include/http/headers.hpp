@@ -35,17 +35,17 @@ LICENSE: END
  * @file headers.hpp
  * @brief Defines data type for HTTP header and headers entries.
  */
-#ifndef _SID_HTTP_HEADERS_H_
-#define _SID_HTTP_HEADERS_H_
+
+#pragma once
 
 #include <string>
 #include <vector>
+#include <cstdint>
 #include <common/simple_types.hpp>
 #include <common/exception.hpp>
 #include <common/opt.hpp>
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 //! content encoding
 enum class content_encoding : uint8_t { identity, gzip, compress, deflate, br };
@@ -270,7 +270,4 @@ protected:
   headers::const_iterator find(const std::string& _key) const;
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_HEADERS_H_
+} // namespace sid::http

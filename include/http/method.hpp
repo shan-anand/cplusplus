@@ -37,14 +37,14 @@ LICENSE: END
  *
  * A class that defines all the input HTTP methods like Get, Post, Put etc.
  */
-#ifndef _SID_HTTP_METHOD_H_
-#define _SID_HTTP_METHOD_H_
+
+#pragma once
 
 #include <string>
+#include <cstdint>
 #include "common/convert.hpp"
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 //! Types of HTTP methods
 enum class method_type : uint8_t { options, get, head, post, put, delete_, patch, trace, connect, custom };
@@ -96,7 +96,4 @@ private:
   std::string m_customName;  //! Custom name of the method if it is method_type::custom
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_METHOD_H_
+} // namespace sid::http

@@ -241,6 +241,7 @@ int main(int argc, char* argv[])
       throw std::string("Need atleast one argument");
 
     //json_schema_test(argv[1]);
+    //return -1;
     //return 0;
     //regex_test1(argv[1]);
     //return 0;

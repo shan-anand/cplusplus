@@ -37,8 +37,7 @@ LICENSE: END
  * @brief Definition of iscsi datatypes
  */
 
-#ifndef _SID_ISCSI_DATATYPES_H_
-#define _SID_ISCSI_DATATYPES_H_
+#pragma once
 
 #include "../datatypes.hpp"
 #include <common/smart_ptr.hpp>
@@ -105,9 +104,7 @@ Initiator opcodes defined in this specification are:
 #define ISCSI_OPCODE_LOGOUT         0x06
 #define ISCSI_OPCODE_SNACK          0x10
 
-namespace sid {
-namespace block {
-namespace iscsi {
+namespace sid::block::iscsi {
 
 /*
    The format of the Basic Header Segment (BHS) is:
@@ -421,8 +418,4 @@ bool read_capacity(scsi::capacity16& _capacity)
 }
 */
 
-} // namespace iscsi
-} // namespace block
-} // namespace sid
-
-#endif // _SID_ISCSI_DATATYPES_H_
+} // namespace sid::block::iscsi

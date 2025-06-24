@@ -4,8 +4,7 @@
  *        Send SCSI commands to IScsi device.
  */
 
-#ifndef _SID_ISCSI_DEVICE_HPP_
-#define _SID_ISCSI_DEVICE_HPP_
+#pragma once
 
 #include <string>
 
@@ -16,7 +15,7 @@
 
 #include "scsi/datatypes.hpp"
 #include "scsi/device.hpp"
-#include <common/smart_ptr.h>
+#include <common/smart_ptr.hpp>
 
 namespace sid {
 namespace GScsi {
@@ -134,5 +133,3 @@ private:
 
 } // namespace GScsi
 } // namespace sid
-
-#endif // _SID_ISCSI_DEVICE_HPP_

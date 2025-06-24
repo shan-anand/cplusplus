@@ -37,24 +37,51 @@ LICENSE: END
  * @brief Device definition for scsi disk
  */
 
-#ifndef _SID_SCSI_DISK_DEVICE_H_
-#define _SID_SCSI_DISK_DEVICE_H_
+#pragma once
 
 #include <string>
+#include <fcntl.h>
 #include <common/smart_ptr.hpp>
 #include "datatypes.hpp"
 #include "../device.hpp"
 
-namespace sid {
-namespace block {
-namespace scsi_disk {
+namespace sid::block::scsi_disk {
 
 class device;
 using device_ptr = smart_ptr<device>;
 
-#define SCSI_DISK_OPEN_MODE_READ  0x01
-#define SCSI_DISK_OPEN_MODE_WRITE 0x02
-#define SCSI_DISK_OPEN_MODE_RW    (SCSI_DISK_OPEN_MODE_READ | SCSI_DISK_OPEN_MODE_WRITE)
+struct access_mode
+{
+  enum ID {
+    read_only  = O_RDONLY,
+    write_only = O_WRONLY,
+    read_write = O_RDWR
+  };
+
+  //! Constructors
+  access_mode(const ID& _id = access_mode::read_write) : m_id(_id) {}
+  access_mode(const access_mode&) = default;
+
+  //! Overloaded assignment operators
+  access_mode& operator=(const access_mode&) = default;
+  access_mode& operator=(const ID& _id) { m_id = _id; return *this; }
+
+  //! Overloaded comparison operators
+  bool operator==(const ID& _id) const { return m_id == _id; }
+
+  bool has_read() const {
+    return m_id == access_mode::read_only || m_id == access_mode::read_write;
+  }
+  bool has_write() const {
+    return m_id == access_mode::write_only || m_id == access_mode::read_write;
+  }
+
+  const ID& operator()() const { return m_id; }
+  int flag() const { return static_cast<int>(m_id); }
+
+private:
+  ID m_id;
+};
 
 /**
  * @struct device_info
@@ -64,25 +91,9 @@ struct device_info : public scsi::device_info
 {
   using super = scsi::device_info;
 
-  union open_mode
-  {
-    struct
-    {
-      int8_t read  : 1;
-      int8_t write : 1;
-    };
-    int8_t flags;
-    open_mode(const int _flags = SCSI_DISK_OPEN_MODE_RW) : flags(_flags) {}
-
-    bool empty() const { return !this->read && !this->write; }
-    bool is_read_only() const { return this->read && !this->write; }
-    bool is_write_only() const { return !this->read && this->write; }
-    bool is_rw() const { return this->read && this->write; }
-  };
-
   //! Member variables
   std::string path; //! Device path
-  open_mode   mode; //! Open mode
+  access_mode mode; //! Access mode for opening the device
 
   device_info();
 
@@ -163,8 +174,4 @@ private:
   void p_write(scsi::write16& _write16);
 };
 
-} // namespace scsi_disk
-} // namespace block
-} // namespace sid
-
-#endif // _SID_SCSI_DISK_DEVICE_H_
+} // namespace sid::block::scsi_disk

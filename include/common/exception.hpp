@@ -30,8 +30,8 @@ SOFTWARE.
 ===============================================================================
 LICENSE: END
 */
-#ifndef _SID_EXCEPTION_H_
-#define _SID_EXCEPTION_H_
+
+#pragma once
 
 #include <string>
 #include <exception>
@@ -79,5 +79,3 @@ protected:
 };
 
 } // namespace sid
-
-#endif // _SID_EXCEPTION_H_

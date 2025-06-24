@@ -2,6 +2,7 @@
 #include <vector>
 #include <set>
 #include <string>
+#include <string_view>
 #include <sstream>
 #include <fstream>
 #include <block/block.hpp>
@@ -35,19 +36,37 @@ int main(int argc, char* argv[])
       device_details deviceDetails = (args.empty())?  device_details::get() : device_details::get(args);
       for ( const device_detail& deviceDetail : deviceDetails )
       {
-	if ( !deviceDetail.isLoop() )
-	  cout << deviceDetail.path << " " << deviceDetail.size << " " << deviceDetail.serial << " " << deviceDetail.wwn << endl;
+        if ( !deviceDetail.isLoop() )
+	        cout << deviceDetail.path << " " << sid::to_size_str(deviceDetail.size) << " " << deviceDetail.serial << " " << deviceDetail.wwn << endl;
       }
       return 0;
     }
 
     scsi_disk::device_info info;
-    info.path = argv[1];
+    enum class CallType : uint8_t { Block, Scsi };
+    CallType callType = CallType::Block;
+    for ( int i = 1; i < argc; i++ ) {
+      std::string_view arg(argv[i]);
+      if ( arg[0] != '-' )
+        info.path = arg;
+      else if ( arg == "--use-block" )
+        callType = CallType::Block;
+      else if ( arg == "--use-scsi" )
+        callType = CallType::Scsi;
+      else
+        throw sid::exception(std::string("Usage: ") + argv[0] + std::string(" [--use-block|--use-scsi] <device_path>"));
+    }
 
     scsi_disk::device_ptr dev = scsi_disk::device::create(info);
 
-    call_using_block(dev->to_block_device_ptr());
-    //call_using_scsi(dev);
+    switch ( callType ) {
+      case CallType::Block:
+        call_using_block(dev->to_block_device_ptr());
+        break;
+      case CallType::Scsi:
+        call_using_scsi(dev);
+        break;
+    }
 
     dev.clear();
   }
@@ -71,7 +90,8 @@ void call_using_block(block::device_ptr dev)
 
   // gets the device capacity information
   const block::capacity capacity = dev->capacity();
-  cout << "Device Capacity...: " << std::dec << capacity.bytes() << endl;
+  cout << "Device Capacity...: " << std::dec << capacity.bytes()
+       << " (" << sid::to_size_str(capacity.bytes()) << ")" << endl;
 
   // gets the wwn associated with the device
   const std::string wwn = dev->wwn();
@@ -110,7 +130,8 @@ void call_using_scsi(scsi_disk::device_ptr dev)
     scsi::capacity16 capacity16;
     if ( ! dev->read_capacity(capacity16) )
       throw dev->exception();
-    cout << "ScsiDisk Capacity...: " << std::dec << capacity16.bytes() << endl;
+    cout << "ScsiDisk Capacity...: " << std::dec << capacity16.bytes()
+         << " (" << sid::to_size_str(capacity16.bytes()) << ")" << endl;
     blockSize = capacity16.block_size;
   }
 
@@ -127,7 +148,7 @@ void call_using_scsi(scsi_disk::device_ptr dev)
     uint64_t totalSize = 0, totalSizeRead = 0;
     scsi::read16_vec read16_vec;
     sid::hash::md5 md5;
-    for ( size_t i = 0; i < 1; i++ )
+    for ( size_t i = 0; i < 1024; i++ )
     {
       read16_vec.clear();
       scsi::read16 read16;

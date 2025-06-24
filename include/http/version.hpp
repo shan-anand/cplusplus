@@ -35,14 +35,14 @@ LICENSE: END
  * @file version.hpp
  * @brief Defines data type for HTTP version
  */
-#ifndef _SID_HTTP_VERSION_H_
-#define _SID_HTTP_VERSION_H_
+
+#pragma once
 
 #include <string>
+#include <cstdint>
 #include "common/exception.hpp"
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 //! HTTP version ID
 enum class version_id : uint8_t { v10, v11 };
@@ -93,7 +93,4 @@ private:
   version_id m_id; //! HTTP version ID
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_VERSION_H_
+} // namespace sid::http

@@ -35,17 +35,17 @@ LICENSE: END
  * @file server.hpp
  * @brief Defines the HTTP Server command object.
  */
-#ifndef _SID_HTTP_SERVER_H_
-#define _SID_HTTP_SERVER_H_
+
+#pragma once
 
 #include "connection.hpp"
 #include "request.hpp"
 #include "response.hpp"
 #include <string>
 #include <functional>
+#include <cstdint>
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 //! Forward declaration of server class
 class server;
@@ -124,7 +124,4 @@ public:
   sid::exception          m_exception; //! Last exception
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_SERVER_H_
+} // namespace sid::http

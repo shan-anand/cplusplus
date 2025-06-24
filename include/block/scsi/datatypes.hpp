@@ -37,8 +37,7 @@ LICENSE: END
  * @brief Definition of SCSI datatypes
  */
 
-#ifndef _SID_SCSI_DATATYPES_H_
-#define _SID_SCSI_DATATYPES_H_
+#pragma once
 
 #include <cstdint>
 #include <string>
@@ -62,15 +61,13 @@ LICENSE: END
 #define IMPLEMENT_CLASS_EX(CLASS)                 \
 struct CLASS##_ex : public CLASS                  \
 {                                                 \
-  using super = CLASS;				  \
-  scsi::sense sense;				  \
+  using super = CLASS;				                    \
+  scsi::sense sense;				                      \
   CLASS##_ex() : CLASS() { sense.clear(); }       \
   void clear() { CLASS::clear(); sense.clear(); } \
 };
 
-namespace sid {
-namespace block {
-namespace scsi {
+namespace sid::block::scsi {
 
 struct test_unit_ready
 { 
@@ -550,8 +547,4 @@ private:
 
 } // namespace inquiry
 
-} // namespace scsi
-} // namespace block
-} // namespace sid
-
-#endif // _SID_SCSI_DATATYPES_H_
+} // namespace sid::block::scsi

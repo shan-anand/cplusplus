@@ -35,14 +35,13 @@ LICENSE: END
  * @file url.hpp
  * @brief Defines the HTTP Client command object.
  */
-#ifndef _SID_HTTP_URL_H_
-#define _SID_HTTP_URL_H_
+
+#pragma once
 
 #include "connection.hpp"
 #include <string>
 
-namespace sid {
-namespace http {
+namespace sid::http {
 /**
  * @class Url
  * @brief Definition of HTTP Url object.
@@ -66,7 +65,4 @@ public:
   static std::string decode(const std::string& _input);
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_URL_H_
+} // namespace sid::http

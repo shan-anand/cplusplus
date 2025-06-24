@@ -31,8 +31,7 @@ SOFTWARE.
 LICENSE: END
 */
 
-#ifndef _SID_CONVERT_H_
-#define _SID_CONVERT_H_
+#pragma once
 
 #include <string>
 #include <sstream>
@@ -40,6 +39,7 @@ LICENSE: END
 #include <cerrno>
 #include <cstdlib>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 #include <set>
 #include "exception.hpp"
@@ -442,5 +442,3 @@ std::string hex_to_bytes(const std::string& _input);
 bool hex_to_bytes(const std::string& _input, std::string& _output, std::string* _pcsError = nullptr) noexcept;
 
 } // namespace sid
-
-#endif // _SID_CONVERT_H_

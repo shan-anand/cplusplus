@@ -4,8 +4,7 @@
  *        Send SCSI commands to sg device.
  */
 
-#ifndef _SID_GSCSI_DEVICE_HPP_
-#define _SID_GSCSI_DEVICE_HPP_
+#pragma once
 
 #include <string>
 
@@ -16,10 +15,9 @@
 
 #include "scsi/datatypes.hpp"
 #include "scsi/device.hpp"
-#include <common/smart_ptr.h>
+#include <common/smart_ptr.hpp>
 
-namespace sid {
-namespace GScsi {
+namespace sid::GScsi {
 
 class Device_t;
 using Device_s = smart_ptr<Device_t>;
@@ -121,7 +119,4 @@ private:
   Info        m_info;
 };
 
-} // namespace GScsi
-} // namespace sid
-
-#endif // _SID_GSCSI_DEVICE_HPP_
+} // namespace ::GScsi

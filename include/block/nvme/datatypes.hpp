@@ -37,18 +37,11 @@ LICENSE: END
  * @brief Definition of nvme datatypes
  */
 
-#ifndef _SID_NVME_DATATYPES_H_
-#define _SID_NVME_DATATYPES_H_
+#pragma once
 
 #include "../datatypes.hpp"
 
-namespace sid {
-namespace block {
-namespace nvme {
+namespace sid::block::nvme {
 
 
-} // namespace nvme
-} // namespace block
-} // namespace sid
-
-#endif // _SID_NVME_DATATYPES_H_
+} // namespace sid::block::nvme

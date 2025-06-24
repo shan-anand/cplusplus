@@ -47,13 +47,6 @@ using namespace sid::block::scsi;
 // device
 //
 
-//! Create new SCSI device object
-/*static*/
-device_ptr device::create(const device_info& _deviceInfo)
-{
-  return dynamic_cast<device*>(_deviceInfo.create().ptr());
-}
-
 device::device()
 {
   //m_verbose = Verbose::None;
@@ -61,6 +54,22 @@ device::device()
 
 device::~device()
 {
+}
+
+//! Create new SCSI device object
+/*static*/
+device_ptr device::create(const device_info& _deviceInfo)
+{
+  device_ptr dev = dynamic_cast<device*>(_deviceInfo.create().ptr());
+  if ( ! dev ) throw sid::exception("Cannot convert to scsi::device_ptr");
+  return dev;
+}
+
+device_ptr device::to_scsi_device_ptr() const
+{
+  device_ptr dev = dynamic_cast<device*>(const_cast<device*>(this));
+  if ( ! dev ) throw sid::exception("Cannot convert to scsi::device_ptr");
+  return dev;
 }
 
 bool device::ready()

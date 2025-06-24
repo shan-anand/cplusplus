@@ -37,14 +37,14 @@ LICENSE: END
  *
  * A class that defines all the return HTTP status codes like OK, Continue, NotFound etc.
  */
-#ifndef _SID_HTTP_STATUS_CODE_H_
-#define _SID_HTTP_STATUS_CODE_H_
+
+#pragma once
 
 #include <string>
+#include <cstdint>
 #include <common/exception.hpp>
 
-namespace sid {
-namespace http {
+namespace sid::http {
 
 //! Return HTTP status IDs
 enum class status_code : uint16_t
@@ -195,7 +195,4 @@ private:
   status_code m_code; //! status code
 };
 
-} // namespace http
-} // namespace sid
-
-#endif // _SID_HTTP_STATUS_CODE_H_
+} // namespace sid::http

@@ -37,17 +37,14 @@ LICENSE: END
  * @brief Device definition for NVME
  */
 
-#ifndef _SID_NVME_DEVICE_H_
-#define _SID_NVME_DEVICE_H_
+#pragma once
 
 #include <string>
 #include <common/smart_ptr.hpp>
 #include "datatypes.hpp"
 #include "../device.hpp"
 
-namespace sid {
-namespace block {
-namespace nvme {
+namespace sid::block::nvme {
 
 class device;
 using device_ptr = smart_ptr<device>;
@@ -119,8 +116,4 @@ private:
   device();
 };
 
-} // namespace nvme
-} // namespace block
-} // namespace sid
-
-#endif // _SID_NVME_DEVICE_H_
+} // namespace sid::block::nvme

@@ -36,8 +36,7 @@ LICENSE: END
  * @brief Template class for handling optional parameters
  */
 
-#ifndef _SID_OPT_HPP_
-#define _SID_OPT_HPP_
+#pragma once
 
 namespace sid {
 
@@ -50,13 +49,19 @@ template <typename T> struct opt
 private:
   T    m_value;
   bool m_exists;
+
 public:
   //! Default constructor
   opt() { clear(); }
   //! Copy constructor
-  opt(const opt& _obj) { *this = _obj; }
+  opt(const opt& _obj)
+    : m_value(_obj.m_value), m_exists(_obj.m_exists) {}
+  //! Move constructor
+  opt(opt&& _obj)
+    : m_value(std::move(_obj.m_value)), m_exists(_obj.m_exists) {}
   //! Constructor with template type
-  opt(const T& _v) { *this = _v; }
+  opt(const T& _v)
+    : m_value(_v), m_exists(true) {}
 
   //! Set the object exists
   void set() { m_exists = true; }
@@ -65,8 +70,25 @@ public:
   //! Clear the object with a given value
   void clear(const T& _v) { m_exists = false; m_value = _v; }
   //! Assignment operators
-  const opt& operator=(const opt& _obj) { m_value = _obj.m_value; m_exists = _obj.m_exists; return *this; }
-  const opt& operator=(const T& _v) { m_value = _v; m_exists = true; return *this; }
+  const opt& operator=(const opt& _obj) {
+    if ( this != &_obj ) {
+      m_value = _obj.m_value;
+      m_exists = _obj.m_exists;
+    }
+    return *this;
+  }
+  const opt& operator=(opt&& _obj) {
+    if ( this != &_obj ) {
+      m_value = std::move(_obj.m_value);
+      m_exists = _obj.m_exists;
+    }
+    return *this;
+  }
+  const opt& operator=(const T& _v) {
+    m_value = _v;
+    m_exists = true;
+    return *this;
+  }
   //! Value getter
   const T& operator()() const { return m_value; }
   T& operator()() { return m_value; }
@@ -79,5 +101,3 @@ public:
 };
 
 } // namespace sid
-
-#endif // _SID_OPT_HPP_

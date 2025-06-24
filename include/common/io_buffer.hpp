@@ -36,10 +36,11 @@ LICENSE: END
  * @file  io_buffer.hpp
  * @brief io_buffer definition. Used for all IO operations over the network.
  */
-#ifndef _SID_UTIL_IO_BUFFER_HPP_
-#define _SID_UTIL_IO_BUFFER_HPP_
+
+ #pragma once
 
 #include <string>
+#include <cstdint>
 #include "exception.hpp"
 
 //! New type definition unsigned char
@@ -155,5 +156,3 @@ private:
 };
 
 } // namespace sid
-
-#endif // _SID_UTIL_IO_BUFFER_HPP_
