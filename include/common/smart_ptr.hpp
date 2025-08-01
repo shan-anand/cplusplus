@@ -39,14 +39,12 @@ LICENSE: END
  *        However, the internal pointer itself is not thread-safe. It should be
  *        taken care of by the implementer of that datatype.
  *
- *        1) All structs and classes MUST be derived from smart_ref in-order to use smart_ptr.
- *           Any attempt to use it without deriving from smart_ref will result
- *           in a compiler error.
+ *        1) For any new structs and classes it is advisable to derive it from
+ *           smart_ref in-order to use smart_ptr efficiently.
+ *           Any attempt to use it without deriving from smart_ref will also work,
+ *           but it will use another allocation for reference counting.
  *        2) Basic datatypes like int, char, bool etc. can be used directly.
  *           See example (1) for details.
- *        3) Any union or pre-defined struct/classes must be encapsulated in
- *           smart_ref_container before using it in smart_ptr.
- *           See example (2) for details.
  *
  * @example
  *       (1) sid::smart_ptr<int> p1 = new int;
@@ -61,16 +59,6 @@ LICENSE: END
  *           sid::smart_ptr<int, smart_ptr_free> x1 = (int) malloc(sizeof(int));
  *           // In the above example when x1 goes out of scope, it will be
  *           // destroyed automatically using smart_ptr_free()
- *
- *       (2) using struct_tm_container = sid::smart_ref_container<struct tm>;
- *           using struct_tm_ptr = sid::smart_ptr< struct_tm_container >;
- *           time_t now = time(NULL);
- *           struct_tm_ptr tm1 = struct_tm_container::create_smart_ptr(new struct tm);
- *           localtime_r(&now, tm1.ptr()->ptr()); // NOTE .ptr()->ptr()
- *           {
- *             struct_tm_ptr tm2 = tm1; // reference count incremented
- *           } // reference count decremented
- *           cout << tm1.ptr()->ptr()->tm_sec << endl;
  *
  * @note THE FOLLOWING SCENARIOS MUST BE AVOIDED for non-struct/class smart_ptr:
  *       ======================================================================
@@ -111,28 +99,34 @@ private:
 };
 
 //! Destroy the pointer using c++ delete operator
-template <typename T> void smart_ptr_delete(T* _ptr) { if ( _ptr ) delete _ptr; }
+template <typename T>
+void smart_ptr_delete(T* _ptr) { if ( _ptr ) delete _ptr; }
 //! Destroy the pointer using c++ delete[] operator
-template <typename T> void smart_ptr_delete_array(T* _ptr) { if ( _ptr ) delete[] _ptr; }
+template <typename T>
+void smart_ptr_delete_array(T* _ptr) { if ( _ptr ) delete[] _ptr; }
 //! Destroy the pointer using c++ free operator
-template <typename T> void smart_ptr_free(T* _ptr) { if ( _ptr ) free(_ptr); }
+template <typename T>
+void smart_ptr_free(T* _ptr) { if ( _ptr ) free(_ptr); }
 
 /**
  * @brief A template class for handling smart pointers.
  *        Users only have to allocate pointers using "new".
+ *        Alternatively, users can also use smart_ptr<T>::create(...)
+ *          to allocate a new object. It internally uses "new"
  *        Deletion is taken care of automatically.
  */
-template <typename T, void (*pfnDelete)(T*) = smart_ptr_delete> class smart_ptr
+template <typename T, void (*pfnDelete)(T*) = smart_ptr_delete>
+class smart_ptr
 {
 public:
   //! Any struct or class MUST be derived from smart_ref to be used as a smart_ptr
-  static_assert(!std::is_class<T>::value || std::is_base_of<smart_ref, T>::value, "T must inherit from smart_ref");
+  //static_assert(!std::is_class<T>::value || std::is_base_of<smart_ref, T>::value, "T must inherit from smart_ref");
   /**
    * @brief Prevent using union as a smart_ptr because it cannot be derived from a structure
    *        However, the main reason for preventing it is the danger of assigning the
    *        "this" pointer to a smart_ptr within any function in the union.
    */
-  static_assert(!std::is_union<T>::value, "We do not allow creating smart pointer with union to prevent mis-usage of this pointer");
+  //static_assert(!std::is_union<T>::value, "We do not allow creating smart pointer with union to prevent mis-usage of this pointer");
 
   //! Default constructor
   smart_ptr() : m_data(nullptr) {}
@@ -169,6 +163,38 @@ public:
   //! Starts a fresh object with reference count 1. May throw T* exception
   smart_ptr& operator =(T* _ptr) { return p_assign(_ptr); }
   smart_ptr& operator =(const smart_ptr& _obj) { return p_assign(_obj); }
+
+  /**
+   * @brief Creates a new smart pointer object using the new allocator
+   * @note Ensure pfnDelete uses smart_ptr_delete or anyother custom function
+   *       that uses the delete operator to deallocate
+   */
+  template<typename... Args>
+  static smart_ptr create(Args... args)
+  {
+    smart_ptr obj;
+    try
+    {
+      T* p = new T(args...);
+      if ( p == nullptr )
+        throw sid::exception("Failed to create new smart_ptr object");
+      obj = p;
+      if ( obj.empty() )
+        throw p;
+    }
+    catch (T* p)
+    {
+      if ( p ) delete p;
+      throw sid::exception("Failed to create smart_ptr reference");
+    }
+    catch (const sid::exception&) { throw; }
+    catch (...)
+    {
+      throw sid::exception("An unhandled exception occurred while creating a new smart_ptr object");
+    }
+    // Guaranteed to return a smart pointer object
+    return obj;
+  }
 
 //////////////////////////
 //
@@ -305,40 +331,6 @@ private:
   }
 };
 
-/**
- * @class smart_ref_container
- * @brief Used as smart_ref container class to support unions and c-defined structs
- */
-template <typename T, void (*pfnDelete)(T*) = smart_ptr_delete> class smart_ref_container : public smart_ref
-{
-public:
-  //! The only way to create this object
-  static smart_ptr< smart_ref_container<T, pfnDelete> > create_smart_ptr(T* _p)
-  {
-    smart_ptr< smart_ref_container<T, pfnDelete> > ptr;
-    if ( _p )
-    {
-      try { ptr = new smart_ref_container(_p); } catch (...) { throw _p; }
-      if ( ptr.empty() ) throw _p;
-    }
-    return ptr;
-  }
-  //! Destructor
-  ~smart_ref_container() { if ( m_p ) (*pfnDelete)(m_p); }
-  //! Checks for empty
-  bool empty() const { return (m_p == nullptr); }
-  //! Returns the pointer associated with this class
-  T* ptr() const { return m_p; }
-
-private:
-  T* m_p;
-
-private:
-  //! Private constructor
-  smart_ref_container(T* _p) : m_p(_p) {}
-  smart_ref_container(const smart_ref_container&); // Copy construction is not allowed
-  smart_ref_container& operator=(const smart_ref_container&); // Copy operation is not allowed
-};
 
 using smart_ref_ptr = smart_ptr<smart_ref>;
 
