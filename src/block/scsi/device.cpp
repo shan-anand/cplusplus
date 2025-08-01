@@ -165,15 +165,74 @@ bool device::read(io_byte_units& _io_byte_units) // override
   {
     // unhandled exception
     this->exception(-1, std::string(__func__)
-                                       + "(" + this->id() + "): Unknown exception");
+      + "(" + this->id() + "): Unknown exception");
   }
   return isSuccess;
 }
 
 bool device::write(io_byte_units& _io_byte_units) // override
 {
-  this->exception("block::write() not implemented");
-  return false;
+  bool isSuccess = false;
+
+  try
+  {
+    const uint32_t blockSize = this->capacity().block_size;
+
+    // Validate all the entries
+    for ( const io_byte_unit& io_byte_unit : _io_byte_units )
+      io_byte_unit.validate(blockSize);
+
+    scsi::write16_vec write16_vec;
+    for ( const io_byte_unit& io_byte_unit : _io_byte_units )
+    {
+      uint32_t lastSize = 0;
+      scsi::write16 write16;
+      write16.lba = io_byte_unit.offset / blockSize;
+      write16.data = io_byte_unit.data;
+      write16.transfer_length = 0;
+      for ( uint32_t bytesLeft = io_byte_unit.length; bytesLeft != 0;
+            bytesLeft -= lastSize,
+              write16.lba += write16.transfer_length,
+              write16.data += lastSize)
+      {
+        lastSize = ( bytesLeft > SCSI_DEFAULT_IO_BYTE_SIZE )?
+          SCSI_DEFAULT_IO_BYTE_SIZE : bytesLeft;
+        write16.transfer_length = lastSize / blockSize;
+        write16_vec.push_back(write16);
+      }
+    }
+
+    // Call the actual override function that does the IO
+    isSuccess = this->write(write16_vec);
+
+    // Fill the output correctly
+    size_t i = 0;
+    uchar8_t* pData = _io_byte_units[i].data;
+    for ( const scsi::write16& write16 : write16_vec )
+    {
+      // If the current object's data buffer and pData are different
+      //   then we need to move to the next byte unit
+      if ( write16.data != pData )
+        pData = _io_byte_units[++i].data;
+
+      // Update the data processed
+      _io_byte_units[i].data_processed += write16.data_size_written;
+
+      // Move the pData pointer to the end of the buffer
+      pData += (write16.transfer_length * blockSize);
+    }
+  }
+  catch (const sid::exception& _e)
+  {
+    this->exception(_e);
+  }
+  catch (...)
+  {
+    // unhandled exception
+    this->exception(-1, std::string(__func__)
+      + "(" + this->id() + "): Unknown exception");
+  }
+  return isSuccess;
 }
 
 bool device::read(read16& _read16)

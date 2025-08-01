@@ -213,7 +213,7 @@ std::string device_info::to_str() noexcept
 {
   auto to_cred = [&](const basic_cred& cred)->std::string
     {
-      return std::string("##") + sid::base64::encode(cred.userName) + ":" + sid::base64::encode(cred.password);
+      return std::string("#") + sid::base64::encode(cred.userName + ":" + cred.password);
     };
 
   std::ostringstream out;

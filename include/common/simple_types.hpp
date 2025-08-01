@@ -61,22 +61,22 @@ struct basic_cred
   virtual ~basic_cred() {}
 
   //! Clears the members of the structure
-  void clear() { userName.clear(); password.clear(); }
+  inline void clear() { userName.clear(); password.clear(); }
   //! Checks whether either of the members is empty
-  bool empty() const { return userName.empty() || password.empty(); }
+  inline bool empty() const { return userName.empty() || password.empty(); }
 
   //! Equality / Unequality functions
   inline bool equals(const basic_cred& _obj) const 
     { return userName == _obj.userName && password == _obj.password; }
-  bool operator==(const basic_cred& _obj) const { return equals(_obj); }
-  bool operator!=(const basic_cred& _obj) const { return !equals(_obj); }
+  inline bool operator==(const basic_cred& _obj) const { return equals(_obj); }
+  inline bool operator!=(const basic_cred& _obj) const { return !equals(_obj); }
 
   //! set both username and password and return the object
-  basic_cred& set(const std::string& _userName, const std::string& _password)
+  inline basic_cred& set(const std::string& _userName, const std::string& _password)
     { this->userName = _userName; this->password = _password; return *this; }
 
   //! set both username and password that is separated by a delimiter
-  bool set(const std::string& _userPassword, const char _delimiter = ':')
+  inline bool set(const std::string& _userPassword, const char _delimiter = ':')
     {
       size_t pos = _userPassword.find(_delimiter);
       if ( pos == std::string::npos ) return false;

@@ -401,6 +401,7 @@ bool device::read(scsi::read16_vec& _read16_vec)
         memset(&aio, 0, sizeof(::aiocb));
         {
           aio.aio_fildes = m_fd;
+          aio.aio_lio_opcode = LIO_READ;
           aio.aio_offset = read16.lba * this->capacity().block_size;
           aio.aio_buf = read16.data;
           aio.aio_nbytes = read16.transfer_length * this->capacity().block_size;
@@ -411,6 +412,7 @@ bool device::read(scsi::read16_vec& _read16_vec)
       if ( !aio_vec.empty() )
       {
         ::aiocb** aio_list = (::aiocb**) ::calloc(aio_vec.size()+1, sizeof(::aiocb*));
+        [[maybe_unused]] smart_ptr<::aiocb*, smart_ptr_free> autoDelete = aio_list;
         for ( size_t i = 0; i < aio_vec.size(); i++ )
           aio_list[i] = (aio_vec.data() + i);
 
@@ -464,7 +466,44 @@ bool device::write(scsi::write16_vec& _write16_vec)
     }
     else
     {
-      throw sid::exception("write not impemented for block");
+      std::vector<::aiocb> aio_vec;
+      ::aiocb aio;
+      for ( scsi::write16& write16 : _write16_vec )
+      {
+        memset(&aio, 0, sizeof(::aiocb));
+        {
+          aio.aio_fildes = m_fd;
+          aio.aio_lio_opcode = LIO_WRITE;
+          aio.aio_offset = write16.lba * this->capacity().block_size;
+          aio.aio_buf = (void*) write16.data;
+          aio.aio_nbytes = write16.transfer_length * this->capacity().block_size;
+          aio.aio_sigevent.sigev_notify = SIGEV_NONE;
+        }
+        aio_vec.push_back(aio);
+      }
+      if ( !aio_vec.empty() )
+      {
+        ::aiocb** aio_list = (::aiocb**) ::calloc(aio_vec.size()+1, sizeof(::aiocb*));
+        [[maybe_unused]] smart_ptr<::aiocb*, smart_ptr_free> autoDelete = aio_list;
+        for ( size_t i = 0; i < aio_vec.size(); i++ )
+          aio_list[i] = (aio_vec.data() + i);
+
+        int retVal = ::lio_listio(LIO_WAIT, aio_list, aio_vec.size(), nullptr);
+        if ( retVal != 0 )
+          throw sid::exception(
+            sid::to_errno_str(errno, "lio_listio() failed with retVal(" + sid::to_str(retVal) + ")"));
+
+        for ( size_t i = 0; i < aio_vec.size(); i++ )
+        {
+          ::aiocb& aio = aio_vec[i];
+          if ( 0 == ::aio_error(&aio) )
+          {
+            ssize_t bytesWritten = ::aio_return(&aio);
+            if ( bytesWritten >= 0 )
+              _write16_vec[i].data_size_written = bytesWritten;
+          }
+        }
+      }
     }
     isSuccess = true;
   }
@@ -651,29 +690,47 @@ void device::p_write(scsi::write16& _write16)
 {
   try
   {
-    local::sg_io_hdr io_hdr;
+    if ( this->is_block_device() )
+    {
+      // This is a block device. We can perform ::write() call directly
+      //   1. Set the offet to the place where we want to write the data to
+      ::lseek(m_fd, SEEK_SET, _write16.lba*this->capacity().block_size);
+      //   2. Write the data at the set position
+      int retVal = ::write(m_fd, _write16.data,
+                          _write16.transfer_length * this->capacity().block_size);
+      if ( retVal < 0 )
+        throw sid::exception(sid::to_errno_str(errno,
+          "write() failed with retVal(" + sid::to_str(retVal) + ")"));
 
-    io_hdr.io_cdb = _write16.get_cdb();
-    if ( _write16.transfer_length == 0 )
-        io_hdr.dxfer_direction = SG_DXFER_NONE;
+      // Set the amount of data written
+      _write16.data_size_written = retVal;
+    }
     else
     {
-      io_hdr.dxfer_direction = SG_DXFER_TO_DEV;
-      io_hdr.dxfer_len = _write16.transfer_length * this->capacity().block_size;
-      io_hdr.dxferp = (void *) _write16.data;
-      //io_hdr.flags |= 0x02;
+      local::sg_io_hdr io_hdr;
+
+      io_hdr.io_cdb = _write16.get_cdb();
+      if ( _write16.transfer_length == 0 )
+          io_hdr.dxfer_direction = SG_DXFER_NONE;
+      else
+      {
+        io_hdr.dxfer_direction = SG_DXFER_TO_DEV;
+        io_hdr.dxfer_len = _write16.transfer_length * this->capacity().block_size;
+        io_hdr.dxferp = (void *) _write16.data;
+        //io_hdr.flags |= 0x02;
+      }
+      io_hdr.pack_id = ++pack_id_count;
+      io_hdr.timeout = DEF_TIMEOUT;
+      //io_hdr.usr_ptr = nullptr;
+
+      io_hdr.exec(__func__, m_fd, true);
+
+      if ( io_hdr.status != 0 )
+        throw sid::exception("Failed with status " + sid::to_str((int)io_hdr.status));
+
+      // Set the amount of data written
+      _write16.data_size_written = io_hdr.dxfer_len - io_hdr.resid;
     }
-    io_hdr.pack_id = ++pack_id_count;
-    io_hdr.timeout = DEF_TIMEOUT;
-    //io_hdr.usr_ptr = nullptr;
-
-    io_hdr.exec(__func__, m_fd, true);
-
-    if ( io_hdr.status != 0 )
-      throw sid::exception("Failed with status " + sid::to_str((int)io_hdr.status));
-
-    // Set the amount of data written
-    _write16.data_size_written = io_hdr.dxfer_len - io_hdr.resid;
   }
   catch (const sid::exception&) { throw; }
   catch (...) { throw sid::exception(std::string(__func__) + ": Unknown exception"); }
