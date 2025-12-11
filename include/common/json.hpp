@@ -189,6 +189,11 @@ struct parser_control
 class value
 {
   friend class parser;
+
+public:
+  using array_t = std::vector<value>;
+  using object_t = std::map<std::string, value>;
+
 public:
   /**
    * @fn bool parse(value&                _jout,
@@ -285,6 +290,8 @@ public:
   size_t size() const; // For array and object type
 
   //! get functions
+  const object_t& get_object() const;
+  const value::array_t& get_array() const;
   int64_t get_int64() const;
   uint64_t get_uint64() const;
   long double get_double() const;
@@ -359,9 +366,6 @@ private:
   void p_set(const value_type _type = value_type::null);
 
 private:
-  using array = std::vector<value>;
-  using object = std::map<std::string, value>;
-
   union union_data
   {
     int64_t     _i64;
@@ -369,11 +373,11 @@ private:
     long double _dbl;
     bool        _bval;
     std::string _str;
-    array       _arr;
+    array_t     _arr;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
-    object*     _map;
+    object_t*   _map;
 #else
-    object      _map;
+    object_t    _map;
 #endif
     //! Default constructor
     union_data(const value_type _type = value_type::null);
@@ -398,18 +402,18 @@ private:
     value_type init(const bool _val);
     value_type init(const std::string& _val);
     value_type init(const char* _val);
-    value_type init(const array& _val);
-    value_type init(const object& _val, const bool _new = true);
+    value_type init(const array_t& _val);
+    value_type init(const object_t& _val, const bool _new = true);
     //! Move initializer routine
     value_type init(union_data&& _obj, value_type _type) noexcept;
 
     union_data& operator=(const union_data& _obj) { *this = std::move(_obj); return *this; }
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
-    const object& map() const { return (*_map); }
-    object& map() { return (*_map); }
+    const object_t& map() const { return (*_map); }
+    object_t& map() { return (*_map); }
 #else
-    const object& map() const { return _map; }
-    object& map() { return _map; }
+    const object_t& map() const { return _map; }
+    object_t& map() { return _map; }
 #endif
   };
 

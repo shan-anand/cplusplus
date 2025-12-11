@@ -375,6 +375,24 @@ size_t value::size() const
   throw sid::exception(__func__ + std::string("() can be used only for array and object types"));
 }
 
+const value::object_t& value::get_object() const
+{
+  if ( is_object() )
+  {
+    if ( !m_data._map )
+      throw sid::exception(__func__ + std::string("() object is not allocated"));
+    return *m_data._map;
+  }
+  throw sid::exception(__func__ + std::string("() can be used only for object type"));
+}
+
+const value::array_t& value::get_array() const
+{
+  if ( is_array() )
+    return m_data._arr;
+  throw sid::exception(__func__ + std::string("() can be used only for array type"));
+}
+
 int64_t value::get_int64() const
 {
   if ( is_num() )
@@ -707,11 +725,11 @@ value_type value::union_data::clear(const value_type _type)
   switch ( _type )
   {
   case value_type::string: _str.~string(); break;
-  case value_type::array:  _arr.~array(); break;
+  case value_type::array:  _arr.~array_t(); break;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
   case value_type::object: delete _map; _map = nullptr; break;
 #else
-  case value_type::object: _map.~object(); break;    
+  case value_type::object: _map.~object_t(); break;    
 #endif
   default: break;
   }
@@ -728,9 +746,9 @@ value_type value::union_data::init(const value_type _type/* = value_type::null*/
   case value_type::_unsigned: _u64 = 0; break;
   case value_type::_double:   _dbl = 0; break;
   case value_type::boolean:   _bval = false; break;
-  case value_type::array:     new (&_arr) array; break;
+  case value_type::array:     new (&_arr) array_t; break;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
-  case value_type::object:    _map = new object; ++gobjects_alloc; break;
+  case value_type::object:    _map = new object_t; ++gobjects_alloc; break;
 #else
   case value_type::object:    new (&_map) object; break;
 #endif
@@ -800,18 +818,18 @@ value_type value::union_data::init(const char* _val)
   return init(value_type::null);
 }
 
-value_type value::union_data::init(const array& _val)
+value_type value::union_data::init(const value::array_t& _val)
 {
-  new (&_arr) array(_val);
+  new (&_arr) array_t(_val);
   return value_type::array;
 }
 
-value_type value::union_data::init(const object& _val, const bool _new/* = true*/)
+value_type value::union_data::init(const value::object_t& _val, const bool _new/* = true*/)
 {
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
   if ( _new )
   {
-    _map = new object(_val);
+    _map = new object_t(_val);
     ++gobjects_alloc;
   }
   else
@@ -833,11 +851,11 @@ value_type value::union_data::init(union_data&& _obj, value_type _type) noexcept
   case value_type::_unsigned:       _u64  = _obj._u64;  break;
   case value_type::_double:         _dbl  = _obj._dbl;  break;
   case value_type::boolean:         _bval = _obj._bval; break;
-  case value_type::array:           new (&_arr) array(_obj._arr); break;
+  case value_type::array:           new (&_arr) array_t(_obj._arr); break;
 #if defined(SID_JSON_MAP_OPTIMIZE_FOR_SIZE)
   case value_type::object:          _map  = _obj._map;  break;
 #else
-  case value_type::object:          new (&_map) object(_obj._map); break;
+  case value_type::object:          new (&_map) object_t(_obj._map); break;
 #endif
   }
   // We've made a copy of the string and array objects.

@@ -282,7 +282,7 @@ bool io_buffer::p_set_64(uchar8_p _p, const uint64_t _v)
   return true;
 #elif defined(_IS_BIG_ENDIAN_)
   p_set_32(_p, (uint32_t) (_v & 0xFFFFFFFF));
-  p_set_32(_p+4(uint32_t) ((_v >> 32) & 0xFFFFFFFF));
+  p_set_32(_p+4, (uint32_t) ((_v >> 32) & 0xFFFFFFFF));
   return true;
 #endif
 }

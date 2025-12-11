@@ -220,9 +220,8 @@ bool local::enum_block_devices(
   json::value jroot;
   json::value::parse(jroot, cmdOut.response);
   const json::value& jdevices = jroot["blockdevices"];
-  for ( size_t i = 0; i < jdevices.size(); i++ )
+  for ( auto jdevice : jdevices.get_array() )
   {
-    const json::value& jdevice = jdevices[i];
     device_detail deviceDetail;
     jdevice.get_value("name", deviceDetail.name);
     jdevice.get_value("path", deviceDetail.path);
@@ -256,42 +255,36 @@ void local::fill_missing_details(device_detail& deviceDetail)
 
   // Parse each line of output
   std::istringstream in(cmdOut.response);
-  std::string line;
-
   std::map<std::string, std::string> props;
-  while ( std::getline(in, line) )
+  for ( std::string line; std::getline(in, line); )
   {
     size_t pos = line.find('=');
     if ( pos != std::string::npos )
       props[line.substr(0, pos)] = line.substr(pos+1);
   }
-
-  std::map<std::string, std::string>::const_iterator it;
+  // Get the Serial number, if missing
+  if ( deviceDetail.serial.empty() )
   {
-    if ( deviceDetail.serial.empty() )
-    {
-      static const char* s_serialPropNames[] = {
-	"ID_SERIAL", "ID_SERIAL_SHORT", "SCSI_IDENT_SERIAL", "ID_SCSI_SERIAL"
-      };
-      for ( auto name : s_serialPropNames )
-	if ( (it = props.find(name)) != props.end() )
-	  deviceDetail.serial = it->second;
-    }
-    // Fix the Serial number
-    if ( sid::to_lower(deviceDetail.serial.substr(0, 2)) == "0x" )
-      deviceDetail.serial = deviceDetail.serial.substr(2);
+    static const char* s_serialPropNames[] = {
+      "ID_SERIAL", "ID_SERIAL_SHORT", "SCSI_IDENT_SERIAL", "ID_SCSI_SERIAL"
+    };
+    for ( const auto name : s_serialPropNames )
+      if ( const auto it = props.find(name); it != props.end() )
+        deviceDetail.serial = it->second;
   }
+  // Fix the Serial number
+  if ( sid::to_lower(deviceDetail.serial.substr(0, 2)) == "0x" )
+    deviceDetail.serial = deviceDetail.serial.substr(2);
+  if ( deviceDetail.wwn.empty() )
   {
-    if ( deviceDetail.wwn.empty() )
-    {
-      if ( (it = props.find("ID_WWN")) != props.end() )
-        deviceDetail.wwn = it->second;
-    }
-    // Fix the WWN
-    if ( sid::to_lower(deviceDetail.wwn.substr(0, 2)) == "0x" )
-      deviceDetail.wwn = deviceDetail.wwn.substr(2);
+    if ( const auto it = props.find("ID_WWN"); it != props.end() )
+      deviceDetail.wwn = it->second;
   }
-  if ( (it = props.find("ID_DRIVE_FLOPPY")) != props.end()
+  // Fix the WWN
+  if ( sid::to_lower(deviceDetail.wwn.substr(0, 2)) == "0x" )
+    deviceDetail.wwn = deviceDetail.wwn.substr(2);
+  // ReadOnly flag conditions
+  if ( const auto it = props.find("ID_DRIVE_FLOPPY"); it != props.end()
        && ( it->second == "1" || sid::to_lower(it->second) == "true" )
        )
     deviceDetail.isReadOnly = true;

@@ -232,8 +232,43 @@ void json_schema_test(const std::string& schemaFile)
   return;
 }
 
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 int main(int argc, char* argv[])
 {
+  char buf[CMSG_SPACE(sizeof(int))] = {0};
+  const char* dummy_data = "!!!!";
+  int fd_to_send = 3;
+  // Set up the message header
+  iovec io = {
+      .iov_base = &dummy_data,
+      .iov_len = 1
+  };
+  msghdr msg = {
+    .msg_iov = &io,
+    .msg_iovlen = 1,
+    .msg_control = buf,
+    .msg_controllen = sizeof(buf)
+  };
+
+    // Set up control message for file descriptor
+  cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS;       // Indicates fd passing
+  cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+  // Copy the file descriptor to the control message
+  memcpy(CMSG_DATA(cmsg), &fd_to_send, sizeof(int));
+
+  cout << cmsg->cmsg_len << endl;
+
+  cout << "(int) " << sizeof(int) << ": (CMSG_SPACE) " << CMSG_SPACE(sizeof(int)) << endl;
+  cout << "(int) " << sizeof(int) << ": (CMSG_ALIGN) " << CMSG_ALIGN(sizeof(int)) << endl;
+  cout << "(int) " << sizeof(int) << ": (CMSG_LEN) " << CMSG_LEN(sizeof(int)) << endl;
+  cout << "(msghdr) " << sizeof(msghdr) << ": (cmsghdr) " << sizeof(cmsghdr) << endl;
+  //return 0;
   ::srand(::time(nullptr));
   try
   {
